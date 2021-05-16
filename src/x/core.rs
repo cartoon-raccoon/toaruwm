@@ -90,4 +90,15 @@ pub trait XConn {
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
+    fn query_tree(&self) -> Vec<XWindowID>;
+    fn map_window(&self, window: XWindowID);
+    fn unmap_window(&self, window: XWindowID);
+    fn destroy_window(&self, window: XWindowID);
+    fn set_input_focus(&self, window: XWindowID);
+    fn set_geometry(&self, window: XWindowID, geom: Geometry);
+    fn set_property(&self, window: XWindowID);
+    fn set_root_scr(&mut self, scr: i32);
+    fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]);
+    fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
+    fn reparent_window(&self, window: XWindowID, parent: XWindowID);
 }
