@@ -4,6 +4,7 @@ mod log;
 pub mod x;
 pub mod core;
 pub mod layouts;
+pub mod manager;
 
 pub use crate::core::types::*;
 
