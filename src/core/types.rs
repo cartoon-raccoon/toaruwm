@@ -1,3 +1,7 @@
+use std::ops::Deref;
+
+use thiserror::Error;
+
 use crate::layouts::LayoutType;
 
 pub mod keysym {
@@ -9,6 +13,13 @@ pub use xcb::ModMask as ModMask;
 pub use crate::core::{Ring, Selector};
 
 pub type Atom = u32;
+
+pub type Result<T> = ::core::result::Result<T, WMError>;
+
+#[derive(Debug, Error, Clone, Copy)]
+pub enum WMError {
+    
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
@@ -76,6 +87,54 @@ pub(crate) enum WinLayoutState {
 pub enum WindowState {
     Normal,
     Iconic,
+}
+
+/// Convenience wrapper around a Vec of NetWindowStates.
+#[derive(Debug, Clone)]
+pub struct NetWindowStates {
+    states: Vec<Atom>,
+}
+
+impl NetWindowStates {
+    pub fn new() -> Self {
+        Self {
+            states: Vec::new()
+        }
+    }
+
+    pub fn contains(&self, prop: Atom) -> bool {
+        self.states.contains(&prop)
+    }
+
+    pub fn add(&mut self, prop: Atom) {
+        self.states.push(prop)
+    }
+
+    pub fn remove(&mut self, prop: Atom) -> Atom {
+        for (idx, atom) in self.states.iter().enumerate() {
+            if *atom == prop {
+                return self.states.remove(idx)
+            }
+        }
+        //error!("Tried to remove atom not in states");
+        0
+    }
+}
+
+impl From<Vec<Atom>> for NetWindowStates {
+    fn from(from: Vec<Atom>) -> Self {
+        Self {
+            states: from
+        }
+    }
+}
+
+impl Deref for NetWindowStates {
+    type Target = [Atom];
+
+    fn deref(&self) -> &Self::Target {
+        self.states.as_slice()
+    }
 }
 
 impl From<LayoutType> for WinLayoutState {
