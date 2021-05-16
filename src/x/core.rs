@@ -1,4 +1,5 @@
 use crate::Geometry;
+use crate::XWinProperties;
 
 pub type XWindowID = u32;
 
@@ -11,4 +12,5 @@ pub struct XWindow {
 pub trait XConn {
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Geometry;
+    fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
 }
