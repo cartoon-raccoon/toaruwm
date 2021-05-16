@@ -1,8 +1,12 @@
 use thiserror::Error;
 
-use crate::{Geometry, XWinProperties};
+use crate::types::Geometry;
 
 pub type XWindowID = u32;
+
+pub mod xproto {
+    pub use xcb::xproto::*;
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct XWindow {
@@ -89,7 +93,6 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 pub trait XConn {
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
-    fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
     fn query_tree(&self) -> Vec<XWindowID>;
     fn map_window(&self, window: XWindowID);
     fn unmap_window(&self, window: XWindowID);
