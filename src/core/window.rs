@@ -80,10 +80,10 @@ impl ClientRing {
 /// Contains ICCCM and EWMH properties.
 #[derive(Debug, Clone)]
 pub struct Client {
-    pub xwindow: XWindow,
-    pub name: String,
-    pub icon_name: String,
-    pub class: (String, String),
+    xwindow: XWindow,
+    name: String,
+    icon_name: String,
+    class: (String, String),
 
     initial_geom: Geometry,
     urgent: bool,
@@ -103,5 +103,21 @@ impl PartialEq for Client {
 impl Client {
     pub fn id(&self) -> XWindowID {
         self.xwindow.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn geometry(&self) -> Geometry {
+        self.xwindow.geom
+    }
+
+    pub fn icon_name(&self) -> &str {
+        &self.icon_name
+    }
+
+    pub fn class(&self) -> (&str, &str) {
+        (&self.class.0, &self.class.1)
     }
 }
