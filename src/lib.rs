@@ -1,3 +1,6 @@
+#[macro_use]
+mod log;
+
 pub mod x;
 pub mod core;
 pub mod layouts;
