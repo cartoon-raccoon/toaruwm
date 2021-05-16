@@ -8,6 +8,7 @@ use crate::layouts::LayoutType;
 pub mod keysym {
     pub use x11::keysym::*;
 }
+
 pub use crate::core::{Ring, Selector};
 
 pub use xcb::ModMask as ModMask;
@@ -58,8 +59,19 @@ impl Default for Geometry {
         Geometry {
             x: 0,
             y: 0,
-            width: 160,
             height: 100,
+            width: 160,
+        }
+    }
+}
+
+impl Geometry {
+    pub fn zeroed() -> Self {
+        Geometry {
+            x: 0,
+            y: 0,
+            height: 0,
+            width: 0,
         }
     }
 }
