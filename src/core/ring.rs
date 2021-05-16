@@ -20,8 +20,8 @@ pub enum Selector<'a, T> {
 }
 
 pub struct Ring<T> {
-    items: VecDeque<T>,
-    focused: Option<usize>,
+    pub(crate) items: VecDeque<T>,
+    pub(crate) focused: Option<usize>,
 }
 
 impl <T> Ring<T> {
