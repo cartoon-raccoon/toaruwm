@@ -6,7 +6,9 @@ pub mod core;
 pub mod layouts;
 pub mod manager;
 
-pub use crate::core::types::*;
+pub(crate) mod util;
+
+pub use crate::core::types;
 
 #[cfg(test)]
 mod tests {
