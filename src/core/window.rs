@@ -6,6 +6,8 @@ use crate::x::core::{XWindow, XWindowID};
 use crate::core::types::{
     Geometry, Atom,
     WinLayoutState,
+    WindowState,
+    NetWindowStates,
 };
 
 /// A Ring of type Client.
@@ -86,9 +88,8 @@ pub struct Client {
     initial_geom: Geometry,
     urgent: bool,
     transient_for: Option<XWindowID>,
-    //todo: add these later on
-    // mapped_state: WindowState,
-    // net_states: NetWindowStates,
+    mapped_state: WindowState,
+    net_states: NetWindowStates,
     layout_state: WinLayoutState,
     protocols: HashSet<Atom>,
 }
