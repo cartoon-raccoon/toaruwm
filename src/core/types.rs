@@ -63,6 +63,14 @@ impl Default for Geometry {
     }
 }
 
+// Whether the mouse button is pressed.
+#[derive(Debug, Clone, Copy)]
+pub enum MouseMode {
+    None,
+    Move,
+    Resize,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct SizeHints {
     pub position: Option<(i32, i32)>,
