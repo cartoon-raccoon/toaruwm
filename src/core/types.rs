@@ -4,15 +4,16 @@ use thiserror::Error;
 
 use crate::layouts::LayoutType;
 
+//* Re-exports
 pub mod keysym {
     pub use x11::keysym::*;
 }
-
-pub use xcb::ModMask as ModMask;
-
 pub use crate::core::{Ring, Selector};
 
+pub use xcb::ModMask as ModMask;
 pub type Atom = u32;
+
+pub use super::window::{Client, ClientRing};
 
 pub type Result<T> = ::core::result::Result<T, WMError>;
 
@@ -175,4 +176,39 @@ pub struct XWinProperties {
     pub(crate) wm_class: (String, String), //Instance, Class
     pub(crate) wm_protocols: Option<Vec<Atom>>,
     pub(crate) wm_state: WindowState,
+}
+
+impl XWinProperties {
+    pub fn wm_name(&self) -> &str {
+        &self.wm_name
+    }
+
+    pub fn wm_icon_name(&self) -> &str {
+        &self.wm_icon_name
+    }
+
+    #[inline]
+    pub fn wm_size_hints(&self) -> Option<&SizeHints> {
+        self.wm_size_hints.as_ref()
+    }
+
+    pub fn wm_hints(&self) -> Option<&WmHints> {
+        self.wm_hints.as_ref()
+    }
+
+    pub fn wm_class(&self) -> (&str, &str) {
+        (&self.wm_class.0, &self.wm_class.1)
+    }
+
+    pub fn window_type(&self) -> Option<&[Atom]> {
+        if let Some(prtcls) = &self.wm_protocols {
+            return Some(&prtcls)
+        } else {
+            None
+        }
+    }
+
+    pub fn wm_state(&self) -> WindowState {
+        self.wm_state
+    }
 }
