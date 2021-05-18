@@ -110,6 +110,13 @@ pub enum WindowState {
     Iconic,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BorderStyle {
+    Focused,
+    Unfocused,
+    Urgent,
+}
+
 /// Convenience wrapper around a Vec of NetWindowStates.
 #[derive(Debug, Clone)]
 pub struct NetWindowStates {

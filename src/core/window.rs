@@ -10,6 +10,7 @@ use crate::core::types::{
     WinLayoutState,
     WindowState,
     NetWindowStates,
+    BorderStyle,
 };
 use crate::util;
 
@@ -221,99 +222,100 @@ impl Client {
     }
 
     //todo: uncomment when ewmh and icccm is fully supported
-    // pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
-    //     let properties = conn.get_client_properties(self.id());
-    //     let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
-    //         debug!("Got size hints: {:#?}", sizes);
-    //         Geometry {
-    //             x: if let Some(pos) = sizes.position {pos.0} else {0},
-    //             y: if let Some(pos) = sizes.position {pos.1} else {0},
-    //             height: if let Some(dim) = sizes.size {dim.0 as u32} else {100},
-    //             width: if let Some(dim) = sizes.size {dim.1 as u32} else {160},
-    //         }
-    //     } else {
-    //         debug!("initial size is None");
-    //         Geometry {
-    //             x: 0,
-    //             y: 0,
-    //             height: 100,
-    //             width: 160,
-    //         }
-    //     };
-    //     self.name = properties.wm_name().into();
-    //     self.icon_name = properties.wm_icon_name().into();
+    pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
+        let properties = conn.get_client_properties(self.id());
+        let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
+            debug!("Got size hints: {:#?}", sizes);
+            Geometry {
+                x: if let Some(pos) = sizes.position {pos.0} else {0},
+                y: if let Some(pos) = sizes.position {pos.1} else {0},
+                height: if let Some(dim) = sizes.size {dim.0 as u32} else {100},
+                width: if let Some(dim) = sizes.size {dim.1 as u32} else {160},
+            }
+        } else {
+            debug!("initial size is None");
+            Geometry {
+                x: 0,
+                y: 0,
+                height: 100,
+                width: 160,
+            }
+        };
+        self.name = properties.wm_name().into();
+        self.icon_name = properties.wm_icon_name().into();
 
-    //     if self.initial_geom == Geometry::zeroed() {
-    //         self.initial_geom = initial_geom;
-    //     }
-    //     self.transient_for = conn.get_wm_transient_for(self.id());
-    //     self.urgent = if let Some(hints) = properties.wm_hints() {
-    //         hints.urgent
-    //     } else {false};
-    //     self.mapped_state = if let Some(hints) = properties.wm_hints() {
-    //         hints.state
-    //     } else {
-    //         WindowState::Normal
-    //     };
-    //     self.net_states = conn.get_window_states(self.id());
-    //     if self.protocols.is_empty() {
-    //         self.set_supported(conn);
-    //     }
-    //     if self.urgent {
-    //         self.set_border(conn, BorderStyle::Urgent);
-    //     }
-    //     debug!("Updated properties: {:#?}", self);
-    // }
+        if self.initial_geom == Geometry::zeroed() {
+            self.initial_geom = initial_geom;
+        }
+        self.transient_for = conn.get_wm_transient_for(self.id());
+        self.urgent = if let Some(hints) = properties.wm_hints() {
+            hints.urgent
+        } else {false};
+        self.mapped_state = if let Some(hints) = properties.wm_hints() {
+            hints.state
+        } else {
+            WindowState::Normal
+        };
+        self.net_states = conn.get_window_states(self.id());
+        if self.protocols.is_empty() {
+            self.set_supported(conn);
+        }
+        if self.urgent {
+            self.set_border(conn, BorderStyle::Urgent);
+        }
+        debug!("Updated properties: {:#?}", self);
+    }
 
-    // /// Checks and updates the dynamic properties of the window.
-    // /// 
-    // /// Checked:
-    // /// 
-    // /// - WM_NAME
-    // /// - WM_ICON_NAME
-    // /// - WM_CLASS
-    // /// - WM_HINTS.Urgency
-    // pub fn update_dynamic(&mut self, conn: &XCBConnection) {
-    //     self.name = conn.get_wm_name(self.id());
-    //     self.icon_name = conn.get_wm_icon_name(self.id());
-    //     self.class = if let Some(class) = conn.get_wm_class(self.id()) {
-    //         class
-    //     } else {
-    //         ("".into(), "".into())
-    //     };
-    //     self.urgent = conn.get_urgency(self.id());
+    /// Checks and updates the dynamic properties of the window.
+    /// 
+    /// Checked:
+    /// 
+    /// - WM_NAME
+    /// - WM_ICON_NAME
+    /// - WM_CLASS
+    /// - WM_HINTS.Urgency
+    pub fn update_dynamic<X: XConn>(&mut self, conn: &X) {
+        self.name = conn.get_wm_name(self.id());
+        self.icon_name = conn.get_wm_icon_name(self.id());
+        self.class = if let Some(class) = conn.get_wm_class(self.id()) {
+            class
+        } else {
+            ("".into(), "".into())
+        };
+        self.urgent = conn.get_urgency(self.id());
 
-    //     if self.urgent {
-    //         self.set_border(conn, BorderStyle::Urgent);
-    //     }
-    // }
+        if self.urgent {
+            self.set_border(conn, BorderStyle::Urgent);
+        }
+    }
 
-    // pub(crate) fn set_initial_geom(&mut self, geom: Geometry) {
-    //     debug!("Setting initial geom to {:#?}", geom);
-    //     self.initial_geom = geom;
-    // }
+    pub(crate) fn set_initial_geom(&mut self, geom: Geometry) {
+        debug!("Setting initial geom to {:#?}", geom);
+        self.initial_geom = geom;
+    }
 
-    // pub fn set_border(&mut self, conn: &XCBConnection, border: BorderStyle) {
-    //     use BorderStyle::*;
+    pub fn set_border<X: XConn>(&mut self, conn: &X, border: BorderStyle) {
+        //todo: set proper const values for border colours
+        use BorderStyle::*;
 
-    //     match border {
-    //         Focused => {
-    //             conn.change_window_attributes(
-    //                 self.id(), &[(xcb::CW_BORDER_PIXEL, BORDER_FOCUSED)]
-    //             );
-    //         }
-    //         Unfocused => {
-    //             conn.change_window_attributes(
-    //                 self.id(), &[(xcb::CW_BORDER_PIXEL, BORDER_UNFOCUSED)]
-    //             );
-    //         }
-    //         Urgent => {
-    //             conn.change_window_attributes(
-    //                 self.id(), &[(xcb::CW_BORDER_PIXEL, BORDER_URGENT)]
-    //             );
-    //         }
-    //     }
-    // }
+        match border {
+            Focused => {
+                conn.change_window_attributes(
+                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0xdddddd)]
+                );
+            }
+            Unfocused => {
+                conn.change_window_attributes(
+                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0x555555)]
+                );
+            }
+            Urgent => {
+                conn.change_window_attributes(
+                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0xff00000)]
+                );
+            }
+        }
+    }
 
     pub fn map<X: XConn>(&mut self, conn: &X) {
         //self.update_all_properties(conn);
