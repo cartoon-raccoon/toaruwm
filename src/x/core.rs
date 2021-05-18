@@ -99,9 +99,15 @@ pub enum XError {
 pub type Result<T> = ::core::result::Result<T, XError>;
 
 pub trait XConn {
+    // General X server operations
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn query_tree(&self) -> Vec<XWindowID>;
+    fn get_prop_str(&self, name: &str) -> Result<String>;
+    fn get_prop_atom(&self, name: &str) -> Result<Atom>;
+    fn intern_atom(&self, atom: &str) -> Result<Atom>;
+
+    // Window-related operations
     fn map_window(&self, window: XWindowID);
     fn unmap_window(&self, window: XWindowID);
     fn destroy_window(&self, window: XWindowID);
@@ -113,6 +119,7 @@ pub trait XConn {
     fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
     fn reparent_window(&self, window: XWindowID, parent: XWindowID);
 
+    // ICCCM-related operations
     fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
     fn get_wm_name(&self, window: XWindowID) -> String;
     fn get_wm_icon_name(&self, window: XWindowID) -> String;
@@ -124,6 +131,7 @@ pub trait XConn {
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID>;
     fn get_urgency(&self, window: XWindowID) -> bool;
 
+    // EWMH-related operations
     fn get_window_type(&self, window: XWindowID) -> Option<Vec<Atom>>;
     fn get_window_states(&self, window: XWindowID) -> NetWindowStates;
     fn set_supported(&self, screen_idx: i32, atoms: &[Atom]);
