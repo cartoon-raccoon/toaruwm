@@ -1,15 +1,13 @@
 use crate::x::{
     XConn, 
     XWindowID,
-    Ewmh, Icccm,
 };
 use crate::types::MouseMode;
 use crate::core::desktop::Screen;
 
 /// The main window manager object that receives and responds to events.
 #[allow(dead_code)]
-pub struct WindowManager<X>
-where X: XConn + Ewmh + Icccm {
+pub struct WindowManager<X: XConn> {
     pub(crate) conn: X,
     //todo: add these
     //pub(crate) desktop: Desktop,
@@ -22,6 +20,6 @@ where X: XConn + Ewmh + Icccm {
     to_quit: bool,
 }
 
-impl<X: XConn + Ewmh + Icccm> WindowManager<X> {
+impl<X: XConn> WindowManager<X> {
 
 }
