@@ -4,7 +4,6 @@ use super::{Ring, Selector};
 
 use crate::x::{
     core::{XWindow, XWindowID, XConn, xproto},
-    Icccm, Ewmh,
 };
 use crate::core::types::{
     Geometry, Atom,
@@ -150,15 +149,15 @@ impl Client {
         (&self.class.0, &self.class.1)
     }
 
-    pub fn tiled<X: Icccm>(from: XWindowID, conn: &X) -> Self {
+    pub fn tiled<X: XConn>(from: XWindowID, conn: &X) -> Self {
         Self::new(from, conn, WinLayoutState::Tiled)
     }
 
-    pub fn floating<X: Icccm>(from: XWindowID, conn: &X) -> Self {
+    pub fn floating<X: XConn>(from: XWindowID, conn: &X) -> Self {
         Self::new(from, conn, WinLayoutState::Floating)
     }
 
-    fn new<X: Icccm>(from: XWindowID, conn: &X, layout: WinLayoutState) -> Self {
+    fn new<X: XConn>(from: XWindowID, conn: &X, layout: WinLayoutState) -> Self {
         let properties = conn.get_client_properties(from);
         Self {
             xwindow: XWindow::from(from),
@@ -222,7 +221,7 @@ impl Client {
     }
 
     //todo: uncomment when ewmh and icccm is fully supported
-    // pub fn update_all_properties<X: Icccm + Ewmh>(&mut self, conn: &X) {
+    // pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
     //     let properties = conn.get_client_properties(self.id());
     //     let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
     //         debug!("Got size hints: {:#?}", sizes);
@@ -316,7 +315,7 @@ impl Client {
     //     }
     // }
 
-    pub fn map<X: Icccm + Ewmh>(&mut self, conn: &X) {
+    pub fn map<X: XConn>(&mut self, conn: &X) {
         //self.update_all_properties(conn);
         self.update_geometry(conn);
         conn.change_window_attributes(
@@ -331,7 +330,7 @@ impl Client {
         conn.unmap_window(self.id());
     }
 
-    pub fn set_wm_states<X: Ewmh>(&self, conn: &X) {
+    pub fn set_wm_states<X: XConn>(&self, conn: &X) {
         conn.set_wm_state(self.id(), &self.net_states);
     }
 
@@ -444,7 +443,7 @@ impl Client {
     }
 
     /// Sets the supported protocols for the client.
-    pub fn set_supported<X: Icccm>(&mut self, conn: &X) {
+    pub fn set_supported<X: XConn>(&mut self, conn: &X) {
         if let Some(protocols) = conn.get_wm_protocols(self.id()) {
             for protocol in protocols {
                 self.protocols.insert(protocol);

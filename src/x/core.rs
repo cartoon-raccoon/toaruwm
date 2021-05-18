@@ -1,6 +1,14 @@
 use thiserror::Error;
 
-use crate::types::Geometry;
+use crate::types::{
+    Geometry,
+    XWinProperties,
+    WindowState,
+    Atom,
+    WmHints,
+    SizeHints,
+    NetWindowStates,
+};
 
 pub type XWindowID = u32;
 
@@ -104,4 +112,20 @@ pub trait XConn {
     fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]);
     fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
     fn reparent_window(&self, window: XWindowID, parent: XWindowID);
+
+    fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
+    fn get_wm_name(&self, window: XWindowID) -> String;
+    fn get_wm_icon_name(&self, window: XWindowID) -> String;
+    fn get_wm_size_hints(&self, window: XWindowID) -> Option<SizeHints>;
+    fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints>;    
+    fn get_wm_class(&self, window: XWindowID) -> Option<(String, String)>;
+    fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<Atom>>;
+    fn get_wm_state(&self, window: XWindowID) -> WindowState;
+    fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID>;
+    fn get_urgency(&self, window: XWindowID) -> bool;
+
+    fn get_window_type(&self, window: XWindowID) -> Option<Vec<Atom>>;
+    fn get_window_states(&self, window: XWindowID) -> NetWindowStates;
+    fn set_supported(&self, screen_idx: i32, atoms: &[Atom]);
+    fn set_wm_state(&self, window: XWindowID, atoms: &[Atom]);
 }
