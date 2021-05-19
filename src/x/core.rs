@@ -12,6 +12,14 @@ use crate::types::{
 
 pub type XWindowID = u32;
 
+/// Contains the basic atoms and other constants used by 
+/// the X specification protocol.
+/// 
+/// Re-exported from xcb-rs.
+/// 
+/// It does re-export some xcb-specific functions, but
+/// most of the items used by ToaruWM are specific to the
+/// X protocol, not the xcb library itself.
 pub mod xproto {
     pub use xcb::xproto::*;
 }
