@@ -1,6 +1,7 @@
 todo:
     implement workspaces
 
-combine extension traits into one big trait?
+convert layout engine into a trait? use trait object to generate layout?
+(this would allow users to define their own special layouts, but would probably cause lifetime issues)
 
 (refer to rcwm todo for additional stuff lol)
