@@ -2,7 +2,7 @@ use crate::core::{Workspace, Screen};
 use crate::x::XWindowID;
 use crate::types::Geometry;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LayoutType {
     Floating,
     DTiled,
@@ -53,15 +53,18 @@ impl LayoutEngine {
         todo!()
     }
 
-    pub fn switch_layout(&mut self, layout: LayoutType) {
+    /// Sets the layout being used for the engine.
+    /// Does not generate new layouts.
+    pub fn set_layout(&mut self, layout: LayoutType) {
         self.layout = layout;
-        todo!()
     }
 
-    pub fn current_layout(&self) -> LayoutType {
+    /// Returns the current layout being used by the layout engine.
+    pub fn layout(&self) -> LayoutType {
         self.layout
     }
-
+    
+    /// Generate the layout for the given workspace.
     pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<ResizeAction> {
         (self._layoutgen)(ws, scr)
     }

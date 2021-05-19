@@ -62,7 +62,7 @@ impl ClientRing {
         if let Some(i) = self.get_idx(id) {
             self.focused = Some(i)
         } else {
-            //error!("Tried to focus a client not in the workspace")
+            error!("Tried to focus a client not in the workspace")
         }
     }
 
@@ -79,9 +79,15 @@ impl ClientRing {
     }
 }
 
-/// Various metadata about a X window.
+/// Represents an X server client.
+/// It contains other data from the X server, stored locally,
+/// such as ICCCM and EWMH properties.
 /// 
-/// Contains ICCCM and EWMH properties.
+/// Since this type is not Copy, it should not be passed around,
+/// and should only be initialised and used within a `ClientRing`.
+/// 
+/// Instead of passing the entire Client around, XWindowIDs can
+/// be used instead.
 #[derive(Debug, Clone)]
 pub struct Client {
     xwindow: XWindow,
@@ -289,6 +295,7 @@ impl Client {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn set_initial_geom(&mut self, geom: Geometry) {
         debug!("Setting initial geom to {:#?}", geom);
         self.initial_geom = geom;
