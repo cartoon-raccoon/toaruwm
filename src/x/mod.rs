@@ -13,5 +13,6 @@
 //! can be found inside the `xcb` module.
 
 pub mod core;
+pub mod event;
 
 pub use self::core::{XConn, XWindow, XWindowID, xproto};

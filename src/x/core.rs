@@ -9,6 +9,7 @@ use crate::types::{
     SizeHints,
     NetWindowStates,
 };
+use super::event::XEvent;
 
 pub type XWindowID = u32;
 
@@ -108,6 +109,7 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 
 pub trait XConn {
     // General X server operations
+    fn get_next_event(&self) -> XEvent;
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn query_tree(&self) -> Vec<XWindowID>;
