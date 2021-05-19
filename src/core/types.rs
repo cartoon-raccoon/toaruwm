@@ -6,12 +6,13 @@ use crate::layouts::LayoutType;
 
 //* Re-exports
 pub mod keysym {
+    pub type KeySym = u32;
     pub use x11::keysym::*;
 }
 
 pub use crate::core::{Ring, Selector};
 
-pub use xcb::ModMask as ModMask;
+pub type ModMask = u32;
 pub type Atom = u32;
 
 pub use super::window::{Client, ClientRing};
