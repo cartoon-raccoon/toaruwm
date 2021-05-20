@@ -309,17 +309,17 @@ impl Client {
             Focused => {
                 conn.change_window_attributes(
                     self.id(), &[(xproto::CW_BORDER_PIXEL, 0xdddddd)]
-                );
+                ).unwrap_or_else(|e| error!("{}", e));
             }
             Unfocused => {
                 conn.change_window_attributes(
                     self.id(), &[(xproto::CW_BORDER_PIXEL, 0x555555)]
-                );
+                ).unwrap_or_else(|e| error!("{}", e));
             }
             Urgent => {
                 conn.change_window_attributes(
                     self.id(), &[(xproto::CW_BORDER_PIXEL, 0xff00000)]
-                );
+                ).unwrap_or_else(|e| error!("{}", e));
             }
         }
     }
@@ -330,7 +330,7 @@ impl Client {
         conn.change_window_attributes(
             self.id(), 
             &[(xproto::CW_EVENT_MASK, xproto::EVENT_MASK_PROPERTY_CHANGE)]
-        );
+        ).unwrap_or_else(|e| error!("{}", e));
         conn.map_window(self.id());
     }
 
@@ -363,7 +363,9 @@ impl Client {
 
     /// Change client attributes.
     pub fn change_attributes<X: XConn>(&self, conn: &X, attrs: &[(u32, u32)]) {
-        conn.change_window_attributes(self.id(), attrs)
+        conn.change_window_attributes(self.id(), attrs).unwrap_or_else(|e| {
+            error!("{}", e)
+        })
     }
 
     /// Resize the window using _changes_ in height and width.

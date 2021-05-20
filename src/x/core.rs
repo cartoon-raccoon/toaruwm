@@ -124,7 +124,7 @@ pub trait XConn {
     fn set_geometry(&self, window: XWindowID, geom: Geometry);
     fn set_property(&self, window: XWindowID);
     fn set_root_scr(&mut self, scr: i32);
-    fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]);
+    fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()>;
     fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
     fn reparent_window(&self, window: XWindowID, parent: XWindowID);
 

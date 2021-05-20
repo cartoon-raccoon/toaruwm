@@ -80,11 +80,13 @@ impl Workspace {
     /// Unmaps all the windows in the workspace.
     pub fn deactivate<X: XConn>(&mut self, conn: &X) {
         for window in self.windows.iter() {
-            conn.change_window_attributes(window.id(), &util::disable_events());
+            conn.change_window_attributes(window.id(), &util::disable_events())
+            .unwrap_or_else(|e| error!("{}", e));
     
             conn.unmap_window(window.id());
     
-            conn.change_window_attributes(window.id(), &util::child_events());
+            conn.change_window_attributes(window.id(), &util::child_events())
+            .unwrap_or_else(|e| error!("{}", e));
         }
     }
 
@@ -269,7 +271,8 @@ impl Workspace {
 fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindowID) {
     use BorderStyle::*;
     // disable events
-    conn.change_window_attributes(window, &util::disable_events());
+    conn.change_window_attributes(window, &util::disable_events())
+    .unwrap_or_else(|e| error!("{}", e));
 
     let win = ws.windows.lookup_mut(window).unwrap();
 
@@ -285,5 +288,6 @@ fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindo
     conn.set_input_focus(window);
 
     // re-enable events
-    conn.change_window_attributes(window, &util::child_events());
+    conn.change_window_attributes(window, &util::child_events())
+    .unwrap_or_else(|e| error!("{}", e));
 }
