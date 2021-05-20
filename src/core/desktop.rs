@@ -38,8 +38,8 @@ impl Desktop {
             workspaces: {
                 let mut workspaces = Ring::with_capacity(MAX_WKSPACES);
 
-                for _ in 0..MAX_WKSPACES {
-                    workspaces.push(Workspace::with_layout(layout));
+                for i in 0..MAX_WKSPACES {
+                    workspaces.push(Workspace::with_layout(layout, &i.to_string()));
                 }
 
                 workspaces.set_focused(0);

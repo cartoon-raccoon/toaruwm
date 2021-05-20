@@ -15,6 +15,7 @@ use crate::util;
 
 #[derive(Clone)]
 pub struct Workspace {
+    pub(crate) name: String,
     pub(crate) windows: ClientRing,
     pub(crate) master: Option<XWindowID>,
     pub(crate) layoutter: LayoutEngine,
@@ -23,8 +24,9 @@ pub struct Workspace {
 #[allow(unused_variables)]
 impl Workspace {
     /// Creates a new workspace with a specific layout.
-    pub fn with_layout(layout: LayoutType) -> Self {
+    pub fn with_layout(layout: LayoutType, name: &str) -> Self {
         Self {
+            name: name.into(),
             windows: ClientRing::new(),
             master: None,
             layoutter: LayoutEngine::with_layout(layout),
@@ -218,6 +220,11 @@ impl Workspace {
             return win == id
         }
         false
+    }
+
+    #[inline(always)]
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     #[inline(always)]
