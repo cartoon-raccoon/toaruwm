@@ -2,7 +2,12 @@ use crate::core::{
     window::{Client, ClientRing},
     desktop::Screen,
 };
-use crate::layouts::{LayoutType, LayoutEngine};
+use crate::types::BorderStyle;
+use crate::layouts::{
+    LayoutType, 
+    LayoutEngine, 
+    ResizeAction
+};
 use crate::x::{XConn, XWindowID};
 use crate::util;
 
@@ -27,7 +32,7 @@ impl Workspace {
     /// Sets the layout to use and applies it to all currently mapped windows.
     pub fn set_layout<X: XConn>(&mut self, layout: LayoutType, conn: &X, scr: &Screen) {
         self.layoutter.set_layout(layout);
-        self.apply_layout(conn, scr);
+        self.relayout(conn, scr);
     }
 
     /// Maps all the windows in the workspace.
@@ -35,6 +40,11 @@ impl Workspace {
         if self.windows.is_empty() {
             return
         }
+
+        //todo: change this to account for all layouts
+        //* currently does not re-apply layouts when done
+
+        self.relayout(conn, scr);
 
         // focus the main window in the workspace
         // if floating, focus the first window
@@ -76,7 +86,9 @@ impl Workspace {
 
     /// Adds a new window and maps it.
     pub fn add_window<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) {
-
+        debug!("Current master is {:?}", self.master);
+        debug!("{:#?}", &self.windows);
+        todo!()
     }
 
     pub fn del_window<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) -> Client {
@@ -85,15 +97,73 @@ impl Workspace {
 
     /// Pushes a window directly.
     pub(crate) fn push_window(&mut self, window: Client) {
-        
+        function_ends!("[start] workspace::push_window");
+        if let LayoutType::Floating = self.layout() {
+            self.windows.push(window);
+        } else if let None = self.master {
+            if self.tiled_count() > 0 {
+                warn!("Windows not empty but workspace has no master")
+            }
+            if window.is_tiled() {
+                let window_id = window.id();
+                self.windows.push(window);
+                self.set_master(window_id);
+            } else {
+                self.windows.push(window);
+            }
+        } else {
+            self.windows.append(window);
+        }
+        function_ends!("[end] workspace::push_window");
     }
 
-    pub fn apply_layout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        todo!()
+    pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+        let layouts = self.layoutter.gen_layout(&self, scr);
+        self.apply_layout(conn, scr, layouts);
+    }
+
+    fn apply_layout<X: XConn>(
+        &mut self, 
+        conn: &X, 
+        scr: &Screen, 
+        layouts: Vec<ResizeAction>
+    ) {
+        for rsaction in layouts {
+            let window = self.windows.lookup_mut(rsaction.id()).unwrap();
+            window.set_and_update_geometry(conn, rsaction.geometry());
+        }
     }
 
     pub fn focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
-        
+        if let Some(idx) = self.windows.get_idx(window) {
+            debug!("Found window {}", window);
+            if let Some(focused) = self.windows.focused_mut() {
+                focused.set_border(conn, BorderStyle::Unfocused);
+            }
+            // internally focus
+            self.windows.set_focused_by_idx(idx);
+            
+            // tell x to focus
+            use BorderStyle::*;
+            // disable events
+            conn.change_window_attributes(window, &util::disable_events());
+
+            let win = self.windows.lookup_mut(window).unwrap();
+
+            // if there is a focused window, stack it above
+            // if let Some(win) = ws.windows.focused() {
+            //     debug!("Focusing window {}", win.id());
+            //     conn.configure_window(window, &utils::stack_above(win.id()));
+            // }
+
+            
+            // focus to current window
+            win.set_border(conn, Focused);
+            conn.set_input_focus(window);
+
+            // re-enable events
+            conn.change_window_attributes(window, &util::child_events());
+        }
     }
 
     pub fn take_focused_window<X: XConn>(&mut self,conn: &X,
@@ -110,12 +180,21 @@ impl Workspace {
         }
     }
 
-    pub fn set_master(&mut self, id: XWindowID) {
-
+    pub fn set_master(&mut self, master_id: XWindowID) {
+        if !self.windows.contains(master_id) {
+            error!("set_master: No such window {}", master_id);
+            return
+        }
+        self.master = Some(master_id);
+        let idx = self.windows.get_idx(master_id).unwrap();
+        self.windows.move_front(idx);
     }
 
-    pub fn unset_master(&mut self, id: XWindowID) {
-
+    pub fn unset_master(&mut self) {
+        if self.tiled_count() > 0 {
+            error!("unset_master: Workspace still has tiled windows");
+        }
+        self.master = None;
     }
 
     #[inline(always)]

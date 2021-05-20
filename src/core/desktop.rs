@@ -141,6 +141,6 @@ impl Desktop {
         } else {
             debug!("No focused window for workspace {}", idx);
         }
-        self.current_mut().apply_layout(conn, scr);
+        self.current_mut().relayout(conn, scr);
     }
 }
