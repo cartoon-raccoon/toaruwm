@@ -3,14 +3,13 @@ use crate::x::{
     XWindowID,
 };
 use crate::types::MouseMode;
-use crate::core::desktop::Screen;
+use crate::core::{Screen, Desktop};
 
 /// The main window manager object that receives and responds to events.
 #[allow(dead_code)]
 pub struct WindowManager<X: XConn> {
     pub(crate) conn: X,
-    //todo: add these
-    //pub(crate) desktop: Desktop,
+    pub(crate) desktop: Desktop,
     pub(crate) screen: Screen,
     root: i32,
     mousemode: MouseMode,
