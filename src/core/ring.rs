@@ -19,7 +19,7 @@ pub enum Selector<'a, T> {
     Condition(&'a dyn Fn(&T) -> bool),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Ring<T> {
     pub(crate) items: VecDeque<T>,
     pub(crate) focused: Option<usize>,

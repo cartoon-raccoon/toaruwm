@@ -66,7 +66,6 @@ impl XWindow {
 
             Err(e) => {
                 error!("{}", e);
-                return
             }
         }
     }

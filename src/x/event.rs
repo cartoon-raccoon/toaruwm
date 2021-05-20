@@ -92,16 +92,16 @@ impl ClientMessageData {
 
     #[inline(always)]
     pub fn is_u8(&self) -> bool {
-        if let Self::U8(_) = self {true} else {false}
+        matches!(self, Self::U8(_))
     }
 
     #[inline(always)]
     pub fn is_u16(&self) -> bool {
-        if let Self::U16(_) = self {true} else {false}
+        matches!(self, Self::U16(_))
     }
 
     pub fn is_u32(&self) -> bool {
-        if let Self::U32(_) = self {true} else {false}
+        matches!(self, Self::U32(_))
     }
 }
 

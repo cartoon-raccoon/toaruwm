@@ -72,7 +72,7 @@ impl ClientRing {
 
     pub fn is_focused(&self, id: XWindowID) -> bool {
         if let Some(window) = self.focused() {
-            return window.id() == id
+            window.id() == id
         } else {
             false
         }

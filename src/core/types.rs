@@ -119,7 +119,7 @@ pub enum BorderStyle {
 }
 
 /// Convenience wrapper around a Vec of NetWindowStates.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct NetWindowStates {
     states: Vec<Atom>,
 }
@@ -221,11 +221,7 @@ impl XWinProperties {
     }
 
     pub fn window_type(&self) -> Option<&[Atom]> {
-        if let Some(prtcls) = &self.wm_protocols {
-            return Some(&prtcls)
-        } else {
-            None
-        }
+        self.wm_protocols.as_deref()
     }
 
     pub fn wm_state(&self) -> WindowState {

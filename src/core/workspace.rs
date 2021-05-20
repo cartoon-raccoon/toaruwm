@@ -100,7 +100,7 @@ impl Workspace {
         function_ends!("[start] workspace::push_window");
         if let LayoutType::Floating = self.layout() {
             self.windows.push(window);
-        } else if let None = self.master {
+        } else if self.master.is_none() {
             if self.tiled_count() > 0 {
                 warn!("Windows not empty but workspace has no master")
             }

@@ -22,8 +22,7 @@ impl ResizeAction {
     #[inline]
     pub fn new(id: XWindowID, geom: Geometry) -> Self {
         Self {
-            id: id,
-            geom: geom,
+            id, geom,
         }
     }
 
@@ -49,11 +48,11 @@ impl LayoutEngine {
     pub fn with_layout(layout: LayoutType) -> Self {
         match layout {
             LayoutType::Floating => Self {
-                layout: layout,
+                layout,
                 _layoutgen: floating::gen_layout
             },
             LayoutType::DTiled => Self {
-                layout: layout,
+                layout,
                 _layoutgen: dtiled::gen_layout
             },
             LayoutType::MTiled => {todo!("Manual tiling not yet implemented")}
