@@ -2,6 +2,9 @@ use crate::core::{Workspace, Screen};
 use crate::x::XWindowID;
 use crate::types::Geometry;
 
+pub mod floating;
+pub mod dtiled;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum LayoutType {
     Floating,
@@ -45,18 +48,27 @@ pub struct LayoutEngine {
 impl LayoutEngine {
     pub fn with_layout(layout: LayoutType) -> Self {
         match layout {
-            LayoutType::DTiled => {}
-            LayoutType::MTiled => {}
-            LayoutType::Floating => {}
+            LayoutType::Floating => Self {
+                layout: layout,
+                _layoutgen: floating::gen_layout
+            },
+            LayoutType::DTiled => Self {
+                layout: layout,
+                _layoutgen: dtiled::gen_layout
+            },
+            LayoutType::MTiled => {todo!("Manual tiling not yet implemented")}
         }
-        //todo: unimplemented relayout function
-        todo!()
     }
 
     /// Sets the layout being used for the engine.
     /// Does not generate new layouts.
     pub fn set_layout(&mut self, layout: LayoutType) {
         self.layout = layout;
+        match layout {
+            LayoutType::Floating => {self._layoutgen = floating::gen_layout}
+            LayoutType::DTiled => {self._layoutgen = dtiled::gen_layout}
+            LayoutType::MTiled => {todo!("Manual tiling not yet implemented")}
+        }
     }
 
     /// Returns the current layout being used by the layout engine.
