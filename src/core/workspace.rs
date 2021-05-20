@@ -2,7 +2,9 @@ use crate::core::{
     window::{Client, ClientRing},
     desktop::Screen,
 };
-use crate::types::BorderStyle;
+use crate::types::{
+    BorderStyle, Direction
+};
 use crate::layouts::{
     LayoutType, 
     LayoutEngine, 
@@ -49,7 +51,7 @@ impl Workspace {
         // focus the main window in the workspace
         // if floating, focus the first window
         // else (should be tiled), focus the master window
-        if let LayoutType::Floating = self.layout() {
+        if self.is_floating() {
             assert!(self.master.is_none());
             if !self.is_empty() {
                 self.focus_window(conn, self.windows.get(0).unwrap().id());
@@ -144,25 +146,38 @@ impl Workspace {
             self.windows.set_focused_by_idx(idx);
             
             // tell x to focus
-            use BorderStyle::*;
-            // disable events
-            conn.change_window_attributes(window, &util::disable_events());
+            window_stack_and_focus(self, conn, window);
+        }
+    }
 
-            let win = self.windows.lookup_mut(window).unwrap();
+    pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
+        use BorderStyle::*;
 
-            // if there is a focused window, stack it above
-            // if let Some(win) = ws.windows.focused() {
-            //     debug!("Focusing window {}", win.id());
-            //     conn.configure_window(window, &utils::stack_above(win.id()));
-            // }
+        //change currently focused border colour to unfocused
+        if let Some(win) = self.windows.focused_mut() {
+            win.set_border(conn, Unfocused);
+        }
+        
+        //internally, cycle focus
+        self.windows.cycle_focus(dir);
 
-            
-            // focus to current window
-            win.set_border(conn, Focused);
-            conn.set_input_focus(window);
+        // change focus colours
+        if self.windows.focused().is_some() {
+            let focused = self.windows.focused().unwrap().id();
 
-            // re-enable events
-            conn.change_window_attributes(window, &util::child_events());
+            window_stack_and_focus(self, conn, focused);
+        }
+    }
+
+    pub fn cycle_master<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, dir: Direction
+    ) {
+        if !self.is_tiling() {return}
+
+        if !self.windows.is_empty() {
+            self.windows.rotate(dir);
+            self.master = Some(self.windows.get(0).unwrap().id());
+            self.relayout(conn, scr);
         }
     }
 
@@ -225,10 +240,12 @@ impl Workspace {
 
     #[inline(always)]
     pub fn is_tiling(&self) -> bool {
-        if let LayoutType::Floating = self.layoutter.layout() {
-            return false
-        }
-        true
+        !self.is_floating()
+    }
+    
+    #[inline(always)]
+    pub fn is_floating(&self) -> bool {
+        matches!(self.layoutter.layout(), LayoutType::Floating)
     }
 
     #[inline]
@@ -240,4 +257,26 @@ impl Workspace {
     pub fn contains(&self, window: XWindowID) -> Option<usize> {
         self.windows.get_idx(window)
     }
+}
+
+fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindowID) {
+    use BorderStyle::*;
+    // disable events
+    conn.change_window_attributes(window, &util::disable_events());
+
+    let win = ws.windows.lookup_mut(window).unwrap();
+
+    // if there is a focused window, stack it above
+    // if let Some(win) = ws.windows.focused() {
+    //     debug!("Focusing window {}", win.id());
+    //     conn.configure_window(window, &utils::stack_above(win.id()));
+    // }
+
+    
+    // focus to current window
+    win.set_border(conn, Focused);
+    conn.set_input_focus(window);
+
+    // re-enable events
+    conn.change_window_attributes(window, &util::child_events());
 }
