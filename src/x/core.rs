@@ -9,6 +9,7 @@ use crate::types::{
     SizeHints,
     NetWindowStates,
 };
+use crate::core::Screen;
 use super::event::XEvent;
 
 pub type XWindowID = u32;
@@ -112,6 +113,7 @@ pub trait XConn {
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn query_tree(&self) -> Vec<XWindowID>;
+    fn all_outputs(&self) -> Vec<Screen>;
     fn get_prop_str(&self, name: &str) -> Result<String>;
     fn get_prop_atom(&self, name: &str) -> Result<Atom>;
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
