@@ -9,6 +9,12 @@ use crate::layouts::LayoutType;
 use crate::core::{Screen, Desktop};
 use crate::util;
 
+pub mod event;
+pub mod state;
+
+pub(crate) use state::WMState;
+pub use event::EventAction;
+
 /// The main window manager object that owns the event loop,
 /// and receives and responds to events.
 #[allow(dead_code)]
