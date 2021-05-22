@@ -22,7 +22,7 @@ pub struct WindowManager<X: XConn> {
     pub(crate) conn: X,
     pub(crate) desktop: Desktop,
     pub(crate) screen: Screen,
-    root: u32,
+    pub(crate) root: u32,
     mousemode: MouseMode,
     selected: Option<XWindowID>,
     last_mouse_x: i32,
@@ -37,7 +37,7 @@ impl<X: XConn> WindowManager<X> {
         let root_id = conn.get_root();
         let screens = conn.all_outputs();
         Self {
-            conn: conn,
+            conn,
             desktop: Desktop::new(LayoutType::Floating),
             //todo: read up on randr and figure out how the hell this works
             screen: screens[0],

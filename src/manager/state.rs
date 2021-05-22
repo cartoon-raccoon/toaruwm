@@ -13,6 +13,7 @@ pub(crate) struct WMState<'a, X: XConn> {
 }
 
 impl<X: XConn> WindowManager<X> {
+    #[allow(dead_code)]
     pub(crate) fn state(&self) -> WMState<X> {
         WMState {
             conn: &self.conn,
