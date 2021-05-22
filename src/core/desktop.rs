@@ -1,5 +1,5 @@
 use crate::x::{XConn, XWindow, XWindowID};
-use crate::types::{Ring, Geometry, Direction};
+use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::Workspace;
 use crate::layouts::LayoutType;
 
@@ -89,11 +89,16 @@ impl Desktop {
     ) {
         debug!("Cycling workspaces in direction {:?}", direction);
         self.workspaces.cycle_focus(direction);
-        if let Some(i) = self.workspaces.focused_idx() {
-            self.goto(conn, scr, i);
+
+        // i hate you, borrow checker
+        let name: String;
+        if let Some(ws) = self.workspaces.focused() {
+            name = ws.name().into();
         } else {
             error!("Focused should be Some");
+            return
         }
+        self.goto(conn, scr, &name);
     }
 
     /// Get a reference to a workspace by its index
@@ -114,32 +119,55 @@ impl Desktop {
         Some(&mut self.workspaces[idx])
     }
 
-    /// Switch to a given workspace.
-    pub fn goto<X: XConn>(&mut self, conn: &X, scr: &Screen, idx: usize) {
-        if self.current == idx {
+    /// Find a workspace by its name.
+    /// 
+    /// Returns an immutable reference.
+    pub fn find(&self, name: &str) -> Option<&Workspace> {
+        self.workspaces.element_by(|ws| ws.name == name).map(|(_, ws)| ws)
+    }
+
+    /// Find a workspace by its name.
+    /// 
+    /// Returns a mutable reference.
+    pub fn find_mut(&mut self, name: &str) -> Option<&mut Workspace> {
+        self.workspaces.element_by_mut(|ws| ws.name == name).map(|(_, ws)| ws)
+    }
+
+    /// Switch to a given workspace by its name.
+    pub fn goto<X: XConn>(&mut self, conn: &X, scr: &Screen, name: &str) {
+        let new_idx = self.workspaces.index(Selector::Condition(&|ws| ws.name == name));
+        if new_idx.is_none() {
+            error!("No workspace {} found", name);
+        }
+        let new_idx = new_idx.unwrap();
+        if self.current == new_idx {
             return
         }
-        debug!("Goto desktop {}", idx);
+        debug!("Goto desktop {}", new_idx);
 
         self.workspaces.get_mut(self.current).unwrap().deactivate(conn);
         
-        self.current = idx;
+        self.current = new_idx;
 
         if let Some(ws) = self.get_mut(self.current) {
             ws.activate(conn, scr);
         } else {
-            error!("No workspace found for index {}", idx);
+            error!("No workspace found for index {}", new_idx);
         }
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<X: XConn>(&mut self, conn: &X, scr: &Screen, idx: usize) {
-        debug!("Attempting to send window to workspace {}", idx);
+    pub fn send_window_to<X: XConn>(&mut self, conn: &X, scr: &Screen, name: &str) {
+        debug!("Attempting to send window to workspace {}", name);
         if let Some(window) = self.current_mut().take_focused_window(conn, scr) {
-            debug!("Sending window {} to workspace {}", window.id(), idx);
-            self.workspaces[idx].push_window(window);
+            debug!("Sending window {} to workspace {}", window.id(), name);
+            if let Some(ws) = self.find_mut(name) {
+                ws.push_window(window);
+            } else {
+                error!("Cannot find workspace named {}", name);
+            }
         } else {
-            debug!("No focused window for workspace {}", idx);
+            debug!("No focused window for workspace {}", name);
         }
         self.current_mut().relayout(conn, scr);
     }
