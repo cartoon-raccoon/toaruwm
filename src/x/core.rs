@@ -5,8 +5,6 @@ use crate::types::{
     XWinProperties,
     WindowState,
     Atom,
-    WmHints,
-    SizeHints,
     NetWindowStates,
 };
 use crate::core::Screen;
@@ -51,6 +49,39 @@ impl From<XWindowID> for XWindow {
             }
         }
     }
+}
+
+/// X server properties.
+#[derive(Debug, Clone)]
+pub enum Property {
+    Atom(Vec<String>),
+    Bytes(Vec<u32>),
+    Cardinal(u32),
+    UTF8String(Vec<String>),
+    Window(Vec<XWindowID>),
+    WMHints(WmHints),
+    WMSizeHints(SizeHints),
+}
+
+/// ICCCM-defined window hints.
+#[derive(Debug, Clone, Copy)]
+pub struct WmHints {
+    pub state: WindowState,
+    pub urgent: bool,
+    //todo: add pixmaps
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct SizeHints {
+    pub position: Option<(i32, i32)>,
+    pub size: Option<(i32, i32)>,
+    pub min_size: Option<(i32, i32)>,
+    pub max_size: Option<(i32, i32)>,
+    pub resize: Option<(i32, i32)>,
+    pub min_aspect: Option<(i32, i32)>,
+    pub max_aspect: Option<(i32, i32)>,
+    pub base: Option<(i32, i32)>,
+    pub gravity: Option<u32>
 }
 
 impl XWindow {
@@ -114,8 +145,7 @@ pub trait XConn {
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn query_tree(&self) -> Vec<XWindowID>;
     fn all_outputs(&self) -> Vec<Screen>;
-    fn get_prop_str(&self, name: &str) -> Result<String>;
-    fn get_prop_atom(&self, name: &str) -> Result<Atom>;
+    fn get_prop(&self, prop: &str) -> Result<Property>;
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
 
     // Window-related operations

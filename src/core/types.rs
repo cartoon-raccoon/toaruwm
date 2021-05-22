@@ -11,6 +11,7 @@ pub mod keysym {
 }
 
 pub use crate::core::{Ring, Selector};
+pub use crate::x::core::{WmHints, SizeHints};
 
 pub type ModMask = u32;
 pub type Atom = u32;
@@ -83,19 +84,6 @@ pub enum MouseMode {
     None,
     Move,
     Resize,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct SizeHints {
-    pub position: Option<(i32, i32)>,
-    pub size: Option<(i32, i32)>,
-    pub min_size: Option<(i32, i32)>,
-    pub max_size: Option<(i32, i32)>,
-    pub resize: Option<(i32, i32)>,
-    pub min_aspect: Option<(i32, i32)>,
-    pub max_aspect: Option<(i32, i32)>,
-    pub base: Option<(i32, i32)>,
-    pub gravity: Option<u32>
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -176,14 +164,6 @@ impl From<LayoutType> for WinLayoutState {
 
         Self::Tiled
     }
-}
-
-/// ICCCM-defined window hints.
-#[derive(Debug, Clone, Copy)]
-pub struct WmHints {
-    pub state: WindowState,
-    pub urgent: bool,
-    //todo: add pixmaps
 }
 
 /// ICCCM-defined window properties.
