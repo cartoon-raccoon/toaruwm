@@ -25,7 +25,7 @@ pub struct Ring<T> {
     pub(crate) focused: Option<usize>,
 }
 
-impl <T> Ring<T> {
+impl<T> Ring<T> {
     pub fn new() -> Self {
         Self {
             items: VecDeque::new(),
@@ -254,12 +254,11 @@ impl <T> Ring<T> {
         }
     }
 
-    fn element_by(&self, cond: impl Fn(&T) -> bool) -> Option<(usize, &T)> {
+    pub(crate) fn element_by(&self, cond: impl Fn(&T) -> bool) -> Option<(usize, &T)> {
         self.iter().enumerate().find(|(_, e)| cond(*e))
     }
 
-    #[allow(dead_code)]
-    fn element_by_mut(&mut self, cond: impl Fn(&T) -> bool) -> Option<(usize, &mut T)> {
+    pub(crate) fn element_by_mut(&mut self, cond: impl Fn(&T) -> bool) -> Option<(usize, &mut T)> {
         self.iter_mut().enumerate().find(|(_, e)| cond(*e))
     }
 
