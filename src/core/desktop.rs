@@ -28,7 +28,7 @@ impl Screen {
 
 #[derive(Clone)]
 pub struct Desktop {
-    workspaces: Ring<Workspace>,
+    pub(crate) workspaces: Ring<Workspace>,
     current: usize,
 }
 
