@@ -3,12 +3,15 @@ use std::ops::Deref;
 use thiserror::Error;
 
 use crate::layouts::LayoutType;
+use crate::manager::WindowManager;
 
 //* Re-exports
 pub mod keysym {
     pub type KeySym = u32;
     pub use x11::keysym::*;
 }
+
+pub type Keybind<X> = (ModMask, keysym::KeySym, fn(&mut WindowManager<X>));
 
 pub use crate::core::{Ring, Selector};
 pub use crate::x::core::{WmHints, SizeHints};
