@@ -185,7 +185,7 @@ impl Workspace {
         }
     }
 
-    pub fn take_focused_window<X: XConn>(&mut self,conn: &X,
+    pub fn take_focused_window<X: XConn>(&mut self, conn: &X,
         screen: &Screen,
     ) -> Option<Client> {
         if let Some(window) = self.windows.focused() {
@@ -196,6 +196,49 @@ impl Workspace {
             Some(window)
         } else {
             None
+        }
+    }
+
+    pub fn toggle_focused_state<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+        debug!("Toggling state of focused window {:#?}", self.windows.focused());
+        let master = self.master;
+        // If we have a focused window
+        if let Some(win) = self.windows.focused_mut() {
+            // set a stack variable to avoid overlapping lifetimes
+            let win_id = win.id();
+            if win.is_floating() { //toggling to tiled
+                debug!("Toggling window state");
+                win.toggle_state();
+                // if we have no master
+                if master.is_none() {
+                    debug!("No master, setting master");
+                    self.set_master(win_id);
+                }
+                // keep floating windows on top
+            } else { //toggling to floating
+                debug!("Toggling window state");
+
+                // toggle state and stack above
+                win.toggle_state();
+                win.configure(conn, &util::stack_above());
+
+                if self.tiled_count() == 0 && self.master.is_some() {
+                    // if master is the only window
+                    debug!("All windows are floating, unsetting master");
+                    self.unset_master();
+                } else if self.tiled_count() > 0 && master.is_some() {
+                    // if window to toggle is master
+                    if master.unwrap() == win_id {
+                        debug!("Window to toggle is master, setting new master");
+                        // we can get idx 1 and safely unwrap because windows.len() >= 2
+                        let new_master = self.windows.get(1).expect("No window of idx 1").id();
+                        self.set_master(new_master);
+                    }
+                } else {
+                    assert!(master.is_none());
+                }
+            }
+            self.relayout(conn, scr);
         }
     }
 
