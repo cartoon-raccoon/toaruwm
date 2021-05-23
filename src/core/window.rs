@@ -21,6 +21,7 @@ pub type ClientRing = Ring<Client>;
 
 impl ClientRing {
 
+    /// Wrapper around `Ring::remove` that takes a window ID instead of index.
     pub fn remove_by_id(&mut self, id: XWindowID) -> Option<Client> {
         if let Some(i) = self.get_idx(id) {
             self.remove(i)
@@ -29,10 +30,12 @@ impl ClientRing {
         }
     }
 
+    /// Wrapper around `Ring::index` that takes a window ID.
     pub fn get_idx(&self, id: XWindowID) -> Option<usize> {
         self.index(Selector::Condition(&|win| win.id() == id))
     }
 
+    /// Returns a reference to the client containing the given window ID.
     pub fn lookup(&self, id: XWindowID) -> Option<&Client> {
         if let Some(i) = self.get_idx(id) {
             self.get(i)
@@ -41,6 +44,7 @@ impl ClientRing {
         }
     }
 
+    /// Returns a mutable reference to the client containing the given ID.
     pub fn lookup_mut(&mut self, id: XWindowID) -> Option<&mut Client> {
         if let Some(i) = self.get_idx(id) {
             self.get_mut(i)
@@ -49,15 +53,12 @@ impl ClientRing {
         }
     }
 
+    /// Tests whether the Ring contains a client with the given ID.
     pub fn contains(&mut self, id: XWindowID) -> bool {
-        for win in self.items.iter() {
-            if win.id() == id {
-                return true
-            }
-        }
-        false
+        matches!(self.element_by(|win| win.id() == id), Some(_))
     }
 
+    /// Sets the focused element to the given client.
     pub fn set_focused_by_winid(&mut self, id: XWindowID) {
         if let Some(i) = self.get_idx(id) {
             self.focused = Some(i)
@@ -70,6 +71,7 @@ impl ClientRing {
         self.set_focused(idx);
     }
 
+    /// Tests whether the client with the given ID is in focus.
     pub fn is_focused(&self, id: XWindowID) -> bool {
         if let Some(window) = self.focused() {
             window.id() == id
@@ -111,55 +113,13 @@ impl PartialEq for Client {
 }
 
 impl Client {
-    #[inline(always)]
-    pub fn id(&self) -> XWindowID {
-        self.xwindow.id
-    }
 
-    #[inline(always)]
-    pub fn x(&self) -> i32 {
-        self.xwindow.geom.x
-    }
-
-    #[inline(always)]
-    pub fn y(&self) -> i32 {
-        self.xwindow.geom.y
-    }
-
-    #[inline(always)]
-    pub fn height(&self) -> u32 {
-        self.xwindow.geom.height
-    }
-
-    #[inline(always)]
-    pub fn width(&self) -> u32 {
-        self.xwindow.geom.width
-    }
-
-    #[inline(always)]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    #[inline(always)]
-    pub fn geometry(&self) -> Geometry {
-        self.xwindow.geom
-    }
-
-    #[inline(always)]
-    pub fn icon_name(&self) -> &str {
-        &self.icon_name
-    }
-
-    #[inline(always)]
-    pub fn class(&self) -> (&str, &str) {
-        (&self.class.0, &self.class.1)
-    }
-
+    /// Creates a new tiled Client.
     pub fn tiled<X: XConn>(from: XWindowID, conn: &X) -> Self {
         Self::new(from, conn, WinLayoutState::Tiled)
     }
 
+    /// Creates a new floating Client.
     pub fn floating<X: XConn>(from: XWindowID, conn: &X) -> Self {
         Self::new(from, conn, WinLayoutState::Floating)
     }
@@ -174,7 +134,6 @@ impl Client {
                 let (class1, class2) = properties.wm_class();
                 (class1.into(), class2.into())
             },
-            
             initial_geom: Geometry::default(),
             transient_for: None,
             urgent: false,
@@ -185,6 +144,61 @@ impl Client {
         }
     }
 
+    /// Returns the X ID of the client.
+    #[inline(always)]
+    pub fn id(&self) -> XWindowID {
+        self.xwindow.id
+    }
+
+    /// Returns the x coordinate of the window.
+    #[inline(always)]
+    pub fn x(&self) -> i32 {
+        self.xwindow.geom.x
+    }
+
+    /// Returns the y coordinate of the window.
+    #[inline(always)]
+    pub fn y(&self) -> i32 {
+        self.xwindow.geom.y
+    }
+
+    /// Returns the height of the window.
+    #[inline(always)]
+    pub fn height(&self) -> u32 {
+        self.xwindow.geom.height
+    }
+
+    /// Returns the width of the window.
+    #[inline(always)]
+    pub fn width(&self) -> u32 {
+        self.xwindow.geom.width
+    }
+    
+    /// Returns the geometry of the window.
+    #[inline(always)]
+    pub fn geometry(&self) -> Geometry {
+        self.xwindow.geom
+    }
+
+    /// Returns the value of WM_NAME.
+    #[inline(always)]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the value of WM_ICON_NAME.
+    #[inline(always)]
+    pub fn icon_name(&self) -> &str {
+        &self.icon_name
+    }
+
+    /// Returns the value of WM_CLASS.
+    #[inline(always)]
+    pub fn class(&self) -> (&str, &str) {
+        (&self.class.0, &self.class.1)
+    }
+
+    /// Tests whether the client is tiled.
     #[inline]
     pub fn is_tiled(&self) -> bool {
         if let WinLayoutState::Tiled = self.layout_state {
@@ -193,6 +207,7 @@ impl Client {
         false
     }
 
+    /// Tests whether the client is floating.
     #[inline]
     pub fn is_floating(&self) -> bool {
         if let WinLayoutState::Floating = self.layout_state {
@@ -201,21 +216,29 @@ impl Client {
         false
     }
 
+    /// Tests whether the client's urgent flag is set.
     #[inline(always)]
     pub fn is_urgent(&self) -> bool {
         self.urgent
     }
 
+    /// Sets the client's state to tiled.
+    /// 
+    /// No-op if the client is already tiled.
     #[inline]
     pub fn set_tiled(&mut self) {
         self.layout_state = WinLayoutState::Tiled
     }
 
+    /// Sets the client's state to floating.
+    /// 
+    /// No-op if the client is already floating.
     #[inline]
     pub fn set_floating(&mut self) {
         self.layout_state = WinLayoutState::Floating
     }
 
+    /// Toggles the state of the client.
     #[inline]
     pub fn toggle_state(&mut self) {
         if let WinLayoutState::Floating = self.layout_state {
@@ -227,7 +250,7 @@ impl Client {
         }
     }
 
-    //todo: uncomment when ewmh and icccm is fully supported
+    /// Updates all the internal properties of the client.
     pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
@@ -301,6 +324,9 @@ impl Client {
         self.initial_geom = geom;
     }
 
+    /// Sets the border of the Client.
+    /// 
+    /// Should only be used internally.
     pub fn set_border<X: XConn>(&mut self, conn: &X, border: BorderStyle) {
         //todo: set proper const values for border colours
         use BorderStyle::*;
@@ -324,6 +350,7 @@ impl Client {
         }
     }
 
+    /// Maps the client.
     pub fn map<X: XConn>(&mut self, conn: &X) {
         //self.update_all_properties(conn);
         self.update_geometry(conn);
@@ -334,26 +361,30 @@ impl Client {
         conn.map_window(self.id());
     }
 
+    /// Unmaps the client.
     pub fn unmap<X: XConn>(&mut self, conn: &X) {
         self.mapped_state = WindowState::Iconic;
         conn.unmap_window(self.id());
     }
 
+    /// Sets the _NET_WM_STATES property.
     pub fn set_wm_states<X: XConn>(&self, conn: &X) {
         conn.set_wm_state(self.id(), &self.net_states);
     }
 
+    /// Adds a new _NET_WM_STATES property.
     pub fn add_wm_state(&mut self, state: Atom) {
         self.net_states.add(state)
     }
 
+    /// Removes a _NET_WM_STATES property.
     pub fn remove_wm_state(&mut self, state: Atom) {
         if self.net_states.contains(state) {
             self.net_states.remove(state);
         }
     }
     
-    /// Configure the `Client` using a provided connection
+    /// Configure the `Client` using a provided connection.
     /// 
     /// Use `Client::set_geometry` and `Client::update_geometry`
     /// to change client geometry instead of this method.
@@ -462,7 +493,7 @@ impl Client {
         }
     }
 
-    /// Does the client support this protocol?
+    /// Tests whether the client supports this protocol.
     pub fn supports(&self, prtcl: Atom) -> bool {
         self.protocols.contains(&prtcl)
     }
