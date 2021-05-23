@@ -10,11 +10,11 @@ pub const ROOT_ATTRS: [(u32, u32); 1] = [
 ];
 
 // Root window mouse button event mask
-pub const ROOT_BUTTON_GRAB_MASK: xcb::ButtonMask = 
+pub const ROOT_BUTTON_GRAB_MASK: xproto::ButtonMask = 
     xproto::EVENT_MASK_BUTTON_PRESS | xproto::EVENT_MASK_BUTTON_RELEASE;
 
 // Root window pointer event mask
-pub const ROOT_POINTER_GRAB_MASK: xcb::EventMask = 
+pub const ROOT_POINTER_GRAB_MASK: xproto::EventMask = 
     xproto::EVENT_MASK_BUTTON_RELEASE | xproto::EVENT_MASK_BUTTON_MOTION;
 
 pub fn cursor_attrs(cursor_id: u32) -> [(u32, u32); 1] {
