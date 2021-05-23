@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::x::{
     XConn, 
     XWindowID,
@@ -5,6 +7,7 @@ use crate::x::{
 use crate::types::{
     MouseMode, Direction,
 };
+use crate::keybinds::Keybinds;
 use crate::layouts::LayoutType;
 use crate::core::{Screen, Desktop};
 use crate::util;
@@ -23,6 +26,7 @@ pub struct WindowManager<X: XConn> {
     pub(crate) desktop: Desktop,
     pub(crate) screen: Screen,
     pub(crate) root: u32,
+    keybinds: Keybinds<X>,
     mousemode: MouseMode,
     selected: Option<XWindowID>,
     last_mouse_x: i32,
@@ -42,6 +46,7 @@ impl<X: XConn> WindowManager<X> {
             //todo: read up on randr and figure out how the hell this works
             screen: screens[0],
             root: root_id,
+            keybinds: HashMap::new(),
             mousemode: MouseMode::None,
             selected: None,
             last_mouse_x: 0,

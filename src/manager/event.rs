@@ -1,5 +1,6 @@
 use crate::x::{XEvent, XWindowID, XConn};
-use crate::core::types::{Geometry, Keybind};
+use crate::core::types::Geometry;
+use crate::keybinds::Keybind;
 use crate::manager::WMState;
 
 pub enum EventAction {

@@ -1,8 +1,8 @@
 use super::{XWindowID};
 use crate::types::{
     Geometry, Point, Atom,
-    keysym::KeySym,
 };
+use crate::keybinds::keysym::KeySym;
 
 /// Low-level wrapper around actual X server events.
 #[derive(Debug, Clone, Copy)]
