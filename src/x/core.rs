@@ -151,7 +151,7 @@ pub trait XConn {
     // Window-related operations
     fn map_window(&self, window: XWindowID);
     fn unmap_window(&self, window: XWindowID);
-    fn destroy_window(&self, window: XWindowID);
+    fn destroy_window(&self, window: XWindowID); //* don't forget to use icccm DESTROY_WINDOW
     fn set_input_focus(&self, window: XWindowID);
     fn set_geometry(&self, window: XWindowID, geom: Geometry);
     fn set_property(&self, window: XWindowID);
@@ -159,6 +159,7 @@ pub trait XConn {
     fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()>;
     fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
     fn reparent_window(&self, window: XWindowID, parent: XWindowID);
+    //fn create_window(&self);
 
     // ICCCM-related operations
     fn get_client_properties(&self, window: XWindowID) -> XWinProperties;

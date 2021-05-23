@@ -2,9 +2,14 @@ use super::{XWindowID};
 use crate::types::{
     Geometry, Point, Atom,
 };
-use crate::keybinds::keysym::KeySym;
+use crate::keybinds::{
+    keysym::KeySym,
+    ModMask,
+};
 
 /// Low-level wrapper around actual X server events.
+/// 
+/// Translated to EventActions by `WindowManager`.
 #[derive(Debug, Clone, Copy)]
 pub enum XEvent {
     /// Notification that a client has changed its configuration.
@@ -13,19 +18,33 @@ pub enum XEvent {
     ConfigureRequest(ConfigureEvent),
     /// A Client is requesting to be mapped.
     MapRequest(XWindowID, bool), // bool: override_redirect
+    /// A Client has mapped a window.
     MapNotify(XWindowID),
+    /// A Client has unmapped a window.
     UnmapNotify(XWindowID),
+    /// A Client has destroyed a window.
     DestroyNotify(XWindowID),
+    /// The pointer has entered a window.
     EnterNotify(XWindowID),
+    /// The pointer has left a window.
     LeaveNotify(XWindowID),
+    /// The mouse has moved.
     MotionNotify(Point),
+    /// A window was reparented.
     ReparentNotify(XWindowID),
+    /// A window property was changed.
     PropertyNotify(PropertyEvent),
+    /// A key combination was pressed.
     KeyPress(KeypressEvent),
+    /// A key combination was released.
     KeyRelease,
+    /// A mouse button was pressed.
     ButtonPress(XWindowID, Point),
+    /// A mouse button was released.
     ButtonRelease,
+    /// A client message was received.
     ClientMessage(XWindowID, ClientMessageData),
+    /// Unknown event type, used as a catchall for events not tracked by toaruwm.
     Unknown(u8),
 }
 
@@ -55,7 +74,7 @@ pub struct PropertyEvent {
 #[derive(Debug, Clone, Copy)]
 pub struct KeypressEvent {
     /// What modmask was active at the time.
-    pub mask: u32,
+    pub mask: ModMask,
     /// The key pressed.
     pub keysym: KeySym,
 }
