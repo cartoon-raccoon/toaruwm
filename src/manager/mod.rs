@@ -5,6 +5,7 @@ use crate::x::{
     XWindowID,
 };
 use crate::types::{
+    Result,
     MouseMode, Direction,
 };
 use crate::keybinds::Keybinds;
@@ -34,6 +35,7 @@ pub struct WindowManager<X: XConn> {
     to_quit: bool,
 }
 
+#[allow(dead_code)]
 impl<X: XConn> WindowManager<X> {
 
     /// Constructs a new WindowManager object.
@@ -80,8 +82,15 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Runs the main event loop.
-    pub fn run(&mut self) {
-        todo!("WM events not yet implemented")
+    pub fn run(&mut self) -> Result<()> {
+        loop {
+            let action = self.process_next_event();
+
+            if self.to_quit {
+                break Ok(())
+            }
+            // etc etc
+        }
     }
     
     /// Goes to the specified workspace.
@@ -119,4 +128,10 @@ impl<X: XConn> WindowManager<X> {
 
     //* Private methods
     //todo: implement wm events first
+
+    pub(crate) fn process_next_event(&mut self) -> EventAction {
+        let action = self.conn.get_next_event();
+
+        todo!()
+    }
 }

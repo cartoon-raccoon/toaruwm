@@ -35,6 +35,8 @@ pub enum EventAction {
     /// 
     /// Also toggles _NET_WM_STATE_FULLSCREEN.
     ToggleClientFullscreen(XWindowID, bool),
+    /// Set the state of a window to urgent.
+    ToggleUrgency(XWindowID),
 }
 
 impl EventAction {
