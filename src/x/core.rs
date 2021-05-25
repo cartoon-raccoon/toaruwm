@@ -84,6 +84,17 @@ pub struct SizeHints {
     pub gravity: Option<u32>
 }
 
+pub struct PointerQueryReply {
+    pub same_screen: bool,
+    pub root: XWindowID,
+    pub child: XWindowID,
+    pub root_x: i32,
+    pub root_y: i32,
+    pub win_x: i32,
+    pub win_y: i32,
+    pub mask: u16,
+}
+
 impl XWindow {
     /// Sets the geometry using an XConn object.
     pub fn set_geometry_conn<X: XConn>(&mut self, conn: &X) {
@@ -144,6 +155,7 @@ pub trait XConn {
     fn get_root(&self) -> XWindowID;
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
     fn query_tree(&self) -> Vec<XWindowID>;
+    fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply>;
     fn all_outputs(&self) -> Vec<Screen>;
     fn get_prop(&self, prop: &str) -> Result<Property>;
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
