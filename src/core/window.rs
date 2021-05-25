@@ -92,7 +92,7 @@ impl ClientRing {
 /// be used instead.
 #[derive(Debug, Clone)]
 pub struct Client {
-    xwindow: XWindow,
+    pub(crate) xwindow: XWindow,
     name: String,
     icon_name: String,
     class: (String, String),

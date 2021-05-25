@@ -3,14 +3,15 @@ use crate::core::{
     desktop::Screen,
 };
 use crate::types::{
-    BorderStyle, Direction
+    BorderStyle, Direction,
+    BORDER_WIDTH,
 };
 use crate::layouts::{
     LayoutType, 
     LayoutEngine, 
     ResizeAction
 };
-use crate::x::{XConn, XWindowID};
+use crate::x::{xproto, XConn, XWindowID};
 use crate::util;
 
 #[derive(Clone)]
@@ -92,13 +93,102 @@ impl Workspace {
 
     /// Adds a new window and maps it.
     pub fn add_window<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) {
-        debug!("Current master is {:?}", self.master);
-        debug!("{:#?}", &self.windows);
-        todo!()
+        match self.layout() {
+            LayoutType::Floating => {
+                self.add_window_floating(conn, scr, id);
+            }
+            _ => {
+                self.add_window_tiled(conn, scr, id)
+            }
+        }
     }
 
-    pub fn del_window<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) -> Client {
-        todo!()
+    pub fn del_window<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) -> Client {
+        match self.layout() {
+            LayoutType::Floating => {
+                self.del_window_floating(conn, scr, id)
+            }
+            _ => {
+                self.del_window_tiled(conn, scr, id)
+            }
+        }
+    }
+
+    fn add_window_floating<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) {
+        let mut window = Client::floating(id, conn);
+
+        window.set_supported(conn);
+        window.map(conn);
+        window.configure(conn, &[
+            (xproto::CONFIG_WINDOW_BORDER_WIDTH as u16, BORDER_WIDTH,)
+        ]);
+
+        if self.windows.focused().is_some() {
+            window.configure(conn, &util::stack_above());
+        }
+
+        window.xwindow.set_geometry_conn(conn);
+
+        if let Ok(ptr) = conn.query_pointer(scr.xwindow.id) {
+            if ptr.child == scr.xwindow.id || ptr.child == id {
+                self.focus_window(conn, id);
+            } else {
+                if let Some(focused) = self.windows.focused_mut() {
+                    focused.set_border(conn, BorderStyle::Unfocused);
+                } else {
+                    let win = self.windows.lookup_mut(id).unwrap();
+                    win.set_border(conn, BorderStyle::Unfocused);
+                }
+            }
+        }
+
+        window.change_attributes(conn, &util::child_events());
+
+        self.windows.push(window);
+        self.relayout(conn, scr);
+    }
+
+    fn add_window_tiled<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) {
+        todo!("tiling algorithm not implemented")
+    }
+
+    #[allow(mutable_borrow_reservation_conflict)]
+    fn del_window_floating<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) -> Client {
+        let mut window = self.windows.remove_by_id(id)
+        .expect("Could not find window");
+
+        window.change_attributes(conn, &util::disable_events());
+        window.unmap(conn);
+
+        if let Some(idx) = self.windows.get_idx(id) {
+            if idx == 0 {
+                if let Some(next) = self.windows.get(0) {
+                    window_stack_and_focus(self, conn, next.id())
+                }
+            }
+        }
+
+        if self.is_empty() {
+            self.windows.unset_focused();
+        }
+
+        self.relayout(conn, scr);
+
+        window
+    }
+
+    fn del_window_tiled<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) -> Client {
+        todo!("tiling algorithm not implemented")
     }
 
     /// Pushes a window directly.
@@ -125,13 +215,12 @@ impl Workspace {
 
     pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         let layouts = self.layoutter.gen_layout(&self, scr);
-        self.apply_layout(conn, scr, layouts);
+        self.apply_layout(conn, layouts);
     }
 
     fn apply_layout<X: XConn>(
         &mut self, 
         conn: &X, 
-        scr: &Screen, 
         layouts: Vec<ResizeAction>
     ) {
         for rsaction in layouts {
@@ -185,11 +274,10 @@ impl Workspace {
         }
     }
 
-    pub fn take_focused_window<X: XConn>(&mut self, conn: &X,
-        screen: &Screen,
+    pub fn take_focused_window<X: XConn>(&mut self,
+        conn: &X, screen: &Screen,
     ) -> Option<Client> {
         if let Some(window) = self.windows.focused() {
-            let idx = self.windows.get_idx(window.id()).unwrap();
             let window = window.to_owned();
             self.del_window(conn, screen, window.id());
 

@@ -15,6 +15,9 @@ pub use super::window::{Client, ClientRing};
 
 pub type Result<T> = ::core::result::Result<T, WMError>;
 
+// todo: deprecate this and put inside configuration
+pub const BORDER_WIDTH: u32 = 2;
+
 #[derive(Debug, Error, Clone, Copy)]
 pub enum WMError {
     
