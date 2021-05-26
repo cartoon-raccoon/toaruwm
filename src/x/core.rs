@@ -8,7 +8,7 @@ use crate::types::{
     NetWindowStates,
 };
 use crate::core::Screen;
-use super::event::XEvent;
+use super::event::{XEvent, ClientMessageEvent};
 
 pub type XWindowID = u32;
 
@@ -163,7 +163,9 @@ pub trait XConn {
     // Window-related operations
     fn map_window(&self, window: XWindowID);
     fn unmap_window(&self, window: XWindowID);
-    fn destroy_window(&self, window: XWindowID); //* don't forget to use icccm DESTROY_WINDOW
+    fn destroy_window(&self, window: XWindowID); 
+    //* don't forget to use icccm WM_DESTROY_WINDOW
+    fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent);
     fn set_input_focus(&self, window: XWindowID);
     fn set_geometry(&self, window: XWindowID, geom: Geometry);
     fn set_property(&self, window: XWindowID);

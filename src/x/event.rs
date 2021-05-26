@@ -43,7 +43,7 @@ pub enum XEvent {
     /// A mouse button was released.
     ButtonRelease,
     /// A client message was received.
-    ClientMessage(XWindowID, ClientMessageData),
+    ClientMessage(ClientMessageEvent),
     /// Unknown event type, used as a catchall for events not tracked by toaruwm.
     Unknown(u8),
 }
@@ -77,6 +77,13 @@ pub struct KeypressEvent {
     pub mask: ModMask,
     /// The key pressed.
     pub keysym: KeySym,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ClientMessageEvent {
+    pub window: XWindowID,
+    pub data: ClientMessageData,
+    pub type_: Atom,
 }
 
 /// The different formats of a Client message's data,
