@@ -84,12 +84,12 @@ impl<X: XConn> WindowManager<X> {
     /// Runs the main event loop.
     pub fn run(&mut self) -> Result<()> {
         loop {
-            let action = self.process_next_event();
+            let actions = self.process_next_event();
+            self.handle_event(actions)?;
 
             if self.to_quit {
                 break Ok(())
             }
-            // etc etc
         }
     }
     
@@ -127,11 +127,17 @@ impl<X: XConn> WindowManager<X> {
     }
 
     //* Private methods
-    //todo: implement wm events first
-
-    pub(crate) fn process_next_event(&mut self) -> EventAction {
+    pub(crate) fn process_next_event(&mut self) -> Vec<EventAction> {
         let action = self.conn.get_next_event();
 
-        todo!()
+        EventAction::from_xevent(action, self.state())
+    }
+
+    fn handle_event(&mut self, actions: Vec<EventAction>) -> Result<()> {
+        for _action in actions {
+            todo!()
+        }
+
+        Ok(())
     }
 }

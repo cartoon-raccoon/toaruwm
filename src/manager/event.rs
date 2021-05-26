@@ -71,7 +71,7 @@ impl EventAction {
             KeyRelease => {},
             ButtonPress(id, pt) => {},
             ButtonRelease => {},
-            ClientMessage(id, data) => {},
+            ClientMessage(event) => {},
             Unknown(smth) => {},
         }
         todo!()
