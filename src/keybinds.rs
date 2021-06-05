@@ -10,11 +10,20 @@ pub mod keysym {
 }
 
 pub type ModMask = u32;
+pub type ButtonMask = u32;
+pub type ButtonIndex = u32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct Keybind {
     pub modmask: ModMask,
     pub keysym: keysym::KeySym,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+pub struct Mousebind {
+    pub button: ButtonIndex,
+    pub mask: ButtonMask,
+    pub modmask: ModMask,
 }
 
 impl From<KeypressEvent> for Keybind {
