@@ -96,25 +96,6 @@ pub enum ClientMessageData {
 }
 
 impl ClientMessageData {
-    //todo: move this to the xcb conn impl
-    // pub fn from_event(event: &xproto::ClientMessageEvent) -> Self {
-    //     let data = event.data();
-    //     match event.format() {
-    //         8 => {
-    //             Self::U8(data.data8()[0..20]
-    //             .try_into().expect("Byte: Incorrect conversion"))
-    //         }
-    //         16 => {
-    //             Self::U16(data.data16()[0..10]
-    //             .try_into().expect("Word: Incorrect conversion"))
-    //         }
-    //         32 => {
-    //             Self::U32(data.data32()[0..5]
-    //             .try_into().expect("DWord: Incorrect conversion"))
-    //         }
-    //         _ => {unreachable!()}
-    //     }
-    // }
 
     #[inline(always)]
     pub fn is_u8(&self) -> bool {
