@@ -79,7 +79,7 @@ impl Workspace {
             // update window geometry in the x server
             window.update_geometry(conn);
             // map window
-            conn.map_window(window.id());
+            conn.map_window(window.id()).unwrap_or_else(|e| error!("{}", e));
             // re-enable events
             window.change_attributes(conn, &util::child_events());
         }
@@ -91,7 +91,7 @@ impl Workspace {
             conn.change_window_attributes(window.id(), &util::disable_events())
             .unwrap_or_else(|e| error!("{}", e));
     
-            conn.unmap_window(window.id());
+            conn.unmap_window(window.id()).unwrap_or_else(|e| error!("{}", e));
     
             conn.change_window_attributes(window.id(), &util::child_events())
             .unwrap_or_else(|e| error!("{}", e));

@@ -361,13 +361,13 @@ impl Client {
             self.id(), 
             &[(xproto::CW_EVENT_MASK, xproto::EVENT_MASK_PROPERTY_CHANGE)]
         ).unwrap_or_else(|e| error!("{}", e));
-        conn.map_window(self.id());
+        conn.map_window(self.id()).unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Unmaps the client.
     pub fn unmap<X: XConn>(&mut self, conn: &X) {
         self.mapped_state = WindowState::Iconic;
-        conn.unmap_window(self.id());
+        conn.unmap_window(self.id()).unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Sets the _NET_WM_STATES property.
