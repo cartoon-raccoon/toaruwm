@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::keybinds::{Keybind, Mousebind};
+
 use crate::types::{
     Geometry,
     XWinProperties,
@@ -7,7 +9,7 @@ use crate::types::{
     Atom,
     NetWindowStates,
 };
-use crate::core::Screen;
+use crate::core::{Screen, Client};
 use super::event::{XEvent, ClientMessageEvent};
 
 pub type XWindowID = u32;
@@ -139,10 +141,12 @@ impl XWindow {
     }
 }
 
-#[derive(Debug, Error, Clone, Copy)]
+#[derive(Debug, Error, Clone)]
 pub enum XError {
     #[error("Could not establish a connection to the X server.")]
     Connection,
+    #[error("X server error: {0}")]
+    ServerError(String),
     #[error("Could not complete specified request.")]
     RequestError,
 }
@@ -157,24 +161,33 @@ pub trait XConn {
     fn query_tree(&self) -> Vec<XWindowID>;
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply>;
     fn all_outputs(&self) -> Vec<Screen>;
-    fn get_prop(&self, prop: &str) -> Result<Property>;
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
+    fn grab_keyboard(&self) -> Result<()>;
+    fn ungrab_keyboard(&self) -> Result<()>;
+    fn grab_key(&self, kb: Keybind) -> Result<()>;
+    fn grab_button(&self, mb: Mousebind) -> Result<()>;
+    fn ungrab_button(&self, mb: Mousebind) -> Result<()>;
+    fn grab_pointer(&self, winid: XWindowID, mask: u32);
+    fn ungrab_pointer(&self);
 
     // Window-related operations
     fn map_window(&self, window: XWindowID);
     fn unmap_window(&self, window: XWindowID);
-    fn destroy_window(&self, window: XWindowID); 
-    //* don't forget to use icccm WM_DESTROY_WINDOW
+    //Provides a reference to a Client so as to make use of ICCCM WM_DESTROY_WINDOW
+    fn destroy_window(&self, window: &Client); 
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent);
     fn set_input_focus(&self, window: XWindowID);
     fn set_geometry(&self, window: XWindowID, geom: Geometry);
     fn set_property(&self, window: XWindowID);
+    fn get_prop_str(&self, prop: &str) -> Result<Property>;
+    fn get_prop_atom(&self, prop: Atom) -> Result<Property>;
     fn set_root_scr(&mut self, scr: i32);
     fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()>;
     fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
     fn reparent_window(&self, window: XWindowID, parent: XWindowID);
     //fn create_window(&self);
 
+    // ! Can all be implemented via get_prop(), consider removing
     // ICCCM-related operations
     fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
     fn get_wm_name(&self, window: XWindowID) -> String;
