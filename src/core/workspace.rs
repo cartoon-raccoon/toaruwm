@@ -1,3 +1,10 @@
+//! This module defines `Workspace`, which represents a collection
+//! of windows that can be displayed onscreen together.
+//! Each workspace tracks its windows inside a `ClientRing`,
+//! and also tracks whether each window is tiled or floating.
+//! Workspace layouts can be changed on the fly, and will adjust themselves
+//! as necessary.
+
 use crate::core::{
     window::{Client, ClientRing},
     desktop::Screen,

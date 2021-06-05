@@ -1,3 +1,17 @@
+//! This module defines Ring, a data structure inspired by Penrose.
+//! 
+//! A `Ring` abstracts over an internal buffer and presents an interface
+//! that resembles a ring-buffer, with one element in focus, or none. 
+//! It can be rotated and the focus can be set, unset or cycled through
+//! in different directions.
+//! 
+//! Retrieving items from a `Ring` can be done using a `Selector`, which
+//! can retrieve the focused item, an item at an index, or an item that
+//! fulfills a predicate.
+//! 
+//! Insertion into a Ring is done with an InsertPoint, which can insert an item
+//! with respect to the current item in focus, or at a specified index.
+
 use std::collections::VecDeque;
 use std::ops::{Index, IndexMut};
 

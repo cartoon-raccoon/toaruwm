@@ -1,3 +1,13 @@
+//! This module exports `Desktop` and `Screen`.
+//! 
+//! `Desktop` is the main type handled directly by `WindowManager`.
+//! It encapsulates multiple workspaces, and handles sending
+//! windows between workspaces.
+//! 
+//! `Screen` represents a physical monitor that X is connected to.
+//! It encapsulates monitor resolution and is used by the tiling
+//! algorithms to resize windows.
+
 use crate::x::{XConn, XWindow, XWindowID};
 use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::Workspace;

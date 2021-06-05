@@ -1,3 +1,6 @@
+//! This module exports Client and ClientRing, which encapsulate
+//! data about windows and manage them internally respectively.
+
 use std::collections::HashSet;
 
 use super::{Ring, Selector};
