@@ -392,7 +392,9 @@ impl Client {
     /// Use `Client::set_geometry` and `Client::update_geometry`
     /// to change client geometry instead of this method.
     pub fn configure<X: XConn>(&self, conn: &X, attrs: &[(u16, u32)]) {
-        conn.configure_window(self.id(), attrs);
+        conn.configure_window(self.id(), attrs).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
     }
 
     /// Change client attributes.
@@ -423,7 +425,9 @@ impl Client {
         conn.configure_window(self.xwindow.id, &util::configure_resize(
             self.width() as u32, 
             self.height() as u32
-        ));
+        )).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
 
         // debug!(
         //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}", 
@@ -453,7 +457,9 @@ impl Client {
         conn.configure_window(self.xwindow.id, &util::configure_move(
             self.x() as u32, 
             self.y() as u32
-        ));
+        )).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
 
         // debug!(
         //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}", 
@@ -473,12 +479,16 @@ impl Client {
         conn.configure_window(self.xwindow.id, &util::configure_resize(
             self.width() as u32,
             self.height() as u32,
-        ));
+        )).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
 
         conn.configure_window(self.xwindow.id, &util::configure_move(
             self.x() as u32,
             self.y() as u32,
-        ))
+        )).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
     }
 
     /// Updates and sets the Client geometry with a given Geometry.
