@@ -66,11 +66,51 @@ pub enum Property {
     Atom(Vec<String>),
     Bytes(Vec<u32>),
     Cardinal(u32),
+    String(String),
     UTF8String(Vec<String>),
     Window(Vec<XWindowID>),
     WMHints(WmHints),
     WMSizeHints(SizeHints),
 }
+
+impl Property {
+    /// If the property is `Self::Atoms(_), return its internal
+    /// representation as a Vec of Atoms instead of Strings.
+    /// 
+    /// If the property is not `Self::Atoms`, None is returned.
+    pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<Atom>> {
+        if let Self::Atom(strings) = self {
+            Some(strings.iter().map(|string| 
+                if let Some(atom) = conn.lookup_atom_name(string.as_str()) {
+                    atom
+                } else {
+                    conn.intern_atom(string.as_str()).unwrap_or(0)
+                }
+            ).collect())
+        } else {
+            None
+        }
+    }
+}
+
+macro_rules! derive_is {
+    ($name:ident, $var:pat) => {
+        impl Property {
+            pub fn $name(&self) -> bool {
+                matches!(self, $var)
+            }
+        }
+    }
+}
+
+derive_is!(is_atom, Self::Atom(_));
+derive_is!(is_bytes, Self::Bytes(_));
+derive_is!(is_card, Self::Cardinal(_));
+derive_is!(is_string, Self::String(_));
+derive_is!(is_utf8str, Self::UTF8String(_));
+derive_is!(is_window, Self::Window(_));
+derive_is!(is_wmhints, Self::WMHints(_));
+derive_is!(is_sizehints, Self::WMSizeHints(_));
 
 /// ICCCM-defined window hints (WM_HINTS).
 #[derive(Debug, Clone, Copy)]
