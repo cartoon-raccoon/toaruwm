@@ -204,14 +204,14 @@ pub trait XConn {
     /// Returns the geometry of a given window.
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
 
-    /// Queries the root window and all its children.
-    fn query_tree(&self) -> Vec<XWindowID>;
+    /// Queries the given window and all its children.
+    fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>>;
 
     /// Queries the X server for pointer data.
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply>;
 
     /// Returns randr data on all connected screens.
-    fn all_outputs(&self) -> Vec<Screen>;
+    fn all_outputs(&self) -> Result<Vec<Screen>>;
 
     /// Interns an atom to the X server.
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
@@ -245,32 +245,36 @@ pub trait XConn {
     fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()>;
 
     /// Grabs the pointer.
-    fn grab_pointer(&self, winid: XWindowID, mask: EventMask);
+    fn grab_pointer(&self, winid: XWindowID, mask: EventMask) -> Result<()>;
 
     /// Ungrabs the pointer.
-    fn ungrab_pointer(&self);
+    fn ungrab_pointer(&self) -> Result<()>;
+
+    fn create_cursor(&self) -> Result<()>;
+
+    fn set_cursor(&self, window: XWindowID) -> Result<()>;
 
     //* Window-related operations
 
     /// Maps a given window.
-    fn map_window(&self, window: XWindowID);
+    fn map_window(&self, window: XWindowID) -> Result<()>;
 
     /// Unmaps a given window.
-    fn unmap_window(&self, window: XWindowID);
+    fn unmap_window(&self, window: XWindowID) -> Result<()>;
 
     /// Destroys a window.
     /// 
-    /// Provides a reference to a Client so as to make use of ICCCM WM_DESTROY_WINDOW.
-    fn destroy_window(&self, window: &Client); 
+    /// Provides a reference to a Client so as to make use of ICCCM WM_DELETE_WINDOW.
+    fn destroy_window(&self, window: &Client) -> Result<()>; 
 
     /// Sends a message to a given client.
-    fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent);
+    fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()>;
 
     /// Sets the input focus to a given window.
     fn set_input_focus(&self, window: XWindowID);
 
     /// Set the geometry for a given window.
-    fn set_geometry(&self, window: XWindowID, geom: Geometry);
+    fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()>;
 
     /// Set the property for a given window.
     fn set_property(&self, window: XWindowID, prop: Atom, data: Property) -> Result<()>;
