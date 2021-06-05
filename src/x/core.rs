@@ -26,6 +26,7 @@ pub mod xproto {
     pub use xcb::xproto::*;
 }
 
+/// Representation of an X window with additional data (geometry).
 #[derive(Debug, Clone, Copy)]
 pub struct XWindow {
     pub id: XWindowID,
@@ -65,7 +66,7 @@ pub enum Property {
     WMSizeHints(SizeHints),
 }
 
-/// ICCCM-defined window hints.
+/// ICCCM-defined window hints (WM_HINTS).
 #[derive(Debug, Clone, Copy)]
 pub struct WmHints {
     pub state: WindowState,
@@ -73,6 +74,7 @@ pub struct WmHints {
     //todo: add pixmaps
 }
 
+/// ICCCM-defined window size hints (WM_SIZE_HINTS).
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct SizeHints {
     pub position: Option<(i32, i32)>,
@@ -86,6 +88,7 @@ pub struct SizeHints {
     pub gravity: Option<u32>
 }
 
+/// Reply to a pointer query.
 pub struct PointerQueryReply {
     pub same_screen: bool,
     pub root: XWindowID,
@@ -141,17 +144,23 @@ impl XWindow {
     }
 }
 
+/// Possible errors returned by the X connection.
 #[derive(Debug, Error, Clone)]
 pub enum XError {
     #[error("Could not establish a connection to the X server.")]
     Connection,
     #[error("X server error: {0}")]
     ServerError(String),
+    #[error("Error converting client message data")]
+    ConversionError,
     #[error("Could not complete specified request.")]
     RequestError,
 }
 
+/// Result type for XConn.
 pub type Result<T> = ::core::result::Result<T, XError>;
+
+use xproto::EventMask;
 
 pub trait XConn {
     // General X server operations
@@ -162,12 +171,16 @@ pub trait XConn {
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply>;
     fn all_outputs(&self) -> Vec<Screen>;
     fn intern_atom(&self, atom: &str) -> Result<Atom>;
+    fn lookup_atom(&self, atom: Atom) -> Result<String>;
+    fn lookup_interned_atom(&self, atom: Atom) -> Option<&str>;
+    fn lookup_interned_atom_name(&self, name: &str) -> Option<Atom>;
     fn grab_keyboard(&self) -> Result<()>;
     fn ungrab_keyboard(&self) -> Result<()>;
     fn grab_key(&self, kb: Keybind) -> Result<()>;
+    fn ungrab_key(&self, kb: Keybind) -> Result<()>;
     fn grab_button(&self, mb: Mousebind) -> Result<()>;
     fn ungrab_button(&self, mb: Mousebind) -> Result<()>;
-    fn grab_pointer(&self, winid: XWindowID, mask: u32);
+    fn grab_pointer(&self, winid: XWindowID, mask: EventMask);
     fn ungrab_pointer(&self);
 
     // Window-related operations
@@ -179,30 +192,77 @@ pub trait XConn {
     fn set_input_focus(&self, window: XWindowID);
     fn set_geometry(&self, window: XWindowID, geom: Geometry);
     fn set_property(&self, window: XWindowID);
-    fn get_prop_str(&self, prop: &str) -> Result<Property>;
-    fn get_prop_atom(&self, prop: Atom) -> Result<Property>;
+    fn get_prop_str(&self, prop: &str, window: XWindowID) -> Result<Property>;
+    fn get_prop_atom(&self, prop: Atom, window: XWindowID) -> Result<Property>;
     fn set_root_scr(&mut self, scr: i32);
     fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()>;
-    fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]);
-    fn reparent_window(&self, window: XWindowID, parent: XWindowID);
+    fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]) -> Result<()>;
+    fn reparent_window(&self, window: XWindowID, parent: XWindowID) -> Result<()>;
     //fn create_window(&self);
 
-    // ! Can all be implemented via get_prop(), consider removing
+    //* provided methods to make my life easier
     // ICCCM-related operations
-    fn get_client_properties(&self, window: XWindowID) -> XWinProperties;
-    fn get_wm_name(&self, window: XWindowID) -> String;
-    fn get_wm_icon_name(&self, window: XWindowID) -> String;
-    fn get_wm_size_hints(&self, window: XWindowID) -> Option<SizeHints>;
-    fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints>;    
-    fn get_wm_class(&self, window: XWindowID) -> Option<(String, String)>;
-    fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<Atom>>;
-    fn get_wm_state(&self, window: XWindowID) -> WindowState;
-    fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID>;
-    fn get_urgency(&self, window: XWindowID) -> bool;
+    fn get_client_properties(&self, window: XWindowID) -> XWinProperties {
+        todo!()
+    }
+    fn get_wm_name(&self, window: XWindowID) -> String {
+        let prop = self.get_prop_atom(xproto::ATOM_WM_NAME, window);
+        if prop.is_err() { 
+            "".into() 
+        } else {
+            let prop = prop.unwrap();
+            if let Property::UTF8String(prop) = prop {
+                prop.remove(0)
+            } else { "".into() }
+        }
+    }
+    fn get_wm_icon_name(&self, window: XWindowID) -> String {
+        todo!()
+    }
+    fn get_wm_size_hints(&self, window: XWindowID) -> Option<SizeHints> {
+        todo!()
+    }
+    fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints> {
+        todo!()
+    }
+    fn get_wm_class(&self, window: XWindowID) -> Option<(String, String)> {
+        todo!()
+    }
+    fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<Atom>> {
+        todo!()
+    }
+    fn get_wm_state(&self, window: XWindowID) -> WindowState {
+        todo!()
+    }
+    fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
+        todo!()
+    }
+    fn get_urgency(&self, window: XWindowID) -> bool {
+        if let Some(hints) = self.get_wm_hints(window) {
+            hints.urgent
+        } else {false}
+    }
 
     // EWMH-related operations
-    fn get_window_type(&self, window: XWindowID) -> Option<Vec<Atom>>;
-    fn get_window_states(&self, window: XWindowID) -> NetWindowStates;
-    fn set_supported(&self, screen_idx: i32, atoms: &[Atom]);
-    fn set_wm_state(&self, window: XWindowID, atoms: &[Atom]);
+    fn get_window_type(&self, window: XWindowID) -> Option<Vec<String>> {
+        let atom = self.lookup_interned_atom_name(
+            "_NET_WM_WINDOW_TYPE"
+        ).expect("atom not interned");
+
+        if let Some(Property::Atom(atoms)) = self.get_prop_atom(atom, window).ok() {
+            Some(atoms)
+        } else {
+            error!("Expected Atom type for get_window_type");
+            None
+        }
+    }
+    fn get_window_states(&self, window: XWindowID) -> NetWindowStates {
+        todo!()
+    }
+    fn set_supported(&self, screen_idx: i32, atoms: &[Atom]) {
+        todo!()
+    }
+    fn set_wm_state(&self, window: XWindowID, atoms: &[Atom]) {
+        todo!()
+    }
 }
