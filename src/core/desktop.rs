@@ -98,7 +98,7 @@ impl Desktop {
             error!("Focused should be Some");
             return
         }
-        self.goto(conn, scr, &name);
+        self.goto(&name, conn, scr);
     }
 
     /// Get a reference to a workspace by its index
@@ -134,10 +134,11 @@ impl Desktop {
     }
 
     /// Switch to a given workspace by its name.
-    pub fn goto<X: XConn>(&mut self, conn: &X, scr: &Screen, name: &str) {
+    pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
         let new_idx = self.workspaces.index(Selector::Condition(&|ws| ws.name == name));
         if new_idx.is_none() {
             error!("No workspace {} found", name);
+            return
         }
         let new_idx = new_idx.unwrap();
         if self.current == new_idx {
@@ -145,7 +146,7 @@ impl Desktop {
         }
         debug!("Goto desktop {}", new_idx);
 
-        self.workspaces.get_mut(self.current).unwrap().deactivate(conn);
+        self.current_mut().deactivate(conn);
         
         self.current = new_idx;
 
@@ -157,7 +158,7 @@ impl Desktop {
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<X: XConn>(&mut self, conn: &X, scr: &Screen, name: &str) {
+    pub fn send_window_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
         debug!("Attempting to send window to workspace {}", name);
         if let Some(window) = self.current_mut().take_focused_window(conn, scr) {
             debug!("Sending window {} to workspace {}", window.id(), name);
@@ -167,7 +168,7 @@ impl Desktop {
                 error!("Cannot find workspace named {}", name);
             }
         } else {
-            debug!("No focused window for workspace {}", name);
+            info!("No focused window for workspace {}", name);
         }
         self.current_mut().relayout(conn, scr);
     }
