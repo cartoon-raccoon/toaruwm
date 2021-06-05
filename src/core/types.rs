@@ -8,7 +8,6 @@ use crate::layouts::LayoutType;
 pub use crate::core::{Ring, Selector};
 pub use crate::x::core::{WmHints, SizeHints};
 
-pub type ModMask = u32;
 pub type Atom = u32;
 
 pub use super::window::{Client, ClientRing};
