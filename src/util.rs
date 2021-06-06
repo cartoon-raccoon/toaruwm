@@ -1,5 +1,9 @@
 use crate::x::xproto;
 
+pub const FOCUSED_COL: u32 = 0xdddddd;
+pub const UNFOCUSED_COL: u32 = 0x555555;
+pub const URGENT_COL: u32 = 0xdd0000;
+
 pub const ROOT_ATTRS: [(u32, u32); 1] = [
     (
         xproto::CW_EVENT_MASK, 

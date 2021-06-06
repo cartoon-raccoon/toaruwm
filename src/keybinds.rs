@@ -9,13 +9,35 @@ pub mod keysym {
     pub use x11::keysym::*;
 }
 
-pub type ModMask = u32;
-pub type ButtonMask = u32;
-pub type ButtonIndex = u32;
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+pub enum ModKey {
+    Ctrl,
+    Alt,
+    Shift,
+    Meta,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+pub enum ButtonMask {
+    Left,
+    Middle,
+    Right,
+    Button4,
+    Button5,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+pub enum ButtonIndex {
+    Left,
+    Middle,
+    Right,
+    Button4,
+    Button5,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct Keybind {
-    pub modmask: ModMask,
+    pub modmask: ModKey,
     pub keysym: keysym::KeySym,
 }
 
@@ -23,7 +45,7 @@ pub struct Keybind {
 pub struct Mousebind {
     pub button: ButtonIndex,
     pub mask: ButtonMask,
-    pub modmask: ModMask,
+    pub modmask: ModKey,
 }
 
 impl From<KeypressEvent> for Keybind {

@@ -10,7 +10,8 @@ pub use crate::x::core::{
     WindowState,
     WmHints, 
     SizeHints, 
-    XError
+    XError,
+    StackMode,
 };
 
 pub type Atom = u32;
@@ -106,6 +107,34 @@ pub enum BorderStyle {
     Focused,
     Unfocused,
     Urgent,
+}
+
+/// Configuration options for a Client.
+#[derive(Clone, Copy, Debug)]
+pub enum ClientConfig {
+    /// Width of the window border.
+    BorderWidth(u32),
+    /// Position of the window.
+    Position(Geometry),
+    /// Resizing the window.
+    Resize {h: u32, w: u32},
+    /// Moving the window.
+    Move {x: i32, y: i32},
+    /// Stacking mode of the window.
+    StackingMode(StackMode),
+}
+
+/// Attribute options for a Client.
+#[derive(Clone, Copy, Debug)]
+pub enum ClientAttrs {
+    /// The colour of the border.
+    BorderColour(BorderStyle),
+    /// Client event mask.
+    EnableClientEvents,
+    /// 
+    DisableClientEvents,
+    /// Root window attributes required for the WM to work.
+    RootEventMask,
 }
 
 /// Convenience wrapper around a Vec of NetWindowStates.
