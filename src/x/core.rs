@@ -272,6 +272,7 @@ use xproto::EventMask;
 /// 
 /// [1]: crate::manager::WindowManager
 /// [2]: crate::x::xcb::XCBConn
+#[allow(unused_variables)]
 pub trait XConn {
     //* General X server operations
 
@@ -331,10 +332,6 @@ pub trait XConn {
 
     /// Ungrabs the pointer.
     fn ungrab_pointer(&self) -> Result<()>;
-
-    fn create_cursor(&self) -> Result<()>;
-
-    fn set_cursor(&self, window: XWindowID) -> Result<()>;
 
     //* Window-related operations
 

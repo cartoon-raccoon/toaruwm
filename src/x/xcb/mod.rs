@@ -1,6 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 
-use xcb_util::ewmh;
+use xcb_util::{ewmh, cursor};
 
 use strum::IntoEnumIterator;
 
@@ -12,6 +12,7 @@ use crate::x::{
     event::ClientMessageData,
 };
 use crate::types::Atom as XAtom;
+use crate::util;
 use super::atom::Atom;
 
 mod impl_xconn;
@@ -30,6 +31,7 @@ pub struct XCBConn {
     conn: ewmh::Connection,
     root: XWindowID,
     atoms: Atoms,
+    cursor: u32,
 }
 
 impl XCBConn {
@@ -50,6 +52,7 @@ impl XCBConn {
             conn: conn,
             root: root,
             atoms: atoms,
+            cursor: 0,
         })
     }
 
@@ -123,6 +126,9 @@ impl XCBConn {
             self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?)
         }
 
+        self.create_cursor(cursor::LEFT_PTR)?;
+        self.set_cursor(self.root)?;
+
         //todo: randr setup
 
         Ok(())
@@ -138,6 +144,19 @@ impl XCBConn {
 
     pub fn conn(&self) -> &xcb::Connection {
         &self.conn
+    }
+
+    //todo: make this better
+    pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
+        debug!("Creating cursor");
+        let cursor_id = cursor::create_font_cursor_checked(&self.conn, glyph)?;
+        self.cursor = cursor_id;
+        Ok(())
+    }
+
+    pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
+        debug!("Setting cursor for {}", window);
+        self.change_window_attributes(window, &util::cursor_attrs(self.cursor))
     }
 
     #[allow(dead_code)]
