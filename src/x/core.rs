@@ -490,14 +490,36 @@ pub trait XConn {
     }
 
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
-        let atom = self.atom("WM_STATE").ok()?;
+        let prop = self.get_prop_str("WM_STATE", window).ok()?;
 
-
-        todo!()
+        if let Property::U32List(list) = prop {
+            Some(match list[0] as xcb_util::icccm::WmState {
+                1 => WindowState::Normal,
+                3 => WindowState::Iconic,
+                0 => WindowState::Withdrawn,
+                n @ _ => {
+                    error!("Expected 1, 3, or 0 for WM_STATE, got {}", n);
+                    return None
+                }
+            })
+        } else {
+            error!("Expected Property::U32List, got {:?}", prop);
+            None
+        }
     }
 
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
-        todo!()
+        let prop = self.get_prop_str("WM_TRANSIENT_FOR", window).ok()?;
+
+        if let Property::Window(ids) = prop {
+            if ids[0] == 0 {
+                warn!("Received window type but value is 0");
+                None
+            } else {Some(ids[0])}
+        } else {
+            error!("Expected window type, got {:?}", prop);
+            None
+        }
     }
 
     fn get_urgency(&self, window: XWindowID) -> bool {

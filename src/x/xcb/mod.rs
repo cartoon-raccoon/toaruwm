@@ -146,6 +146,16 @@ impl XCBConn {
     }
 }
 
+use std::string::FromUtf8Error;
+
+impl From<FromUtf8Error> for XError {
+    fn from(e: FromUtf8Error) -> XError {
+        XError::InvalidPropertyData(
+            format!("Invalid UTF8 data: {}", e)
+        )
+    }
+}
+
 impl From<xcb::ConnError> for XError {
     fn from(_: xcb::ConnError) -> XError {
         XError::Connection

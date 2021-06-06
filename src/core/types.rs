@@ -92,8 +92,9 @@ pub(crate) enum WinLayoutState {
 // The ICCCM-defined window states.
 #[derive(Clone, Copy, Debug)]
 pub enum WindowState {
-    Normal,
-    Iconic,
+    Normal = 1,
+    Iconic = 3,
+    Withdrawn = 0,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
