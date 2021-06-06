@@ -27,8 +27,14 @@ const MAX_LONG_LENGTH: u32 = 1024;
 
 impl XConn for XCBConn {
     // General X server operations
-    fn get_next_event(&self) -> XEvent {
-        todo!()
+    fn poll_next_event(&self) -> Result<Option<XEvent>> {
+        self.conn.flush();
+
+        if let Some(event) = self.conn.poll_for_event() {
+            Ok(Some(self.process_raw_event(event)))
+        } else {
+            Ok(self.conn.has_error().map(|_| None)?)
+        }
     }
 
     fn get_root(&self) -> XWindowID {
