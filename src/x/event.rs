@@ -1,4 +1,4 @@
-use super::{XWindowID};
+use super::{XWindowID, core::StackMode};
 use crate::types::{
     Geometry, Point, Atom,
 };
@@ -15,7 +15,7 @@ pub enum XEvent {
     /// Notification that a client has changed its configuration.
     ConfigureNotify(ConfigureEvent),
     /// Request for configuration from a client.
-    ConfigureRequest(ConfigureEvent),
+    ConfigureRequest(ConfigureRequest),
     /// A Client is requesting to be mapped.
     MapRequest(XWindowID, bool), // bool: override_redirect
     /// A Client has mapped a window.
@@ -56,6 +56,29 @@ pub struct ConfigureEvent {
     /// The new geometry requested by the window.
     pub geom: Geometry,
     /// Is the window the root window
+    pub is_root: bool,
+}
+
+/// Data associated with a configure request.
+#[derive(Debug, Clone, Copy)]
+pub struct ConfigureRequest {
+    /// The window associated with the event.
+    pub id: XWindowID,
+    /// The parent window of id.
+    pub parent: XWindowID,
+    /// Sibling window of id. Used if stack_mode is set.
+    pub sibling: Option<XWindowID>,
+    /// X coordinate to configure to.
+    pub x: Option<i32>,
+    /// Y coordinate to configure to.
+    pub y: Option<i32>,
+    /// Window height to configure to.
+    pub height: Option<u32>,
+    /// Window width to configure to.
+    pub width: Option<u32>,
+    /// Stack mode to configure to.
+    pub stack_mode: Option<StackMode>,
+    /// If the window to configure is root.
     pub is_root: bool,
 }
 
