@@ -271,8 +271,6 @@ pub enum XError {
 /// Result type for XConn.
 pub type Result<T> = ::core::result::Result<T, XError>;
 
-use xproto::EventMask;
-
 /// A trait used to define the interface between toaruwm and the X server.
 /// 
 /// XConn provides an abstraction layer for talking to an underlying X server.
@@ -353,7 +351,7 @@ pub trait XConn {
     fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()>;
 
     /// Grabs the pointer.
-    fn grab_pointer(&self, winid: XWindowID, mask: EventMask) -> Result<()>;
+    fn grab_pointer(&self, winid: XWindowID, mask: u32) -> Result<()>;
 
     /// Ungrabs the pointer.
     fn ungrab_pointer(&self) -> Result<()>;
