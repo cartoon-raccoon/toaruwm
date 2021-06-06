@@ -1,22 +1,149 @@
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 use xcb_util::ewmh;
 
+use strum::IntoEnumIterator;
+
 use crate::x::{
+    Atoms,
     core::{
-        XWindowID, Result, XError,
+        XWindowID, Result, XError, XConn,
     },
     event::ClientMessageData,
 };
-use crate::types::Atom;
+use crate::types::Atom as XAtom;
+use super::atom::Atom;
 
 mod impl_xconn;
 
+/// A connection to an X server, backed by the XCB library.
+/// 
+/// This is a very simple connection to the X server
+/// and is completely synchronous.
+/// 
+/// It implements [XConn][1] and thus can be used with a
+/// [WindowManager][2].
+/// 
+/// [1]: crate::x::core::XConn
+/// [2]: crate::manager::WindowManager
 pub struct XCBConn {
     conn: ewmh::Connection,
     root: XWindowID,
-    atoms: HashMap<String, Atom>,
+    atoms: Atoms,
+}
+
+impl XCBConn {
+    pub fn connect() -> Result<Self> {
+        let (x, idx) = xcb::Connection::connect(None)?;
+        let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
+
+        
+        let atoms = Atoms::new();
+
+        let root = conn.get_setup()
+            .roots()
+            .nth(idx as usize)
+            .expect("Could not get root id")
+            .root();
+
+        Ok(Self {
+            conn: conn,
+            root: root,
+            atoms: atoms,
+        })
+    }
+
+    pub fn init(&mut self) -> Result<()> {
+        self.atoms.insert("_NET_SUPPORTED".into(), self.conn.SUPPORTED());
+        self.atoms.insert("_NET_WM_WINDOW_TYPE".into(), self.conn.WM_WINDOW_TYPE());
+        self.atoms.insert("_NET_WM_STRUT".into(), self.conn.WM_STRUT());
+        self.atoms.insert("_NET_WM_STRUT_PARTIAL".into(), self.conn.WM_STRUT_PARTIAL());
+
+        self.atoms.insert(
+            "WM_DELETE_WINDOW".into(),
+            xcb::intern_atom(&self.conn, false, "WM_DELETE_WINDOW")
+            .get_reply()?
+            .atom());
+
+        self.atoms.insert(
+            "WM_TAKE_FOCUS".into(),
+            xcb::intern_atom(&self.conn, false, "WM_TAKE_FOCUS")
+            .get_reply()?
+            .atom());
+
+        self.atoms.insert(
+            "WM_PROTOCOLS".into(), self.conn.WM_PROTOCOLS()
+        );
+        self.atoms.insert(
+            "_NET_WM_WINDOW_TYPE_DESKTOP".into(), 
+            self.conn.WM_WINDOW_TYPE_DESKTOP()
+        );
+        self.atoms.insert(
+            "_NET_WM_WINDOW_TYPE_DOCK".into(),
+            self.conn.WM_WINDOW_TYPE_DOCK()
+        );
+        self.atoms.insert(
+            "_NET_WM_WINDOW_TYPE_TOOLBAR".into(),
+            self.conn.WM_WINDOW_TYPE_TOOLBAR()
+        );
+        self.atoms.insert(
+            "_NET_WM_WINDOW_TYPE_MENU".into(),
+            self.conn.WM_WINDOW_TYPE_MENU()
+        );
+        self.atoms.insert(
+            "_NET_WM_WINDOW_TYPE_UTILITY".into(),
+            self.conn.WM_WINDOW_TYPE_UTILITY()
+        );
+        self.atoms.insert(
+            "_NET_WINDOW_TYPE_SPLASH".into(),
+            self.conn.WM_WINDOW_TYPE_SPLASH()
+        );
+        self.atoms.insert(
+            "_NET_WINDOW_TYPE_DIALOG".into(),
+            self.conn.WM_WINDOW_TYPE_DIALOG()
+        );
+        self.atoms.insert(
+            "_NET_WINDOW_TYPE_DROPDOWN_MENU".into(),
+            self.conn.WM_WINDOW_TYPE_DROPDOWN_MENU()
+        );
+        self.atoms.insert(
+            "_NET_WINDOW_TYPE_NOTIFICATION".into(),
+            self.conn.WM_WINDOW_TYPE_NOTIFICATION()
+        );
+        self.atoms.insert(
+            "_NET_WINDOW_TYPE_NORMAL".into(),
+            self.conn.WM_WINDOW_TYPE_NORMAL()
+        );
+        self.atoms.insert(
+            "_NET_WM_STATE".into(),
+            self.conn.WM_STATE()
+        );
+
+        for atom in Atom::iter() {
+            self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?)
+        }
+
+        //todo: randr setup
+
+        Ok(())
+    }
+
+    pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
+        self.atoms.insert(name.as_ref(), atom);
+    }
+
+    pub fn atoms(&self) -> &Atoms {
+        &self.atoms
+    }
+
+    pub fn conn(&self) -> &xcb::Connection {
+        &self.conn
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn get_setup(&self) -> xcb::Setup<'_> {
+        self.conn.get_setup()
+    }
 }
 
 impl From<xcb::ConnError> for XError {
@@ -28,96 +155,6 @@ impl From<xcb::ConnError> for XError {
 impl From<xcb::GenericError> for XError {
     fn from(from: xcb::GenericError) -> XError {
         XError::ServerError(from.to_string())
-    }
-}
-
-impl XCBConn {
-    pub fn connect() -> Result<Self> {
-        let (x, idx) = xcb::Connection::connect(None)?;
-        let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
-
-        let root = conn.get_setup()
-            .roots()
-            .nth(idx as usize)
-            .expect("Could not get root id")
-            .root();
-        
-        let mut atoms = HashMap::new();
-
-        atoms.insert("_NET_SUPPORTED".into(), conn.SUPPORTED());
-        atoms.insert("_NET_WM_WINDOW_TYPE".into(), conn.WM_WINDOW_TYPE());
-        atoms.insert("_NET_WM_STRUT".into(), conn.WM_STRUT());
-        atoms.insert("_NET_WM_STRUT_PARTIAL".into(), conn.WM_STRUT_PARTIAL());
-
-        atoms.insert(
-            "WM_DELETE_WINDOW".into(),
-            xcb::intern_atom(&conn, false, "WM_DELETE_WINDOW")
-            .get_reply()?
-            .atom());
-
-        atoms.insert(
-            "WM_TAKE_FOCUS".into(),
-            xcb::intern_atom(&conn, false, "WM_TAKE_FOCUS")
-            .get_reply()?
-            .atom());
-
-        atoms.insert(
-            "WM_PROTOCOLS".into(), conn.WM_PROTOCOLS()
-        );
-        atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DESKTOP".into(), 
-            conn.WM_WINDOW_TYPE_DESKTOP()
-        );
-        atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DOCK".into(),
-            conn.WM_WINDOW_TYPE_DOCK()
-        );
-        atoms.insert(
-            "_NET_WM_WINDOW_TYPE_TOOLBAR".into(),
-            conn.WM_WINDOW_TYPE_TOOLBAR()
-        );
-        atoms.insert(
-            "_NET_WM_WINDOW_TYPE_MENU".into(),
-            conn.WM_WINDOW_TYPE_MENU()
-        );
-        atoms.insert(
-            "_NET_WM_WINDOW_TYPE_UTILITY".into(),
-            conn.WM_WINDOW_TYPE_UTILITY()
-        );
-        atoms.insert(
-            "_NET_WINDOW_TYPE_SPLASH".into(),
-            conn.WM_WINDOW_TYPE_SPLASH()
-        );
-        atoms.insert(
-            "_NET_WINDOW_TYPE_DIALOG".into(),
-            conn.WM_WINDOW_TYPE_DIALOG()
-        );
-        atoms.insert(
-            "_NET_WINDOW_TYPE_DROPDOWN_MENU".into(),
-            conn.WM_WINDOW_TYPE_DROPDOWN_MENU()
-        );
-        atoms.insert(
-            "_NET_WINDOW_TYPE_NOTIFICATION".into(),
-            conn.WM_WINDOW_TYPE_NOTIFICATION()
-        );
-        atoms.insert(
-            "_NET_WINDOW_TYPE_NORMAL".into(),
-            conn.WM_WINDOW_TYPE_NORMAL()
-        );
-        atoms.insert(
-            "_NET_WM_STATE".into(),
-            conn.WM_STATE()
-        );
-
-        Ok(Self {
-            conn: conn,
-            root: root,
-            atoms: atoms,
-        })
-    }
-
-    pub fn add_atom<S: Into<String>>(&mut self, name: S, atom: Atom) {
-        self.atoms.insert(name.into(), atom);
     }
 }
 
@@ -147,26 +184,7 @@ impl TryFrom<&xcb::xproto::ClientMessageEvent> for ClientMessageData {
                 Ok(Self::U32(data.data32()[0..5]
                 .try_into()?))
             }
-            _ => {unreachable!()}
+            _ => {Err(XError::ConversionError)}
         }
     }
 }
-
-// pub fn from_event(event: &xproto::ClientMessageEvent) -> Self {
-    //     let data = event.data();
-    //     match event.format() {
-    //         8 => {
-    //             Self::U8(data.data8()[0..20]
-    //             .try_into().expect("Byte: Incorrect conversion"))
-    //         }
-    //         16 => {
-    //             Self::U16(data.data16()[0..10]
-    //             .try_into().expect("Word: Incorrect conversion"))
-    //         }
-    //         32 => {
-    //             Self::U32(data.data32()[0..5]
-    //             .try_into().expect("DWord: Incorrect conversion"))
-    //         }
-    //         _ => {unreachable!()}
-    //     }
-    // }
