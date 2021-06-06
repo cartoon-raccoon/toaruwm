@@ -7,15 +7,40 @@ use strum::IntoEnumIterator;
 use crate::x::{
     Atoms,
     core::{
-        XWindowID, Result, XError, XConn,
+        XWindowID, Result, 
+        XError, XConn,
+        StackMode,
     },
-    event::ClientMessageData,
+    event::{
+        XEvent,
+        ConfigureEvent,
+        ConfigureRequestData,
+        ReparentEvent,
+        PropertyEvent,
+        KeypressEvent,
+        ButtonPressEvent,
+        ClientMessageEvent,
+        ClientMessageData,
+    },
 };
-use crate::types::Atom as XAtom;
+use crate::types::{
+    Atom as XAtom,
+    Point, Geometry,
+};
 use crate::util;
 use super::atom::Atom;
 
 mod xconn;
+mod convert;
+
+const X_EVENT_MASK: u8 = 0x7f;
+
+// used for casting events and stuff
+macro_rules! cast {
+    ($etype:ty, $event:expr) => {
+        unsafe {xcb::cast_event::<$etype>(&$event)}
+    };
+}
 
 /// A connection to an X server, backed by the XCB library.
 /// 
@@ -162,6 +187,190 @@ impl XCBConn {
     #[allow(dead_code)]
     pub(crate) fn get_setup(&self) -> xcb::Setup<'_> {
         self.conn.get_setup()
+    }
+
+    fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
+        use XEvent::*;
+        #[allow(unused_imports)]
+
+        //todo: handle randr events
+
+        match event.response_type() & X_EVENT_MASK {
+            xcb::CONFIGURE_NOTIFY => {
+                let event = cast!(xcb::ConfigureNotifyEvent, event);
+                if event.event() == self.root {
+                    debug!("Top level window configuration")
+                }
+                Ok(ConfigureNotify(ConfigureEvent {
+                    id: event.window(),
+                    geom: Geometry {
+                        x: event.x() as i32,
+                        y: event.y() as i32,
+                        height: event.height() as u32,
+                        width: event.width() as u32
+                    },
+                    is_root: event.window() == self.root,
+                }))
+            }
+            xcb::CONFIGURE_REQUEST => {
+                use StackMode::*;
+                use xcb::{
+                    CONFIG_WINDOW_X as CF_X,
+                    CONFIG_WINDOW_Y as CF_Y,
+                    CONFIG_WINDOW_HEIGHT as CF_H,
+                    CONFIG_WINDOW_WIDTH as CF_W,
+                    CONFIG_WINDOW_STACK_MODE as CF_SM,
+                    CONFIG_WINDOW_SIBLING as CF_SB,
+                };
+
+                let event = cast!(xcb::ConfigureRequestEvent, event);
+                let is_root = event.window() == self.root;
+                if event.parent() == self.root {
+                    debug!("Top level window configuration request");
+                }
+                let vmask = event.value_mask();
+
+                let parent = event.parent();
+                let x = if CF_X as u16 & vmask != 0 {
+                    Some(event.x() as i32)
+                } else {None};
+                let y = if CF_Y as u16 & vmask != 0 {
+                    Some(event.y() as i32)
+                } else {None};
+                let height = if CF_H as u16 & vmask != 0 {
+                    Some(event.height() as u32)
+                } else {None};
+                let width = if CF_W as u16 & vmask != 0 {
+                    Some(event.width() as u32)
+                } else {None};
+                let stack_mode = if CF_SM as u16 & vmask != 0 {
+                    match event.stack_mode() as u32 {
+                        xcb::STACK_MODE_ABOVE => Some(Above),
+                        xcb::STACK_MODE_BELOW => Some(Below),
+                        xcb::STACK_MODE_TOP_IF => Some(TopIf),
+                        xcb::STACK_MODE_BOTTOM_IF => Some(BottomIf),
+                        xcb::STACK_MODE_OPPOSITE => Some(Opposite),
+                        _ => None
+                    }
+                } else {None};
+                let sibling = if CF_SB as u16 & vmask != 0 {
+                    Some(event.sibling())
+                } else {None};
+
+                Ok(ConfigureRequest(ConfigureRequestData {
+                    id: event.window(),
+                    parent,
+                    sibling,
+                    x, y, height, width,
+                    stack_mode,
+                    is_root,
+                }))
+            }
+            xcb::MAP_REQUEST => {
+                let event = cast!(xcb::MapRequestEvent, event);
+
+                let override_redirect = if let Ok(reply) = xcb::get_window_attributes(
+                    &self.conn, event.window()
+                ).get_reply() {
+                    reply.override_redirect()
+                } else {false};
+
+                Ok(MapRequest(event.window(), override_redirect))
+            }
+            xcb::MAP_NOTIFY => {
+                let event = cast!(xcb::MapNotifyEvent, event);
+
+                Ok(MapNotify(event.window()))
+            }
+            xcb::UNMAP_NOTIFY => {
+                let event = cast!(xcb::UnmapNotifyEvent, event);
+
+                Ok(UnmapNotify(event.window()))
+            }
+            xcb::DESTROY_NOTIFY => {
+                let event = cast!(xcb::DestroyNotifyEvent, event);
+
+                Ok(DestroyNotify(event.window()))
+            }
+            xcb::ENTER_NOTIFY => {
+                let event = cast!(xcb::EnterNotifyEvent, event);
+
+                Ok(EnterNotify(event.event()))
+            }
+            xcb::LEAVE_NOTIFY => {
+                let event = cast!(xcb::LeaveNotifyEvent, event);
+
+                Ok(LeaveNotify(event.event()))
+            }
+            xcb::MOTION_NOTIFY => {
+                let event = cast!(xcb::MotionNotifyEvent, event);
+
+                Ok(MotionNotify(event.event(), Point {
+                    x: event.root_x() as i32,
+                    y: event.root_y() as i32,
+                }))
+            }
+            xcb::REPARENT_NOTIFY => {
+                let event = cast!(xcb::ReparentNotifyEvent, event);
+
+                Ok(ReparentNotify(ReparentEvent {
+                    event: event.event(),
+                    parent: event.parent(),
+                    child: event.window(),
+                    over_red: event.override_redirect(),
+                }))
+            }
+            xcb::PROPERTY_NOTIFY => {
+                let event = cast!(xcb::PropertyNotifyEvent, event);
+
+                Ok(PropertyNotify(PropertyEvent {
+                    id: event.window(),
+                    atom: event.atom(),
+                    time: event.time(),
+                    deleted: event.state() == xcb::PROPERTY_DELETE as u8,
+                }))
+            }
+            xcb::KEY_PRESS => {
+                let event = cast!(xcb::KeyPressEvent, event);
+                let numlock = xcb::MOD_MASK_2 as u16;
+
+                Ok(KeyPress(event.event(), KeypressEvent {
+                    mask: event.state() & !numlock,
+                    keycode: event.detail(),
+                }))
+            }
+            xcb::KEY_RELEASE => {
+                Ok(KeyRelease)
+            }
+            xcb::BUTTON_PRESS => {
+                let event = cast!(xcb::ButtonPressEvent, event);
+
+                Ok(ButtonPress(ButtonPressEvent {
+                    id: event.event(),
+                    location: Point {
+                        x: event.root_x() as i32,
+                        y: event.root_y() as i32,
+                    },
+                    mask: event.state(),
+                    button: event.detail(),
+                }))
+            }
+            xcb::BUTTON_RELEASE => {
+                Ok(ButtonRelease)
+            }
+            xcb::CLIENT_MESSAGE => {
+                let event = cast!(xcb::ClientMessageEvent, event);
+
+                Ok(ClientMessage(ClientMessageEvent {
+                    window: event.window(),
+                    data: ClientMessageData::try_from(event)?,
+                    type_: event.type_(),
+                }))
+            }
+            n @ _ => {
+                Ok(Unknown(n))
+            }
+        }
     }
 }
 

@@ -2,10 +2,6 @@ use super::{XWindowID, core::StackMode};
 use crate::types::{
     Geometry, Point, Atom,
 };
-use crate::keybinds::{
-    keysym::KeySym,
-    ModMask,
-};
 
 /// Low-level wrapper around actual X server events.
 /// 
@@ -15,7 +11,7 @@ pub enum XEvent {
     /// Notification that a client has changed its configuration.
     ConfigureNotify(ConfigureEvent),
     /// Request for configuration from a client.
-    ConfigureRequest(ConfigureRequest),
+    ConfigureRequest(ConfigureRequestData),
     /// A Client is requesting to be mapped.
     MapRequest(XWindowID, bool), // bool: override_redirect
     /// A Client has mapped a window.
@@ -29,18 +25,20 @@ pub enum XEvent {
     /// The pointer has left a window.
     LeaveNotify(XWindowID),
     /// The mouse has moved.
-    MotionNotify(Point),
+    MotionNotify(XWindowID, Point),
     /// A window was reparented.
-    ReparentNotify(XWindowID),
+    ReparentNotify(ReparentEvent),
     /// A window property was changed.
     PropertyNotify(PropertyEvent),
     /// A key combination was pressed.
-    KeyPress(KeypressEvent),
+    KeyPress(XWindowID, KeypressEvent),
     /// A key combination was released.
+    //? does this need any more information?
     KeyRelease,
     /// A mouse button was pressed.
-    ButtonPress(XWindowID, Point),
+    ButtonPress(ButtonPressEvent),
     /// A mouse button was released.
+    //? does this need any more information?
     ButtonRelease,
     /// A client message was received.
     ClientMessage(ClientMessageEvent),
@@ -61,7 +59,7 @@ pub struct ConfigureEvent {
 
 /// Data associated with a configure request.
 #[derive(Debug, Clone, Copy)]
-pub struct ConfigureRequest {
+pub struct ConfigureRequestData {
     /// The window associated with the event.
     pub id: XWindowID,
     /// The parent window of id.
@@ -82,6 +80,15 @@ pub struct ConfigureRequest {
     pub is_root: bool,
 }
 
+/// Data associated with a reparent event.
+#[derive(Debug, Clone, Copy)]
+pub struct ReparentEvent {
+    pub event: XWindowID,
+    pub parent: XWindowID,
+    pub child: XWindowID,
+    pub over_red: bool,
+}
+
 /// Data associated with a property change event.
 #[derive(Debug, Clone, Copy)]
 pub struct PropertyEvent {
@@ -91,15 +98,30 @@ pub struct PropertyEvent {
     pub atom: Atom,
     /// The time of event.
     pub time: u32,
+    /// Whether the property was deleted.
+    pub deleted: bool,
 }
 
 /// Data associated with a key press event.
 #[derive(Debug, Clone, Copy)]
 pub struct KeypressEvent {
-    /// What modmask was active at the time.
-    pub mask: ModMask,
-    /// The key pressed.
-    pub keysym: KeySym,
+    /// The state of modifier keys was active at the time.
+    pub mask: u16,
+    /// The keycode of the key pressed.
+    pub keycode: u8,
+}
+
+/// Data associated with a button press event.
+#[derive(Debug, Clone, Copy)]
+pub struct ButtonPressEvent {
+    /// The window the pointer was on when the button was pressed.
+    pub id: XWindowID,
+    /// The location of the pointer when the button was pressed.
+    pub location: Point,
+    /// The state of modifier keys was active at the time.
+    pub mask: u16,
+    /// The index of the button pressed.
+    pub button: u8,
 }
 
 #[derive(Debug, Clone, Copy)]
