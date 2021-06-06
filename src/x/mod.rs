@@ -15,6 +15,7 @@
 pub mod core;
 pub mod event;
 pub mod xcb;
+pub mod atom;
 
 pub use self::core::{XConn, XWindow, XWindowID, xproto};
 pub use event::XEvent;
