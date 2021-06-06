@@ -35,24 +35,26 @@ pub enum ButtonIndex {
     Button5,
 }
 
+pub type KeyMask = u16;
+pub type KeyCode = u8;
+
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct Keybind {
-    pub modmask: ModKey,
-    pub keysym: keysym::KeySym,
+    pub modmask: KeyMask,
+    pub code: KeyCode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct Mousebind {
+    pub modmask: KeyMask,
     pub button: ButtonIndex,
-    pub mask: ButtonMask,
-    pub modmask: ModKey,
 }
 
 impl From<KeypressEvent> for Keybind {
     fn from(from: KeypressEvent) -> Keybind {
         Keybind {
             modmask: from.mask, 
-            keysym: from.keysym,
+            code: from.keycode,
         }
     }
 }

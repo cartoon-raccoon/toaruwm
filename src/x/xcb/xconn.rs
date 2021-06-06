@@ -1,4 +1,4 @@
-use xcb_util::keysyms::KeySymbols;
+//use xcb_util::keysyms::KeySymbols;
 use xcb::{
     ClientMessageData as XCBClientMsgData,
     ClientMessageEvent as XCBClientMsgEvent,
@@ -31,7 +31,7 @@ impl XConn for XCBConn {
         self.conn.flush();
 
         if let Some(event) = self.conn.poll_for_event() {
-            Ok(Some(self.process_raw_event(event)))
+            Ok(Some(self.process_raw_event(event)?))
         } else {
             Ok(self.conn.has_error().map(|_| None)?)
         }
@@ -132,48 +132,41 @@ impl XConn for XCBConn {
     }
 
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()> {
-        debug!("Grabbing key {} for window {}", kb.keysym, window);
+        debug!("Grabbing key {} for window {}", kb.code, window);
 
-        let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
+        //let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
 
-        if let Some(code) = code {
-            xcb::grab_key(
-                &self.conn,
-                false,
-                window,
-                kb.modmask.into(),
-                code,
-                xcb::GRAB_MODE_ASYNC as u8,
-                xcb::GRAB_MODE_ASYNC as u8,
-            ).request_check().map_err(|_|
-                XError::ServerError(
-                    format!("Unable to grab key {} for window {}", code, window)
-                )
-            )?;
-        } else {
-            warn!("Returned null keycode for keysym {}, not grabbing", kb.keysym);
-        }
+        
+        xcb::grab_key(
+            &self.conn,
+            false,
+            window,
+            kb.modmask.into(),
+            kb.code,
+            xcb::GRAB_MODE_ASYNC as u8,
+            xcb::GRAB_MODE_ASYNC as u8,
+        ).request_check().map_err(|_|
+            XError::ServerError(
+                format!("Unable to grab key {} for window {}", kb.code, window)
+            )
+        )?;
         Ok(())
     }
 
     fn ungrab_key(&self, kb: Keybind, window: XWindowID) -> Result<()> {
-        let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
+        //let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
 
-        if let Some(code) = code {
-            xcb::ungrab_key(
-                &self.conn,
-                code,
-                window,
-                kb.modmask.into(),
-            ).request_check().map_err(|_|
-                XError::ServerError(
-                    format!("Unable to ungrab key {} for window {}", 
-                    code, window)
-                )
-            )?;
-        } else {
-            warn!("Returned null keycode for keysym {}, not grabbing", kb.keysym);
-        }
+        xcb::ungrab_key(
+            &self.conn,
+            kb.code,
+            window,
+            kb.modmask.into(),
+        ).request_check().map_err(|_|
+            XError::ServerError(
+                format!("Unable to ungrab key {} for window {}", 
+                kb.code, window)
+            )
+        )?;
         Ok(())
 
     }
