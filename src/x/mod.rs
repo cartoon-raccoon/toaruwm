@@ -19,3 +19,4 @@ pub mod atom;
 
 pub use self::core::{XConn, XWindow, XWindowID, xproto};
 pub use event::XEvent;
+pub use atom::Atoms;

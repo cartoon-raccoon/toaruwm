@@ -1,12 +1,20 @@
+//use std::convert::TryFrom;
+use std::collections::HashMap;
+use std::str::FromStr;
+
+use thiserror::Error;
+
 use strum::*;
 use strum_macros::EnumIter;
+
+use crate::types::Atom as XAtom;
 
 // shamelessly stolen from:
 // https://github.com/sminez/penrose/blob/develop/src/core/xconnection/atom.rs
 //
 // thanks dude, and sorry for stealing your stuff.
 
-#[derive(AsRefStr, EnumString, EnumIter, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(AsRefStr, Display, EnumString, EnumIter, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Atom {
     /// ATOM
     #[strum(serialize = "ATOM")]
@@ -150,6 +158,10 @@ pub enum Atom {
     NetWindowTypeNormal,
 }
 
+#[derive(Clone, Copy, Debug, Error)]
+#[error("Could not get known atom from given atom {0}")]
+pub struct TryFromAtomError(XAtom);
+
 /// Clients with one of these window types will be auto floated
 pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeCombo,
@@ -191,3 +203,49 @@ pub const EWMH_SUPPORTED_ATOMS: &[Atom] = &[
     Atom::NetWmStateFullscreen,
     Atom::NetWmWindowType,
 ];
+
+/// A type that associates either an Atom or a String with
+/// an X-defined atom.
+/// 
+/// This allows the user to manage known atoms conveniently.
+pub struct Atoms {
+    /// Known atoms that can be managed as their enum variants.
+    known: HashMap<Atom, XAtom>,
+    /// Unknown atoms that have to be managed as strings.
+    interned: HashMap<String, XAtom>,
+}
+
+impl Atoms {
+    pub fn new() -> Self {
+        Self {
+            known: HashMap::new(),
+            interned: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, atom: &str, val: XAtom) {
+        if let Ok(known) = Atom::from_str(atom) {
+            self.known.insert(known, val);
+        } else {
+            self.interned.insert(atom.into(), val);
+        }
+    }
+
+    pub fn retrieve(&self, atom: &str) -> Option<XAtom> {
+        if let Ok(known) = Atom::from_str(atom) {
+            self.known.get(&known).map(|a| *a)
+        } else {
+            self.interned.get(&atom.to_string()).map(|a| *a)
+        }
+    }
+
+    pub fn retrieve_by_value(&self, atom: XAtom) -> Option<String> {
+        if let Some((known, _)) = self.known.iter().find(|(_, v)| **v == atom) {
+            Some(known.to_string())
+        } else {
+            self.interned.iter()
+            .find(|(_, v)| **v == atom)
+            .map(|(k, _)| k.clone())
+        }
+    }
+}
