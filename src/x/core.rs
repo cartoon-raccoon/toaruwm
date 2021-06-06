@@ -10,7 +10,6 @@ use crate::keybinds::{Keybind, Mousebind};
 use crate::types::{
     Geometry,
     XWinProperties,
-    WindowState,
     Atom,
     NetWindowStates,
 };
@@ -30,34 +29,6 @@ pub type XWindowID = u32;
 /// X protocol, not the XCB library itself.
 pub mod xproto {
     pub use xcb::xproto::*;
-}
-
-/// Representation of an X window with additional data (geometry).
-#[derive(Debug, Clone, Copy)]
-pub struct XWindow {
-    pub id: XWindowID,
-    pub geom: Geometry,
-}
-
-impl PartialEq for XWindow {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl From<XWindowID> for XWindow {
-    fn from(from: XWindowID) -> Self {
-        Self {
-            id: from,
-            geom: Geometry {
-                x: 0,
-                y: 0,
-                height: 0,
-                width: 0,
-            }
-        }
-    }
 }
 
 /// X server properties.
@@ -145,6 +116,24 @@ derive_is!(is_u8list, Self::U8List(_));
 derive_is!(is_u16list, Self::U16List(_));
 derive_is!(is_u32list, Self::U32List(_));
 
+/// The ICCCM-defined window states.
+#[derive(Clone, Copy, Debug)]
+pub enum WindowState {
+    Normal = 1,
+    Iconic = 3,
+    Withdrawn = 0,
+}
+
+/// Window stacking modes defined by the X Protocol.
+#[derive(Clone, Copy, Debug)]
+pub enum StackMode {
+    Above = xproto::STACK_MODE_ABOVE as isize,
+    Below = xproto::STACK_MODE_BELOW as isize,
+    TopIf = xproto::STACK_MODE_TOP_IF as isize,
+    BottomIf = xproto::STACK_MODE_BOTTOM_IF as isize,
+    Opposite = xproto::STACK_MODE_OPPOSITE as isize,
+}
+
 /// ICCCM-defined window hints (WM_HINTS).
 #[derive(Debug, Clone, Copy)]
 pub struct WmHints {
@@ -177,6 +166,34 @@ pub struct PointerQueryReply {
     pub win_x: i32,
     pub win_y: i32,
     pub mask: u16,
+}
+
+/// Representation of an X window with additional data (geometry).
+#[derive(Debug, Clone, Copy)]
+pub struct XWindow {
+    pub id: XWindowID,
+    pub geom: Geometry,
+}
+
+impl PartialEq for XWindow {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl From<XWindowID> for XWindow {
+    fn from(from: XWindowID) -> Self {
+        Self {
+            id: from,
+            geom: Geometry {
+                x: 0,
+                y: 0,
+                height: 0,
+                width: 0,
+            }
+        }
+    }
 }
 
 impl XWindow {
@@ -277,7 +294,13 @@ pub trait XConn {
     //* General X server operations
 
     /// Receives the next event from the X server.
-    fn get_next_event(&self) -> XEvent;
+    /// 
+    /// If no events are queued, returns Ok(None),
+    /// allowing the event loop to continue and handle other processing.
+    /// If the connection has an error, it returns Err.
+    /// 
+    /// Else, it returns Ok(Some(event)).
+    fn poll_next_event(&self) -> Result<Option<XEvent>>;
 
     /// Returns the ID of the root window.
     fn get_root(&self) -> XWindowID;

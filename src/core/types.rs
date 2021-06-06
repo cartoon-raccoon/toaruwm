@@ -6,7 +6,12 @@ use crate::layouts::LayoutType;
 //use crate::manager::WindowManager;
 
 pub use crate::core::{Ring, Selector};
-pub use crate::x::core::{WmHints, SizeHints};
+pub use crate::x::core::{
+    WindowState,
+    WmHints, 
+    SizeHints, 
+    XError
+};
 
 pub type Atom = u32;
 
@@ -17,9 +22,16 @@ pub type Result<T> = ::core::result::Result<T, WMError>;
 // todo: deprecate this and put inside configuration
 pub const BORDER_WIDTH: u32 = 2;
 
-#[derive(Debug, Error, Clone, Copy)]
+#[derive(Debug, Error, Clone)]
 pub enum WMError {
-    
+    #[error("{0}")]
+    ConnectionError(XError)
+}
+
+impl From<XError> for WMError {
+    fn from(e: XError) -> WMError {
+        WMError::ConnectionError(e)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -87,14 +99,6 @@ pub enum MouseMode {
 pub(crate) enum WinLayoutState {
     Tiled,
     Floating,
-}
-
-// The ICCCM-defined window states.
-#[derive(Clone, Copy, Debug)]
-pub enum WindowState {
-    Normal = 1,
-    Iconic = 3,
-    Withdrawn = 0,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
