@@ -141,7 +141,7 @@ impl XConn for XCBConn {
                 &self.conn,
                 false,
                 window,
-                kb.modmask as u16,
+                kb.modmask.into(),
                 code,
                 xcb::GRAB_MODE_ASYNC as u8,
                 xcb::GRAB_MODE_ASYNC as u8,
@@ -164,7 +164,7 @@ impl XConn for XCBConn {
                 &self.conn,
                 code,
                 window,
-                kb.modmask as u16,
+                kb.modmask.into(),
             ).request_check().map_err(|_|
                 XError::ServerError(
                     format!("Unable to ungrab key {} for window {}", 
@@ -179,7 +179,7 @@ impl XConn for XCBConn {
     }
 
     fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()> {
-        debug!("Grab button {} for window: {}", mb.button, window);
+        debug!("Grab button {:?} for window: {}", mb.button, window);
 
         xcb::grab_button(
             &self.conn, 
@@ -190,26 +190,26 @@ impl XConn for XCBConn {
             xcb::GRAB_MODE_ASYNC as u8,
             if confine { window } else { xcb::NONE },
             xcb::NONE,
-            mb.button as u8,
-            mb.modmask as u16,
+            mb.button.into(),
+            mb.modmask.into(),
         ).request_check().map_err(|_|
             XError::ServerError(
-                format!("Unable to grab button {} for window {}", mb.button, window)
+                format!("Unable to grab button {:?} for window {}", mb.button, window)
             )
         )
     }
 
     fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()> {
-        debug!("Ungrabbing button {} for window {}", mb.button, window);
+        debug!("Ungrabbing button {:?} for window {}", mb.button, window);
 
         xcb::ungrab_button(
             &self.conn,
-            mb.button as u8,
+            mb.button.into(),
             window,
-            mb.modmask as u16,
+            mb.modmask.into(),
         ).request_check().map_err(|_|
             XError::ServerError(
-                format!("Unable to ungrab button {} for window {}",
+                format!("Unable to ungrab button {:?} for window {}",
                     mb.button, window
                 )
             )
@@ -217,7 +217,7 @@ impl XConn for XCBConn {
     }
 
     fn grab_pointer(&self, winid: XWindowID, mask: xproto::EventMask) -> Result<()> {
-        debug!("Grabbing pointer for window: {}", winid);
+        debug!("Grabbing pointer for window: {:?}", winid);
 
         xcb::grab_pointer(
             &self.conn,
