@@ -309,11 +309,7 @@ impl Client {
     pub fn update_dynamic<X: XConn>(&mut self, conn: &X) {
         self.name = conn.get_wm_name(self.id());
         self.icon_name = conn.get_wm_icon_name(self.id());
-        self.class = if let Some(class) = conn.get_wm_class(self.id()) {
-            class
-        } else {
-            ("".into(), "".into())
-        };
+        self.class = conn.get_wm_class(self.id());
         self.urgent = conn.get_urgency(self.id());
 
         if self.urgent {

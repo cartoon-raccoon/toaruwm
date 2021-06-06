@@ -63,14 +63,44 @@ impl From<XWindowID> for XWindow {
 /// X server properties.
 #[derive(Debug, Clone)]
 pub enum Property {
+    /// a list of Atoms (u32), expressed as strings.
     Atom(Vec<String>),
-    Bytes(Vec<u32>),
+
+    /// a cardinal number.
     Cardinal(u32),
-    String(String),
+
+    /// a list of strings.
+    String(Vec<String>),
+
+    /// a list of UTF-8 encoded strings.
     UTF8String(Vec<String>),
+
+    /// a list of windows IDs.
     Window(Vec<XWindowID>),
+
+    /// WM_HINTS.
     WMHints(WmHints),
+
+    /// WM_SIZE_HINTS.
     WMSizeHints(SizeHints),
+
+    /// Raw data as a vec of bytes.
+    /// Returned if the format of the response is 8.
+    /// 
+    /// Used if the property type is not recognized by toaruwm.
+    U8List(Vec<u8>),
+
+    /// Raw data as a vec of words.
+    /// Returned if the format of the response is 16.
+    /// 
+    /// Used of the property type is not recognized by toaruwm.
+    U16List(Vec<u16>),
+
+    /// Raw data as a vec of doublewords.
+    /// Returned if the format of the response is 32.
+    /// 
+    /// Used of the property type is not recognized by toaruwm.
+    U32List(Vec<u32>),
 }
 
 impl Property {
@@ -80,19 +110,20 @@ impl Property {
     /// If the property is not `Self::Atoms`, None is returned.
     pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<Atom>> {
         if let Self::Atom(strings) = self {
-            Some(strings.iter().map(|string| 
-                if let Some(atom) = conn.lookup_atom_name(string.as_str()) {
-                    atom
-                } else {
-                    conn.intern_atom(string.as_str()).unwrap_or(0)
+            Some({
+                let mut atoms = Vec::new();
+                for s in strings {
+                    atoms.push(conn.atom(s).ok()?)
                 }
-            ).collect())
+                atoms
+            })
         } else {
             None
         }
     }
 }
 
+// generate Property::is_<var> methods
 macro_rules! derive_is {
     ($name:ident, $var:pat) => {
         impl Property {
@@ -104,13 +135,15 @@ macro_rules! derive_is {
 }
 
 derive_is!(is_atom, Self::Atom(_));
-derive_is!(is_bytes, Self::Bytes(_));
 derive_is!(is_card, Self::Cardinal(_));
 derive_is!(is_string, Self::String(_));
 derive_is!(is_utf8str, Self::UTF8String(_));
 derive_is!(is_window, Self::Window(_));
 derive_is!(is_wmhints, Self::WMHints(_));
 derive_is!(is_sizehints, Self::WMSizeHints(_));
+derive_is!(is_u8list, Self::U8List(_));
+derive_is!(is_u16list, Self::U16List(_));
+derive_is!(is_u32list, Self::U32List(_));
 
 /// ICCCM-defined window hints (WM_HINTS).
 #[derive(Debug, Clone, Copy)]
@@ -205,9 +238,15 @@ pub enum XError {
     #[error("Error converting client message data")]
     ConversionError,
 
+    #[error("Invalid property data: {0}")]
+    InvalidPropertyData(String),
+
     /// The request could not be fulfilled by the X server.
     #[error("Could not complete specified request.")]
     RequestError,
+
+    #[error("{0}")]
+    OtherError(String)
 }
 
 /// Result type for XConn.
@@ -229,9 +268,10 @@ use xproto::EventMask;
 /// any display server implementing the X protocol, given a proper
 /// implementor of `XConn`.
 /// 
-/// This crate provides an XCB-backed implementation of `XConn`.
+/// This crate provides an XCB-backed implementation of `XConn` - [XCBConn][2].
 /// 
 /// [1]: crate::manager::WindowManager
+/// [2]: crate::x::xcb::XCBConn
 pub trait XConn {
     //* General X server operations
 
@@ -253,8 +293,10 @@ pub trait XConn {
     /// Returns randr data on all connected screens.
     fn all_outputs(&self) -> Result<Vec<Screen>>;
 
-    /// Interns an atom to the X server.
-    fn intern_atom(&self, atom: &str) -> Result<Atom>;
+    /// Get the value of an atom.
+    /// 
+    /// If the atom is unknown, intern it.
+    fn atom(&self, atom: &str) -> Result<Atom>;
 
     /// Looks up the name of an atom.
     fn lookup_atom(&self, atom: Atom) -> Result<String>;
@@ -262,7 +304,7 @@ pub trait XConn {
     /// Looks up the value of an interned atom given its name.
     /// 
     /// If the atom is not interned, None should be returned.
-    fn lookup_atom_name(&self, name: &str) -> Option<Atom>;
+    fn lookup_interned_atom(&self, name: &str) -> Option<Atom>;
 
     /// Grabs the keyboard.
     fn grab_keyboard(&self) -> Result<()>;
@@ -317,7 +359,7 @@ pub trait XConn {
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()>;
 
     /// Set the property for a given window.
-    fn set_property(&self, window: XWindowID, prop: Atom, data: Property) -> Result<()>;
+    fn set_property(&self, window: XWindowID, prop: &str, data: Property) -> Result<()>;
 
     /// Retrieves a given property for a given window by its atom name.
     fn get_prop_str(&self, prop: &str, window: XWindowID) -> Result<Property>;
@@ -340,11 +382,24 @@ pub trait XConn {
 
     //* provided methods to make my life easier
     // ICCCM-related operations
+    /// Gets all ICCCM-defined client properties.
     fn get_client_properties(&self, window: XWindowID) -> XWinProperties {
-        todo!()
+        XWinProperties {
+            wm_name: self.get_wm_name(window),
+            wm_icon_name: self.get_wm_icon_name(window),
+            wm_size_hints: self.get_wm_size_hints(window),
+            wm_hints: self.get_wm_hints(window),
+            wm_class: self.get_wm_class(window),
+            wm_protocols: self.get_wm_protocols(window),
+            wm_state: self.get_wm_state(window),
+        }
     }
+
+    /// Gets WM_NAME.
+    /// 
+    /// Returns an empty string in case of error.
     fn get_wm_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop_atom(xproto::ATOM_WM_NAME, window);
+        let prop = self.get_prop_str("WM_NAME", window);
         if prop.is_err() { 
             "".into() 
         } else {
@@ -354,27 +409,97 @@ pub trait XConn {
             } else { "".into() }
         }
     }
+
+    /// Gets WM_ICON_NAME.
+    /// 
+    /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
-        todo!()
+        let prop = self.get_prop_str("WM_ICON_NAME", window);
+        if prop.is_err() { 
+            "".into() 
+        } else {
+            let prop = prop.unwrap();
+            if let Property::UTF8String(mut prop) = prop {
+                prop.remove(0)
+            } else { "".into() }
+        }
     }
+
+    /// Gets WM_NORMAL_HINTS.
+    /// 
+    /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<SizeHints> {
-        todo!()
+        let prop = self.get_prop_str("WM_NORMAL_HINTS", window).ok()?;
+
+        if let Property::WMSizeHints(sh) = prop {
+            Some(sh)
+        } else {
+            debug!("Got wrong property: {:?}", prop);
+            None
+        }
     }
+
+    /// Gets WM_HINTS.
+    /// 
+    /// Returns None if not set or in case of error.
     fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints> {
-        todo!()
+        let prop = self.get_prop_str("WM_HINTS", window).ok()?;
+
+        if let Property::WMHints(hints) = prop {
+            Some(hints)
+        } else {
+            debug!("Got wrong property: {:?}", prop);
+            None
+        }
     }
-    fn get_wm_class(&self, window: XWindowID) -> Option<(String, String)> {
-        todo!()
+
+    /// Gets WM_CLASS.
+    /// 
+    /// Returns a tuple of empty strings if not set or in case of error.
+    fn get_wm_class(&self, window: XWindowID) -> (String, String) {
+        use Property::*;
+
+        let prop = self.get_prop_str("WM_CLASS", window).unwrap_or(U8List(Vec::new()));
+
+        match prop {
+            String(strs) | UTF8String(strs) => {
+                (strs[0].to_owned(), strs[1].to_owned())
+            }
+            _ => {
+                debug!("Got wrong property: {:?}", prop);
+                ("".into(), "".into())
+            }
+        }
     }
+
+    /// Gets WM_PROTOCOLS.
+    /// 
+    /// Returns None if not set or in case of error.
     fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<Atom>> {
+        let prop = self.get_prop_str("WM_PROTOCOLS", window).ok()?;
+
+        if let Property::Atom(atoms) = prop {
+            let mut ret = Vec::new();
+            for atom in atoms {
+                ret.push(self.atom(&atom).ok()?)
+            }
+            Some(ret)
+        } else {
+            None
+        }
+    }
+
+    fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
+        let atom = self.atom("WM_STATE").ok()?;
+
+
         todo!()
     }
-    fn get_wm_state(&self, window: XWindowID) -> WindowState {
-        todo!()
-    }
+
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
         todo!()
     }
+
     fn get_urgency(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
             hints.urgent
@@ -383,7 +508,7 @@ pub trait XConn {
 
     // EWMH-related operations
     fn get_window_type(&self, window: XWindowID) -> Option<Vec<String>> {
-        let atom = self.lookup_atom_name(
+        let atom = self.atom(
             "_NET_WM_WINDOW_TYPE"
         ).expect("atom not interned");
 
@@ -394,12 +519,15 @@ pub trait XConn {
             None
         }
     }
+
     fn get_window_states(&self, window: XWindowID) -> NetWindowStates {
         todo!()
     }
+
     fn set_supported(&self, screen_idx: i32, atoms: &[Atom]) {
         todo!()
     }
+
     fn set_wm_state(&self, window: XWindowID, atoms: &[Atom]) {
         todo!()
     }

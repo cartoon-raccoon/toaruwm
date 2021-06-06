@@ -172,7 +172,7 @@ pub struct XWinProperties {
     pub(crate) wm_hints: Option<WmHints>,
     pub(crate) wm_class: (String, String), //Instance, Class
     pub(crate) wm_protocols: Option<Vec<Atom>>,
-    pub(crate) wm_state: WindowState,
+    pub(crate) wm_state: Option<WindowState>,
 }
 
 impl XWinProperties {
@@ -201,7 +201,7 @@ impl XWinProperties {
         self.wm_protocols.as_deref()
     }
 
-    pub fn wm_state(&self) -> WindowState {
+    pub fn wm_state(&self) -> Option<WindowState> {
         self.wm_state
     }
 }
