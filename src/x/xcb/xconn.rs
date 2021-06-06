@@ -18,9 +18,12 @@ use crate::x::{
     },
 };
 use crate::core::{Screen, Client};
-use crate::types::{Atom, Geometry};
+use crate::types::{
+    Atom, Geometry,
+    ClientAttrs,
+    ClientConfig,
+};
 use crate::keybinds::{Keybind, Mousebind};
-use crate::util;
 use super::XCBConn;
 
 const MAX_LONG_LENGTH: u32 = 1024;
@@ -312,15 +315,13 @@ impl XConn for XCBConn {
     }
 
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()> {
-        self.configure_window(window, &util::configure_resize(
-            geom.width as u32,
-            geom.height as u32,
-        ))?;
+        self.configure_window(window, &[ClientConfig::Resize {
+            h: geom.height, w: geom.width
+        }])?;
 
-        self.configure_window(window, &util::configure_move(
-            geom.x as u32,
-            geom.y as u32,
-        ))?;
+        self.configure_window(window, &[ClientConfig::Move {
+            x: geom.x, y: geom.y
+        }])?;
 
         Ok(())
     }
@@ -450,14 +451,22 @@ impl XConn for XCBConn {
         todo!()
     }
 
-    fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()> {
+    fn change_window_attributes(&self, window: XWindowID, attrs: &[ClientAttrs]) -> Result<()> {
         debug!("Changing window attributes");
-        Ok(xcb::change_window_attributes_checked(&self.conn, window, attrs).request_check()?)
+        for attr in attrs {
+            let attr2: Vec<_> = attr.into();
+            xcb::change_window_attributes_checked(&self.conn, window, &attr2).request_check()?;
+        }
+        Ok(())
     }
 
-    fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]) -> Result<()> {
+    fn configure_window(&self, window: XWindowID, attrs: &[ClientConfig]) -> Result<()> {
         debug!("Configuring window {}", window);
-        Ok(xcb::configure_window_checked(&self.conn, window, attrs).request_check()?)
+        for attr in attrs {
+            let attr2: Vec<_> = attr.into();
+            xcb::configure_window_checked(&self.conn, window, &attr2).request_check()?
+        }
+        Ok(())
     }
 
     fn reparent_window(&self, window: XWindowID, parent: XWindowID) -> Result<()> {

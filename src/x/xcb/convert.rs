@@ -51,13 +51,13 @@ impl From<ModKey> for u16 {
     }
 }
 
-impl From<ClientConfig> for Vec<(u16, u32)> {
-    fn from(from: ClientConfig) -> Vec<(u16, u32)> {
+impl From<&ClientConfig> for Vec<(u16, u32)> {
+    fn from(from: &ClientConfig) -> Vec<(u16, u32)> {
         use ClientConfig::*;
         use super::StackMode::*;
 
         match from {
-            BorderWidth(px) => vec![(xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, px)],
+            BorderWidth(px) => vec![(xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, *px)],
             Position(geom) => {
                 vec![
                     (xcb::CONFIG_WINDOW_X as u16, geom.x as u32),
@@ -67,12 +67,12 @@ impl From<ClientConfig> for Vec<(u16, u32)> {
                 ]
             }
             Resize {h, w} => vec![
-                (xcb::CONFIG_WINDOW_HEIGHT as u16, h),
-                (xcb::CONFIG_WINDOW_WIDTH as u16, w),
+                (xcb::CONFIG_WINDOW_HEIGHT as u16, *h),
+                (xcb::CONFIG_WINDOW_WIDTH as u16, *w),
             ],
             Move {x, y} => vec![
-                (xcb::CONFIG_WINDOW_X as u16, x as u32),
-                (xcb::CONFIG_WINDOW_Y as u16, y as u32),
+                (xcb::CONFIG_WINDOW_X as u16, *x as u32),
+                (xcb::CONFIG_WINDOW_Y as u16, *y as u32),
             ],
             StackingMode(sm) => {
                 let stackmode = xcb::CONFIG_WINDOW_STACK_MODE as u16;
@@ -88,8 +88,8 @@ impl From<ClientConfig> for Vec<(u16, u32)> {
     }
 }
 
-impl From<ClientAttrs> for Vec<(u32, u32)> {
-    fn from(from: ClientAttrs) -> Vec<(u32, u32)> {
+impl From<&ClientAttrs> for Vec<(u32, u32)> {
+    fn from(from: &ClientAttrs) -> Vec<(u32, u32)> {
         use ClientAttrs::*;
         use BorderStyle::*;
 

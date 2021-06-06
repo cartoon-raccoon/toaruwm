@@ -181,7 +181,11 @@ impl XCBConn {
 
     pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
         debug!("Setting cursor for {}", window);
-        self.change_window_attributes(window, &util::cursor_attrs(self.cursor))
+        Ok(xcb::change_window_attributes_checked(
+            &self.conn,
+            window, 
+            &util::cursor_attrs(self.cursor)
+        ).request_check()?)
     }
 
     #[allow(dead_code)]

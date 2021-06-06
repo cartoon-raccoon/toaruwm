@@ -12,6 +12,8 @@ use crate::types::{
     XWinProperties,
     Atom,
     NetWindowStates,
+    ClientConfig,
+    ClientAttrs,
 };
 use crate::core::{Screen, Client};
 use super::event::{XEvent, ClientMessageEvent};
@@ -127,11 +129,11 @@ pub enum WindowState {
 /// Window stacking modes defined by the X Protocol.
 #[derive(Clone, Copy, Debug)]
 pub enum StackMode {
-    Above = xproto::STACK_MODE_ABOVE as isize,
-    Below = xproto::STACK_MODE_BELOW as isize,
-    TopIf = xproto::STACK_MODE_TOP_IF as isize,
-    BottomIf = xproto::STACK_MODE_BOTTOM_IF as isize,
-    Opposite = xproto::STACK_MODE_OPPOSITE as isize,
+    Above,
+    Below,
+    TopIf,
+    BottomIf,
+    Opposite,
 }
 
 /// ICCCM-defined window hints (WM_HINTS).
@@ -391,10 +393,10 @@ pub trait XConn {
     fn set_root_scr(&mut self, scr: i32);
 
     /// Change window attributes for a given window.
-    fn change_window_attributes(&self, window: XWindowID, attrs: &[(u32, u32)]) -> Result<()>;
+    fn change_window_attributes(&self, window: XWindowID, attrs: &[ClientAttrs]) -> Result<()>;
 
     /// Configure a given window.
-    fn configure_window(&self, window: XWindowID, attrs: &[(u16, u32)]) -> Result<()>;
+    fn configure_window(&self, window: XWindowID, attrs: &[ClientConfig]) -> Result<()>;
 
     /// Reparent a window under a given parent.
     fn reparent_window(&self, window: XWindowID, parent: XWindowID) -> Result<()>;

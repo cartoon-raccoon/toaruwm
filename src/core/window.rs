@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use super::{Ring, Selector};
 
 use crate::x::{
-    core::{XWindow, XWindowID, XConn, xproto},
+    core::{XWindow, XWindowID, XConn},
 };
 use crate::core::types::{
     Geometry, Atom,
@@ -14,8 +14,9 @@ use crate::core::types::{
     WindowState,
     NetWindowStates,
     BorderStyle,
+    ClientAttrs,
+    ClientConfig,
 };
-use crate::util;
 
 /// A Ring of type Client.
 ///
@@ -327,26 +328,9 @@ impl Client {
     /// 
     /// Should only be used internally.
     pub fn set_border<X: XConn>(&mut self, conn: &X, border: BorderStyle) {
-        //todo: set proper const values for border colours
-        use BorderStyle::*;
-
-        match border {
-            Focused => {
-                conn.change_window_attributes(
-                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0xdddddd)]
-                ).unwrap_or_else(|e| error!("{}", e));
-            }
-            Unfocused => {
-                conn.change_window_attributes(
-                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0x555555)]
-                ).unwrap_or_else(|e| error!("{}", e));
-            }
-            Urgent => {
-                conn.change_window_attributes(
-                    self.id(), &[(xproto::CW_BORDER_PIXEL, 0xff00000)]
-                ).unwrap_or_else(|e| error!("{}", e));
-            }
-        }
+        conn.change_window_attributes(
+            self.id(), &[ClientAttrs::BorderColour(border)]
+        ).unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Maps the client.
@@ -355,7 +339,7 @@ impl Client {
         self.update_geometry(conn);
         conn.change_window_attributes(
             self.id(), 
-            &[(xproto::CW_EVENT_MASK, xproto::EVENT_MASK_PROPERTY_CHANGE)]
+            &[ClientAttrs::EnableClientEvents]
         ).unwrap_or_else(|e| error!("{}", e));
         conn.map_window(self.id()).unwrap_or_else(|e| error!("{}", e));
     }
@@ -387,14 +371,14 @@ impl Client {
     /// 
     /// Use `Client::set_geometry` and `Client::update_geometry`
     /// to change client geometry instead of this method.
-    pub fn configure<X: XConn>(&self, conn: &X, attrs: &[(u16, u32)]) {
+    pub fn configure<X: XConn>(&self, conn: &X, attrs: &[ClientConfig]) {
         conn.configure_window(self.id(), attrs).unwrap_or_else(|_|
             warn!("Could not configure window {}", self.id())
         );
     }
 
     /// Change client attributes.
-    pub fn change_attributes<X: XConn>(&self, conn: &X, attrs: &[(u32, u32)]) {
+    pub fn change_attributes<X: XConn>(&self, conn: &X, attrs: &[ClientAttrs]) {
         conn.change_window_attributes(self.id(), attrs).unwrap_or_else(|e| {
             error!("{}", e)
         })
@@ -418,10 +402,9 @@ impl Client {
         // ensure_in_bounds(&mut self.xwindow.geom.width, 
         //     WIN_WIDTH_MIN, scrx + scrw - self.xwindow.geom.x);
 
-        conn.configure_window(self.xwindow.id, &util::configure_resize(
-            self.width() as u32, 
-            self.height() as u32
-        )).unwrap_or_else(|_|
+        conn.configure_window(self.xwindow.id,
+            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
+        ).unwrap_or_else(|_|
             warn!("Could not configure window {}", self.id())
         );
 
@@ -450,10 +433,9 @@ impl Client {
         //     scry - self.xwindow.geom.height + MIN_ONSCREEN, 
         //     scry + scrh - MIN_ONSCREEN);
 
-        conn.configure_window(self.xwindow.id, &util::configure_move(
-            self.x() as u32, 
-            self.y() as u32
-        )).unwrap_or_else(|_|
+        conn.configure_window(self.xwindow.id, 
+            &[ClientConfig::Move{x: self.x(), y: self.y()}]
+        ).unwrap_or_else(|_|
             warn!("Could not configure window {}", self.id())
         );
 
@@ -472,17 +454,15 @@ impl Client {
     /// 
     /// Normally called after `Client::set_geometry`.
     pub fn update_geometry<X: XConn>(&self, conn: &X) {
-        conn.configure_window(self.xwindow.id, &util::configure_resize(
-            self.width() as u32,
-            self.height() as u32,
-        )).unwrap_or_else(|_|
+        conn.configure_window(self.xwindow.id,
+            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
+        ).unwrap_or_else(|_|
             warn!("Could not configure window {}", self.id())
         );
 
-        conn.configure_window(self.xwindow.id, &util::configure_move(
-            self.x() as u32,
-            self.y() as u32,
-        )).unwrap_or_else(|_|
+        conn.configure_window(self.xwindow.id, 
+            &[ClientConfig::Move{x: self.x(), y: self.y()}]
+        ).unwrap_or_else(|_|
             warn!("Could not configure window {}", self.id())
         );
     }

@@ -11,6 +11,8 @@ use crate::core::{
 };
 use crate::types::{
     BorderStyle, Direction,
+    ClientAttrs,
+    ClientConfig,
     BORDER_WIDTH,
 };
 use crate::layouts::{
@@ -18,8 +20,7 @@ use crate::layouts::{
     LayoutEngine, 
     ResizeAction
 };
-use crate::x::{xproto, XConn, XWindowID};
-use crate::util;
+use crate::x::{XConn, XWindowID, core::StackMode};
 
 #[derive(Clone)]
 pub struct Workspace {
@@ -75,25 +76,25 @@ impl Workspace {
 
         for window in self.windows.iter_rev() {
             // disable events
-            window.change_attributes(conn, &util::disable_events());
+            window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
             // update window geometry in the x server
             window.update_geometry(conn);
             // map window
             conn.map_window(window.id()).unwrap_or_else(|e| error!("{}", e));
             // re-enable events
-            window.change_attributes(conn, &util::child_events());
+            window.change_attributes(conn, &[ClientAttrs::EnableClientEvents]);
         }
     }
 
     /// Unmaps all the windows in the workspace.
     pub fn deactivate<X: XConn>(&mut self, conn: &X) {
         for window in self.windows.iter() {
-            conn.change_window_attributes(window.id(), &util::disable_events())
+            conn.change_window_attributes(window.id(), &[ClientAttrs::DisableClientEvents])
             .unwrap_or_else(|e| error!("{}", e));
     
             conn.unmap_window(window.id()).unwrap_or_else(|e| error!("{}", e));
     
-            conn.change_window_attributes(window.id(), &util::child_events())
+            conn.change_window_attributes(window.id(), &[ClientAttrs::EnableClientEvents])
             .unwrap_or_else(|e| error!("{}", e));
         }
     }
@@ -131,11 +132,11 @@ impl Workspace {
         window.set_supported(conn);
         window.map(conn);
         window.configure(conn, &[
-            (xproto::CONFIG_WINDOW_BORDER_WIDTH as u16, BORDER_WIDTH,)
+            ClientConfig::BorderWidth(BORDER_WIDTH)
         ]);
 
         if self.windows.focused().is_some() {
-            window.configure(conn, &util::stack_above());
+            window.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
         }
 
         window.xwindow.set_geometry_conn(conn);
@@ -153,7 +154,7 @@ impl Workspace {
             }
         }
 
-        window.change_attributes(conn, &util::child_events());
+        window.change_attributes(conn, &[ClientAttrs::EnableClientEvents]);
 
         self.windows.push(window);
         self.relayout(conn, scr);
@@ -172,7 +173,7 @@ impl Workspace {
         let mut window = self.windows.remove_by_id(id)
         .expect("Could not find window");
 
-        window.change_attributes(conn, &util::disable_events());
+        window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
         window.unmap(conn);
 
         if let Some(idx) = self.windows.get_idx(id) {
@@ -315,7 +316,7 @@ impl Workspace {
 
                 // toggle state and stack above
                 win.toggle_state();
-                win.configure(conn, &util::stack_above());
+                win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
 
                 if self.tiled_count() == 0 && self.master.is_some() {
                     // if master is the only window
@@ -409,7 +410,7 @@ impl Workspace {
 fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindowID) {
     use BorderStyle::*;
     // disable events
-    conn.change_window_attributes(window, &util::disable_events())
+    conn.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
     .unwrap_or_else(|e| error!("{}", e));
 
     let win = ws.windows.lookup_mut(window).unwrap();
@@ -426,6 +427,6 @@ fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindo
     conn.set_input_focus(window);
 
     // re-enable events
-    conn.change_window_attributes(window, &util::child_events())
+    conn.change_window_attributes(window, &[ClientAttrs::EnableClientEvents])
     .unwrap_or_else(|e| error!("{}", e));
 }
