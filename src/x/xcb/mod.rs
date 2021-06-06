@@ -15,7 +15,7 @@ use crate::types::Atom as XAtom;
 use crate::util;
 use super::atom::Atom;
 
-mod impl_xconn;
+mod xconn;
 
 /// A connection to an X server, backed by the XCB library.
 /// 
