@@ -195,7 +195,6 @@ impl XCBConn {
 
     fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
         use XEvent::*;
-        #[allow(unused_imports)]
 
         //todo: handle randr events
 
