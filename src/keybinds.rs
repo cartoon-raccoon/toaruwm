@@ -38,6 +38,13 @@ pub enum ButtonIndex {
     Button5,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MouseEventKind {
+    Motion,
+    Press,
+    Release,
+}
+
 pub type KeyMask = u16;
 pub type KeyCode = u8;
 
@@ -51,6 +58,7 @@ pub struct Keybind {
 pub struct Mousebind {
     pub modmask: KeyMask,
     pub button: ButtonIndex,
+    pub kind: MouseEventKind,
 }
 
 impl From<KeypressEvent> for Keybind {

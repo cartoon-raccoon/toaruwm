@@ -18,7 +18,7 @@ use crate::x::{
         ReparentEvent,
         PropertyEvent,
         KeypressEvent,
-        ButtonPressEvent,
+        MouseEvent as MouseEventType,
         ClientMessageEvent,
         ClientMessageData,
     },
@@ -26,6 +26,9 @@ use crate::x::{
 use crate::types::{
     Atom as XAtom,
     Point, Geometry,
+};
+use crate::keybinds::{
+    Mousebind, MouseEventKind,
 };
 use crate::util;
 use super::atom::Atom;
@@ -305,14 +308,6 @@ impl XCBConn {
 
                 Ok(LeaveNotify(event.event()))
             }
-            xcb::MOTION_NOTIFY => {
-                let event = cast!(xcb::MotionNotifyEvent, event);
-
-                Ok(MotionNotify(event.event(), Point {
-                    x: event.root_x() as i32,
-                    y: event.root_y() as i32,
-                }))
-            }
             xcb::REPARENT_NOTIFY => {
                 let event = cast!(xcb::ReparentNotifyEvent, event);
 
@@ -348,18 +343,50 @@ impl XCBConn {
             xcb::BUTTON_PRESS => {
                 let event = cast!(xcb::ButtonPressEvent, event);
 
-                Ok(ButtonPress(ButtonPressEvent {
+                Ok(MouseEvent(MouseEventType {
                     id: event.event(),
                     location: Point {
                         x: event.root_x() as i32,
                         y: event.root_y() as i32,
                     },
-                    mask: event.state(),
-                    button: event.detail(),
+                    state: Mousebind {
+                        button: (event.detail() as u32).try_into()?,
+                        modmask: event.state(),
+                        kind: MouseEventKind::Press,
+                    }
                 }))
             }
             xcb::BUTTON_RELEASE => {
-                Ok(ButtonRelease)
+                let event = cast!(xcb::ButtonReleaseEvent, event);
+
+                Ok(MouseEvent(MouseEventType {
+                    id: event.event(),
+                    location: Point {
+                        x: event.root_x() as i32,
+                        y: event.root_y() as i32,
+                    },
+                    state: Mousebind {
+                        button: (event.detail() as u32).try_into()?,
+                        modmask: event.state(),
+                        kind: MouseEventKind::Release,
+                    }
+                }))
+            }
+            xcb::MOTION_NOTIFY => {
+                let event = cast!(xcb::MotionNotifyEvent, event);
+
+                Ok(MouseEvent(MouseEventType {
+                    id: event.event(),
+                    location: Point {
+                        x: event.root_x() as i32,
+                        y: event.root_y() as i32,
+                    },
+                    state: Mousebind {
+                        button: (event.detail() as u32).try_into()?,
+                        modmask: event.state(),
+                        kind: MouseEventKind::Motion,
+                    }
+                }))
             }
             xcb::CLIENT_MESSAGE => {
                 let event = cast!(xcb::ClientMessageEvent, event);

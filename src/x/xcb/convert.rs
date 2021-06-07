@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use crate::keybinds::{
     ButtonMask,
     ButtonIndex,
@@ -8,6 +10,7 @@ use crate::types::{
     ClientConfig,
     ClientAttrs,
 };
+use crate::x::core::{XError, Result};
 use crate::util;
 
 impl From<ButtonMask> for xcb::ButtonMask {
@@ -47,6 +50,21 @@ impl From<ModKey> for u16 {
             Alt => xcb::MOD_MASK_1 as u16,
             Shift => xcb::MOD_MASK_SHIFT as u16,
             Meta => xcb::MOD_MASK_4 as u16,
+        }
+    }
+}
+
+impl TryFrom<u32> for ButtonIndex {
+    type Error = XError;
+
+    fn try_from(from: u32) -> Result<ButtonIndex> {
+        match from {
+            xcb::BUTTON_INDEX_1 => Ok(ButtonIndex::Left),
+            xcb::BUTTON_INDEX_2 => Ok(ButtonIndex::Middle),
+            xcb::BUTTON_INDEX_3 => Ok(ButtonIndex::Right),
+            xcb::BUTTON_INDEX_4 => Ok(ButtonIndex::Button4),
+            xcb::BUTTON_INDEX_5 => Ok(ButtonIndex::Button5),
+            _ => Err(XError::ConversionError),
         }
     }
 }

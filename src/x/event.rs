@@ -2,6 +2,7 @@ use super::{XWindowID, core::StackMode};
 use crate::types::{
     Geometry, Point, Atom,
 };
+use crate::keybinds::Mousebind;
 
 /// Low-level wrapper around actual X server events.
 /// 
@@ -24,8 +25,6 @@ pub enum XEvent {
     EnterNotify(XWindowID),
     /// The pointer has left a window.
     LeaveNotify(XWindowID),
-    /// The mouse has moved.
-    MotionNotify(XWindowID, Point),
     /// A window was reparented.
     ReparentNotify(ReparentEvent),
     /// A window property was changed.
@@ -36,10 +35,7 @@ pub enum XEvent {
     //? does this need any more information?
     KeyRelease,
     /// A mouse button was pressed.
-    ButtonPress(ButtonPressEvent),
-    /// A mouse button was released.
-    //? does this need any more information?
-    ButtonRelease,
+    MouseEvent(MouseEvent),
     /// A client message was received.
     ClientMessage(ClientMessageEvent),
     /// Unknown event type, used as a catchall for events not tracked by toaruwm.
@@ -113,15 +109,13 @@ pub struct KeypressEvent {
 
 /// Data associated with a button press event.
 #[derive(Debug, Clone, Copy)]
-pub struct ButtonPressEvent {
+pub struct MouseEvent {
     /// The window the pointer was on when the button was pressed.
     pub id: XWindowID,
     /// The location of the pointer when the button was pressed.
     pub location: Point,
-    /// The state of modifier keys was active at the time.
-    pub mask: u16,
-    /// The index of the button pressed.
-    pub button: u8,
+    /// The state of the buttons and the movement type
+    pub state: Mousebind,
 }
 
 #[derive(Debug, Clone, Copy)]
