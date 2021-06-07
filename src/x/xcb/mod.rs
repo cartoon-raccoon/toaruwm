@@ -301,12 +301,16 @@ impl XCBConn {
             xcb::ENTER_NOTIFY => {
                 let event = cast!(xcb::EnterNotifyEvent, event);
 
-                Ok(EnterNotify(event.event()))
+                let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
+
+                Ok(EnterNotify(event.event(), grab))
             }
             xcb::LEAVE_NOTIFY => {
                 let event = cast!(xcb::LeaveNotifyEvent, event);
 
-                Ok(LeaveNotify(event.event()))
+                let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
+
+                Ok(LeaveNotify(event.event(), grab))
             }
             xcb::REPARENT_NOTIFY => {
                 let event = cast!(xcb::ReparentNotifyEvent, event);

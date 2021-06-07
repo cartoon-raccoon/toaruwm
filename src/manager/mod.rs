@@ -1,3 +1,5 @@
+#![allow(unused_variables, unused_imports)]
+
 use std::process::Command;
 
 use crate::{
@@ -186,7 +188,8 @@ impl<X: XConn> WindowManager<X> {
 
     /// Grabs the pointer and resizes the window the pointer is on.
     /// 
-    /// If the window is tiled, its state is toggled to floating.
+    /// If the window is tiled, its state is toggled to floating
+    /// and the entire desktop is re-laid out.
     pub fn resize_window_ptr(&mut self) {
         todo!()
     }
@@ -232,13 +235,14 @@ impl<X: XConn> WindowManager<X> {
                 ClientFocus(id) => {}
                 ClientUnfocus(id) => {},
                 ClientNameChange(id) => {},
+                ScreenReconfigure => {},
                 DestroyClient(id) => {},
                 MapTrackedClient(id) => {},
                 MapUntrackedClient(id) => {},
                 UnmapClient(id) => {},
                 ConfigureClient(id, geom) => {},
-                RunKeybind(kb) => {self.run_keybind(kb, keybinds)},
-                RunMousebind(mb) => {self.run_mousebind(mb, mousebinds)},
+                RunKeybind(kb, id) => {self.run_keybind(kb, keybinds, id)},
+                RunMousebind(mb, id, _) => {self.run_mousebind(mb, mousebinds, id)},
                 ToggleClientFullscreen(id, thing) => {},
                 ToggleUrgency(id) => {},
             }
@@ -247,14 +251,28 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
-    fn run_keybind(&mut self, kb: Keybind, bindings: &mut Keybinds<X>) {
-        if let Some(cb) = bindings.get_mut(&kb) {
+    fn run_keybind(&mut self, 
+        kb: Keybind, bdgs: &mut Keybinds<X>, id: XWindowID
+    ) {
+        if let Some(focused) = self.focused {
+            if focused != id {
+                warn!("Keypress event and focused window are different")
+            }
+        }
+        if let Some(cb) = bdgs.get_mut(&kb) {
             cb(self);
         }
     }
 
-    fn run_mousebind(&mut self, mb: Mousebind, bindings: &mut Mousebinds<X>) {
-        if let Some(cb) = bindings.get_mut(&mb) {
+    fn run_mousebind(&mut self, 
+        mb: Mousebind, bdgs: &mut Mousebinds<X>, id: XWindowID
+    ) {
+        if let Some(focused) = self.focused {
+            if focused != id {
+                warn!("Mouse event and focused window are different")
+            }
+        }
+        if let Some(cb) = bdgs.get_mut(&mb) {
             cb(self);
         }
     }

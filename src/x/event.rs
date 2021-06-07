@@ -22,9 +22,9 @@ pub enum XEvent {
     /// A Client has destroyed a window.
     DestroyNotify(XWindowID),
     /// The pointer has entered a window.
-    EnterNotify(XWindowID),
+    EnterNotify(XWindowID, bool),
     /// The pointer has left a window.
-    LeaveNotify(XWindowID),
+    LeaveNotify(XWindowID, bool),
     /// A window was reparented.
     ReparentNotify(ReparentEvent),
     /// A window property was changed.
