@@ -226,7 +226,7 @@ impl WmHints {
     /// let wm_hints = WmHints::new();
     /// 
     /// /* URGENCY flag is not set */
-    /// assert!(!wm_hints.is_set(WMHintsFlags::URGENCY_HINT));
+    /// assert!(!wm_hints.is_set(WmHintsFlags::URGENCY_HINT));
     /// ```
     pub fn is_set(&self, flag: WmHintsFlags) -> bool {
         self.flags.contains(flag)
@@ -360,7 +360,7 @@ impl WmSizeHints {
     /// let size_hints = WmSizeHints::new();
     /// 
     /// /* P_SIZE flag is not set */
-    /// assert!(!size_hints.is_set(WMSizeHintsFlags::P_SIZE));
+    /// assert!(!size_hints.is_set(WmSizeHintsFlags::P_SIZE));
     /// ```
     pub fn is_set(&self, flag: WmSizeHintsFlags) -> bool {
         self.flags.contains(flag)
