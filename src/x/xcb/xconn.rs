@@ -417,8 +417,12 @@ impl XConn for XCBConn {
                     .collect()
             ),
             "WINDOW" => Property::Window(r.value().to_vec()),
-            "WM_HINTS" => todo!("WM_HINTS not implemented"),
-            "WM_SIZE_HINTS" => todo!("WM_SIZE_HINTS not implemented"),
+            "WM_HINTS" => Property::WMHints(
+                WmHints::try_from_bytes(r.value())?
+            ),
+            "WM_SIZE_HINTS" => Property::WMSizeHints(
+                WmSizeHints::try_from_bytes(r.value())?
+            ),
             n @ _ => {
                 if n == "WM_STATE" {
                     debug!("Type is WM_STATE");

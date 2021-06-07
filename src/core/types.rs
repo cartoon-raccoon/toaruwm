@@ -13,7 +13,7 @@ pub use crate::x::core::{
 pub use crate::x::property::{
     WindowState,
     WmHints, 
-    SizeHints,
+    WmSizeHints,
 }; 
 
 pub type Atom = u32;
@@ -43,7 +43,7 @@ pub enum Direction {
     Backward,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
@@ -204,7 +204,7 @@ impl From<LayoutType> for WinLayoutState {
 pub struct XWinProperties {
     pub(crate) wm_name: String,
     pub(crate) wm_icon_name: String,
-    pub(crate) wm_size_hints: Option<SizeHints>,
+    pub(crate) wm_size_hints: Option<WmSizeHints>,
     pub(crate) wm_hints: Option<WmHints>,
     pub(crate) wm_class: (String, String), //Instance, Class
     pub(crate) wm_protocols: Option<Vec<Atom>>,
@@ -221,7 +221,7 @@ impl XWinProperties {
     }
 
     #[inline]
-    pub fn wm_size_hints(&self) -> Option<&SizeHints> {
+    pub fn wm_size_hints(&self) -> Option<&WmSizeHints> {
         self.wm_size_hints.as_ref()
     }
 

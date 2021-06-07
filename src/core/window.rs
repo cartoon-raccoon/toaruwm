@@ -282,10 +282,10 @@ impl Client {
         }
         self.transient_for = conn.get_wm_transient_for(self.id());
         self.urgent = if let Some(hints) = properties.wm_hints() {
-            hints.urgent
+            hints.urgent()
         } else {false};
         self.mapped_state = if let Some(hints) = properties.wm_hints() {
-            hints.state
+            hints.initial_state
         } else {
             WindowState::Normal
         };

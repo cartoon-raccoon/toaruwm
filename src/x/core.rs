@@ -336,7 +336,7 @@ pub trait XConn {
     /// Gets WM_NORMAL_HINTS.
     /// 
     /// Returns None if not set or in case of error.
-    fn get_wm_size_hints(&self, window: XWindowID) -> Option<SizeHints> {
+    fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
         let prop = self.get_prop_str("WM_NORMAL_HINTS", window).ok()?;
 
         if let Property::WMSizeHints(sh) = prop {
@@ -432,7 +432,7 @@ pub trait XConn {
 
     fn get_urgency(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
-            hints.urgent
+            hints.urgent()
         } else {false}
     }
 
