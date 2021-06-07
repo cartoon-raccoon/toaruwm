@@ -28,12 +28,65 @@ pub enum Direction {
     Backward,
 }
 
+/// A type for representing a point on a display or screen.
+/// 
+/// Implements [`PartialEq`][1], so you can compare it directly with
+/// another Point.
+/// 
+/// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
     pub x: i32,
     pub y: i32,
 }
 
+impl Point {
+    /// Creates a new Point.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Point;
+    /// 
+    /// let point = Point::new(0, 0);
+    /// 
+    /// assert_eq!(point, Point {x: 0, y: 0});
+    /// ```
+    pub fn new(x: i32, y: i32) -> Point {
+        Point {x, y}
+    }
+
+    /// Calculates the x and y offsets between itself and another Point.
+    /// 
+    /// Offset is calculated with reference to itself.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Point;
+    /// 
+    /// let original = Point::new(50, 50);
+    /// let new = Point::new(20, 30);
+    /// 
+    /// let (x, y) = original.calculate_offset(new);
+    /// 
+    /// assert_eq!(x, -30);
+    /// assert_eq!(y, -20);
+    /// ```
+    pub fn calculate_offset(&self, other: Point) -> (i32, i32) {
+        (other.x - self.x, other.y - self.y)
+    }
+}
+
+/// A type for representing a 2D rectangular space on a display or screen.
+/// 
+/// Implements [`PartialEq`][1], so you can compare it directly with
+/// another Geometry.
+/// 
+/// _Note:_ The Default impl returns 
+/// Geometry {0, 0, 100, 160}, **NOT** zeroed.
+/// 
+/// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Geometry {
     pub x: i32,
@@ -41,17 +94,6 @@ pub struct Geometry {
     pub height: u32,
     pub width: u32,
 }
-
-// impl From<(i32, i32, i32, i32)> for Geometry {
-//     fn from(from: (i32, i32, i32, i32)) -> Self {
-//         Self {
-//             x: from.0,
-//             y: from.1,
-//             width: from.2,
-//             height: from.3,
-//         }
-//     }
-// }
 
 impl Default for Geometry {
     fn default() -> Self {
@@ -65,6 +107,43 @@ impl Default for Geometry {
 }
 
 impl Geometry {
+    /// Constructs a new Geometry.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let geom1 = Geometry::new(0, 0, 100, 160);
+    /// let geom2 = Geometry {
+    ///     x: 0,
+    ///     y: 0,
+    ///     height: 100,
+    ///     width: 160,
+    /// };
+    /// 
+    /// assert_eq!(geom1, geom2);
+    /// ```
+    pub fn new(x: i32, y: i32, h: u32, w: u32) -> Self {
+        Geometry {
+            x, y,
+            height: h,
+            width: w,
+        }
+    }
+
+    /// Convenience function for constructing a Geometry with all fields
+    /// set to zero.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let geom = Geometry::zeroed();
+    /// 
+    /// assert_eq!(geom, Geometry::new(0, 0, 0, 0));
+    /// ```
     pub fn zeroed() -> Self {
         Geometry {
             x: 0,
@@ -72,6 +151,174 @@ impl Geometry {
             height: 0,
             width: 0,
         }
+    }
+
+    /// Splits a Geometry into `n` parts horizontally, each part 
+    /// covering a region of the original Geometry, top down.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let new_geoms = original.split_horz_n(2);
+    /// 
+    /// assert_eq!(new_geoms, vec![
+    ///     Geometry::new(0, 0, 50, 200),
+    ///     Geometry::new(0, 50, 50, 200),
+    /// ]);
+    /// ```
+    pub fn split_horz_n(&self, n: u32) -> Vec<Geometry> {
+        let new_height = self.height / n;
+
+        let mut ret = Vec::new();
+
+        for i in 0..n as usize {
+            ret.push(Geometry {
+                x: self.x,
+                y: self.y + (i as i32 * new_height as i32),
+                height: new_height,
+                width: self.width,
+            })
+        }
+
+        ret
+    }
+
+    /// Splits a Geometry into `n` parts vertically, each part
+    /// covering a region of the original Geometry, from left.
+    /// 
+    /// Does *not* split in place.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let new_geoms = original.split_vert_n(2);
+    /// 
+    /// assert_eq!(new_geoms, vec![
+    ///     Geometry::new(0, 0, 100, 100),
+    ///     Geometry::new(100, 0, 100, 100),
+    /// ]);
+    /// ```
+    pub fn split_vert_n(&self, n: u32) -> Vec<Geometry> {
+        let new_width = self.width / n;
+
+        let mut ret = Vec::new();
+
+        for i in 0..n as usize {
+            ret.push(Geometry {
+                x: self.x + (i as i32 * new_width as i32),
+                y: self.y,
+                height: self.height,
+                width: new_width,
+            })
+        }
+
+        ret
+    }
+
+    /// Splits a Geometry into two parts horizontally by a given ratio
+    /// where the ratio is the fraction of the original height.
+    /// 
+    /// Returns `(top, bottom)`.
+    /// 
+    /// Works best with clean ratios such as 0.5, 0.75, 0.6 etc.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the ratio given is > 1.0.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let (top, bottom) = original.split_horz_ratio(0.75);
+    /// 
+    /// assert_eq!(top, Geometry::new(0, 0, 75, 200));
+    /// assert_eq!(bottom, Geometry::new(0, 75, 25, 200));
+    /// ```
+    pub fn split_horz_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
+        if ratio > 1.0 {
+            panic!("received ratio larger than 1.0")
+        }
+
+        let top_height = (self.height as f32 * ratio) as u32;
+        let bottom_height = self.height - top_height;
+
+        (
+            // top
+            Geometry {
+                x: self.x,
+                y: self.y,
+                height: top_height,
+                width: self.width,
+            },
+            // bottom
+            Geometry {
+                x: self.x,
+                y: self.y + top_height as i32,
+                height: bottom_height,
+                width: self.width,
+            }
+        )
+    }
+
+    /// Splits a Geometry into two parts vertically by a given ratio
+    /// where the ratio is the fraction of the original width.
+    /// 
+    /// Returns `(left, right)`.
+    /// 
+    /// Works best with clean ratios such as 0.5, 0.75, 0.6 etc.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the ratio given is > 1.0.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let (top, bottom) = original.split_vert_ratio(0.75);
+    /// 
+    /// assert_eq!(top, Geometry::new(0, 0, 100, 150));
+    /// assert_eq!(bottom, Geometry::new(150, 0, 100, 50));
+    /// ```
+    pub fn split_vert_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
+        if ratio > 1.0 {
+            panic!("received ratio larger than 1.0")
+        }
+
+        let left_width = (self.width as f32 * ratio) as u32;
+        let right_width = self.width - left_width;
+
+        (
+            // left
+            Geometry {
+                x: self.x,
+                y: self.y,
+                height: self.height,
+                width: left_width,
+            },
+            // right
+            Geometry {
+                x: self.x + left_width as i32,
+                y: self.y,
+                height: self.height,
+                width: right_width,
+            }
+        )
     }
 }
 
@@ -83,12 +330,15 @@ pub enum MouseMode {
     Resize,
 }
 
+/// The layout state of the Window.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum WinLayoutState {
     Tiled,
     Floating,
 }
 
+/// Determines the colour that should be applied to
+/// the window border.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BorderStyle {
     Focused,
@@ -118,7 +368,7 @@ pub enum ClientAttrs {
     BorderColour(BorderStyle),
     /// Client event mask.
     EnableClientEvents,
-    /// 
+    /// Disable client events.
     DisableClientEvents,
     /// Root window attributes required for the WM to work.
     RootEventMask,
@@ -151,7 +401,7 @@ impl NetWindowStates {
                 return self.states.remove(idx)
             }
         }
-        //error!("Tried to remove atom not in states");
+        error!("Tried to remove atom not in states");
         0
     }
 }
