@@ -1,11 +1,12 @@
 use std::process::Command;
 
+use crate::{Result, ErrorHandler};
+use crate::log::basic_error_handler;
 use crate::x::{
     XConn, 
     XWindowID,
 };
 use crate::types::{
-    Result,
     MouseMode, Direction,
     ClientAttrs,
 };
@@ -43,6 +44,7 @@ pub struct WindowManager<X: XConn> {
     pub(crate) desktop: Desktop,
     pub(crate) screen: Screen,
     pub(crate) root: u32,
+    handler: ErrorHandler,
     mousemode: MouseMode,
     selected: Option<XWindowID>,
     last_mouse_x: i32,
@@ -65,6 +67,7 @@ impl<X: XConn> WindowManager<X> {
             //todo: read up on randr and figure out how the hell this works
             screen: screens[0],
             root: root_id,
+            handler: Box::new(basic_error_handler),
             mousemode: MouseMode::None,
             selected: None,
             last_mouse_x: 0,
@@ -173,7 +176,9 @@ impl<X: XConn> WindowManager<X> {
     /// Closes the focused window
     pub fn close_focused_window(&mut self) {
         if let Some(window) = self.desktop.current_mut().windows.focused() {
-            self.conn.destroy_window(&window);
+            if let Err(e) = self.conn.destroy_window(&window) {
+                (self.handler)(e.into())
+            }
         }
     }
 
@@ -215,7 +220,7 @@ impl<X: XConn> WindowManager<X> {
                 UnmapClient(id) => {},
                 ConfigureClient(id, geom) => {},
                 RunKeybind(kb) => {self.run_keybind(kb, keybinds)},
-                RunMousebind(mb) => {}
+                RunMousebind(mb) => {self.run_mousebind(mb, mousebinds)},
                 ToggleClientFullscreen(id, thing) => {},
                 ToggleUrgency(id) => {},
             }

@@ -65,3 +65,10 @@ macro_rules! error {
         (eprintln!(concat!("[X] ", $fmt), $($arg)*));
     };
 }
+
+use crate::ToaruError;
+
+//todo: use the proper logging api. Please.
+pub(crate) fn basic_error_handler(error: ToaruError) {
+    error!("{}", error);
+}

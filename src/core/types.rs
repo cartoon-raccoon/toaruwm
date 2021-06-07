@@ -1,12 +1,11 @@
 use std::ops::Deref;
 
-use thiserror::Error;
-
 use crate::layouts::LayoutType;
 //use crate::manager::WindowManager;
 
 pub use crate::core::{Ring, Selector};
 pub use crate::x::core::{
+    XWindowID,
     XError,
     StackMode,
 };
@@ -20,22 +19,8 @@ pub type Atom = u32;
 
 pub use super::window::{Client, ClientRing};
 
-pub type Result<T> = ::core::result::Result<T, WMError>;
-
 // todo: deprecate this and put inside configuration
 pub const BORDER_WIDTH: u32 = 2;
-
-#[derive(Debug, Error, Clone)]
-pub enum WMError {
-    #[error("{0}")]
-    ConnectionError(XError)
-}
-
-impl From<XError> for WMError {
-    fn from(e: XError) -> WMError {
-        WMError::ConnectionError(e)
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
