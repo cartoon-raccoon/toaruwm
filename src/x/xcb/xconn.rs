@@ -9,13 +9,13 @@ use crate::x::{
     core::{
         XWindowID, Result, XConn, XError,
         PointerQueryReply,
-        Property,
     }, 
     event::{
         XEvent, 
         ClientMessageData,
         ClientMessageEvent,
     },
+    property::*,
 };
 use crate::core::{Screen, Client};
 use crate::types::{
@@ -283,7 +283,7 @@ impl XConn for XCBConn {
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()> {
         use ClientMessageData::*;
 
-        debug!("Sending client message");
+        debug!("Sending client message to window {}", window);
 
         let (to_send, format) = match data.data {
             U8(bytes) => (XCBClientMsgData::from_data8(bytes), 8),
@@ -295,15 +295,13 @@ impl XConn for XCBConn {
             format, window, data.type_, to_send
         );
 
-        xcb::send_event(
+        Ok(xcb::send_event(
             &self.conn,
             false,
             window,
             xcb::EVENT_MASK_NO_EVENT,
             &client_msg,
-        ).request_check()?;
-
-        Ok(())
+        ).request_check()?)
     }
 
     fn set_input_focus(&self, window: XWindowID) {

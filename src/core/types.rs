@@ -7,12 +7,14 @@ use crate::layouts::LayoutType;
 
 pub use crate::core::{Ring, Selector};
 pub use crate::x::core::{
-    WindowState,
-    WmHints, 
-    SizeHints, 
     XError,
     StackMode,
 };
+pub use crate::x::property::{
+    WindowState,
+    WmHints, 
+    SizeHints,
+}; 
 
 pub type Atom = u32;
 
