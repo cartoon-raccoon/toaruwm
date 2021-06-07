@@ -1,8 +1,9 @@
 use crate::x::{XEvent, XWindowID, XConn};
 use crate::core::types::Geometry;
-use crate::keybinds::Keybind;
+use crate::keybinds::{Keybind, Mousebind};
 use crate::manager::WMState;
 
+// todo: update as neccesary to account for ICCCM and EWMH conventions
 pub enum EventAction {
     /// Focus the specified client.
     ClientFocus(XWindowID),
@@ -10,10 +11,6 @@ pub enum EventAction {
     ClientUnfocus(XWindowID),
     /// Change the WM_NAME property of the specified client.
     ClientNameChange(XWindowID),
-    /// Send the focused client to the specified workspace.
-    ClientToWorkspace(usize),
-    /// Switch to the specified workspace.
-    GotoWorkspace(usize),
     /// Destroy the specified client.
     DestroyClient(XWindowID),
     /// Map the specified client and track it internally.
@@ -31,6 +28,8 @@ pub enum EventAction {
     ConfigureClient(XWindowID, Geometry),
     /// Run the specified keybind.
     RunKeybind(Keybind),
+    /// Run the specified mousebind.
+    RunMousebind(Mousebind),
     /// Toggle the client in or out of fullscreen.
     /// 
     /// Also toggles _NET_WM_STATE_FULLSCREEN.
@@ -46,30 +45,26 @@ impl EventAction {
         use EventAction::*;
         use XEvent::*;
         match event {
-            ConfigureNotify(event) | ConfigureRequest(event) => {
-                if !event.is_root {
-                    vec![ConfigureClient(event.id, event.geom)]
-                } else {
-                    //todo: add root configure actions
-                    vec![]
-                };
+            ConfigureNotify(event) => {
+
+            }
+            ConfigureRequest(event) => {
+
             },
             MapRequest(id, override_redirect) => {
-                if override_redirect {
-                    
-                }
+
             },
             MapNotify(id) => {}
             UnmapNotify(id) => {}
             DestroyNotify(id) => {},
             EnterNotify(id) => {},
             LeaveNotify(id) => {},
-            MotionNotify(pt) => {},
+            MotionNotify(id, pt) => {},
             ReparentNotify(id) => {},
             PropertyNotify(event) => {},
-            KeyPress(event) => {},
+            KeyPress(id, event) => {},
             KeyRelease => {},
-            ButtonPress(id, pt) => {},
+            ButtonPress(event) => {},
             ButtonRelease => {},
             ClientMessage(event) => {},
             Unknown(smth) => {},

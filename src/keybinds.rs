@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::manager::WindowManager;
-use crate::x::event::KeypressEvent;
+use crate::x::{
+    core::XConn,
+    event::KeypressEvent,
+};
 
 //* Re-exports
 pub mod keysym {
@@ -26,7 +29,7 @@ pub enum ButtonMask {
     Button5,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ButtonIndex {
     Left,
     Middle,
@@ -38,13 +41,13 @@ pub enum ButtonIndex {
 pub type KeyMask = u16;
 pub type KeyCode = u8;
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Keybind {
     pub modmask: KeyMask,
     pub code: KeyCode,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Mousebind {
     pub modmask: KeyMask,
     pub button: ButtonIndex,
@@ -60,5 +63,15 @@ impl From<KeypressEvent> for Keybind {
 }
 
 pub type Keybinds<X> = HashMap<Keybind, Box<dyn FnMut(&mut WindowManager<X>)>>;
+
+pub fn new_keybinds<X: XConn>() -> Keybinds<X> {
+    HashMap::new()
+}
+
+pub type Mousebinds<X> = HashMap<Mousebind, Box<dyn FnMut(&mut WindowManager<X>)>>;
+
+pub fn new_mousebinds<X: XConn>() -> Mousebinds<X> {
+    HashMap::new()
+}
 
 //todo: Add mouse events

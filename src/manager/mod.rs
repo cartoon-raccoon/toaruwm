@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::process::Command;
 
 use crate::x::{
@@ -8,11 +7,16 @@ use crate::x::{
 use crate::types::{
     Result,
     MouseMode, Direction,
+    ClientAttrs,
 };
-use crate::keybinds::Keybinds;
+use crate::keybinds::{
+    Mousebinds,
+    Mousebind,
+    Keybinds, 
+    Keybind,
+};
 use crate::layouts::LayoutType;
 use crate::core::{Screen, Desktop};
-use crate::util;
 
 pub mod event;
 pub mod state;
@@ -39,7 +43,6 @@ pub struct WindowManager<X: XConn> {
     pub(crate) desktop: Desktop,
     pub(crate) screen: Screen,
     pub(crate) root: u32,
-    keybinds: Keybinds<X>,
     mousemode: MouseMode,
     selected: Option<XWindowID>,
     last_mouse_x: i32,
@@ -53,14 +56,15 @@ impl<X: XConn> WindowManager<X> {
     /// Constructs a new WindowManager object.
     pub fn new(conn: X) -> WindowManager<X> {
         let root_id = conn.get_root();
-        let screens = conn.all_outputs();
+        let screens = conn.all_outputs().unwrap_or_else(
+            |_| fatal!("Could not get screens")
+        );
         Self {
             conn,
             desktop: Desktop::new(LayoutType::Floating),
             //todo: read up on randr and figure out how the hell this works
             screen: screens[0],
             root: root_id,
-            keybinds: HashMap::new(),
             mousemode: MouseMode::None,
             selected: None,
             last_mouse_x: 0,
@@ -82,7 +86,7 @@ impl<X: XConn> WindowManager<X> {
 
         debug!("Got root id of {}", root_id);
 
-        self.conn.change_window_attributes(root_id, &util::ROOT_ATTRS)
+        self.conn.change_window_attributes(root_id, &[ClientAttrs::RootEventMask])
         .unwrap_or_else(|_| {
             error!("Another window manager is running.");
             std::process::exit(1)
@@ -99,10 +103,17 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Runs the main event loop.
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(
+        &mut self,
+        mut mb: Mousebinds<X>,
+        mut kb: Keybinds<X>
+    ) -> Result<()> {
         loop {
-            let actions = self.process_next_event();
-            self.handle_event(actions)?;
+            if let Some(actions) = self.process_next_event()? {
+                self.handle_event(actions, &mut mb, &mut kb)?;
+            }
+
+            //* update window properties
 
             if self.to_quit {
                 break Ok(())
@@ -172,18 +183,56 @@ impl<X: XConn> WindowManager<X> {
     }
 
     //* Private methods
-    pub(crate) fn process_next_event(&mut self) -> Vec<EventAction> {
-        EventAction::from_xevent(
-            self.conn.get_next_event(), 
-            self.state()
-        )
+    pub(crate) fn process_next_event(&mut self) -> Result<Option<Vec<EventAction>>> {
+        if let Some(event) = self.conn.poll_next_event()? {
+            Ok(Some(EventAction::from_xevent(event, self.state())))
+        } else {
+            Ok(None)
+        }
     }
 
-    fn handle_event(&mut self, actions: Vec<EventAction>) -> Result<()> {
-        for _action in actions {
-            todo!()  //* match events and run functions accordingly
+    fn handle_event(
+        &mut self, 
+        actions: Vec<EventAction>,
+        mousebinds: &mut Mousebinds<X>,
+        keybinds: &mut Keybinds<X>,
+    ) -> Result<()> {
+        //*!note: only use the try operator (?) if the error is unrecoverable.
+        //* otherwise, explicitly handle all errors within this function.
+        //* this function is called with a try operator within the event loop.
+        //* if you return an error, the entire event loop will break.
+
+        use EventAction::*;
+
+        for action in actions {
+            match action {
+                ClientFocus(id) => {}
+                ClientUnfocus(id) => {},
+                ClientNameChange(id) => {},
+                DestroyClient(id) => {},
+                MapTrackedClient(id) => {},
+                MapUntrackedClient(id) => {},
+                UnmapClient(id) => {},
+                ConfigureClient(id, geom) => {},
+                RunKeybind(kb) => {self.run_keybind(kb, keybinds)},
+                RunMousebind(mb) => {}
+                ToggleClientFullscreen(id, thing) => {},
+                ToggleUrgency(id) => {},
+            }
         }
 
         Ok(())
+    }
+
+    fn run_keybind(&mut self, kb: Keybind, bindings: &mut Keybinds<X>) {
+        if let Some(cb) = bindings.get_mut(&kb) {
+            cb(self);
+        }
+    }
+
+    fn run_mousebind(&mut self, mb: Mousebind, bindings: &mut Mousebinds<X>) {
+        if let Some(cb) = bindings.get_mut(&mb) {
+            cb(self);
+        }
     }
 }
