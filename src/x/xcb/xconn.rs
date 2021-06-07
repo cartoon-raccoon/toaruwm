@@ -5,7 +5,6 @@ use xcb::{
 };
 
 use crate::x::{
-    xproto,
     core::{
         XWindowID, Result, XConn, XError,
         PointerQueryReply,
@@ -24,6 +23,8 @@ use crate::types::{
     ClientConfig,
 };
 use crate::keybinds::{Keybind, Mousebind};
+use crate::util;
+
 use super::XCBConn;
 
 const MAX_LONG_LENGTH: u32 = 1024;
@@ -181,7 +182,7 @@ impl XConn for XCBConn {
             &self.conn, 
             false, 
             window, 
-            mb.modmask as u16, 
+            util::ROOT_BUTTON_GRAB_MASK as u16,
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::GRAB_MODE_ASYNC as u8,
             if confine { window } else { xcb::NONE },
@@ -212,14 +213,14 @@ impl XConn for XCBConn {
         )
     }
 
-    fn grab_pointer(&self, winid: XWindowID, mask: xproto::EventMask) -> Result<()> {
+    fn grab_pointer(&self, winid: XWindowID, _mask: u32) -> Result<()> {
         debug!("Grabbing pointer for window: {:?}", winid);
 
         xcb::grab_pointer(
             &self.conn,
             false,
             winid,
-            mask as u16,
+            util::ROOT_POINTER_GRAB_MASK as u16,
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::NONE,
