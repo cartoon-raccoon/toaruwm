@@ -74,7 +74,7 @@ impl<X: XConn> WindowManager<X> {
         );
         Self {
             conn,
-            desktop: Desktop::new(LayoutType::Floating),
+            desktop: Desktop::new(LayoutType::Floating, None),
             //todo: read up on randr and figure out how the hell this works
             screen: screens[0],
             root: root_id,

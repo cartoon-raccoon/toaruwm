@@ -11,7 +11,7 @@
 use crate::x::{XConn, XWindow, XWindowID};
 use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::Workspace;
-use crate::layouts::LayoutType;
+use crate::layouts::{LayoutType, LayoutFn};
 
 /// Represents a physical monitor.
 #[derive(Clone, Copy, Debug)]
@@ -43,13 +43,13 @@ pub struct Desktop {
 }
 
 impl Desktop {
-    pub fn new(layout: LayoutType) -> Self {
+    pub fn new(layout: LayoutType, lfn: Option<LayoutFn>) -> Self {
         Self {
             workspaces: {
                 let mut workspaces = Ring::with_capacity(MAX_WKSPACES);
 
                 for i in 0..MAX_WKSPACES {
-                    workspaces.push(Workspace::with_layout(layout, &i.to_string()));
+                    workspaces.push(Workspace::with_layout(layout.clone(), lfn, &i.to_string()));
                 }
 
                 workspaces.set_focused(0);

@@ -18,7 +18,8 @@ use crate::types::{
 use crate::layouts::{
     LayoutType, 
     LayoutEngine, 
-    ResizeAction
+    ResizeAction,
+    LayoutFn,
 };
 use crate::x::{XConn, XWindowID, core::StackMode};
 
@@ -33,18 +34,24 @@ pub struct Workspace {
 #[allow(unused_variables)]
 impl Workspace {
     /// Creates a new workspace with a specific layout.
-    pub fn with_layout(layout: LayoutType, name: &str) -> Self {
+    pub fn with_layout(layout: LayoutType, lfn: Option<LayoutFn>, name: &str) -> Self {
         Self {
             name: name.into(),
             windows: ClientRing::new(),
             master: None,
-            layoutter: LayoutEngine::with_layout(layout),
+            layoutter: LayoutEngine::with_layout(layout, lfn),
         }
     }
 
     /// Sets the layout to use and applies it to all currently mapped windows.
-    pub fn set_layout<X: XConn>(&mut self, layout: LayoutType, conn: &X, scr: &Screen) {
-        self.layoutter.set_layout(layout);
+    pub fn set_layout<X: XConn>(
+        &mut self, 
+        layout: LayoutType, 
+        lfn: Option<LayoutFn>,
+        conn: &X, 
+        scr: &Screen
+    ) {
+        self.layoutter.set_layout(layout, lfn);
         self.relayout(conn, scr);
     }
 
@@ -395,7 +402,7 @@ impl Workspace {
     }
 
     #[inline]
-    pub fn layout(&self) -> LayoutType {
+    pub fn layout(&self) -> &LayoutType {
         self.layoutter.layout()
     }
 
