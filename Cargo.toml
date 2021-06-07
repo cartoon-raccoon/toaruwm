@@ -25,6 +25,8 @@ flexi_logger = "0.17"
 strum = { version = "0.19.2", features = ["derive"] }
 strum_macros = "0.19.2"
 
+bitflags = "1.2.1"
+
 nix = "0.20"
 
 thiserror = "1"
