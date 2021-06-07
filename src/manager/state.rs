@@ -12,6 +12,7 @@ pub(crate) struct WMState<'a, X: XConn> {
     pub root: u32,
     pub mousemode: MouseMode,
     pub selected: Option<XWindowID>,
+    pub focused: Option<XWindowID>,
 }
 
 impl<X: XConn> WindowManager<X> {
@@ -22,6 +23,7 @@ impl<X: XConn> WindowManager<X> {
             root: self.root,
             mousemode: self.mousemode,
             selected: self.selected,
+            focused: self.focused,
         }
     }
 }

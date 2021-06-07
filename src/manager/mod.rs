@@ -1,6 +1,8 @@
 use std::process::Command;
 
-use crate::{Result, ErrorHandler};
+use crate::{
+    Result, ToaruError, ErrorHandler,
+};
 use crate::log::basic_error_handler;
 use crate::x::{
     XConn, 
@@ -40,13 +42,20 @@ pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 /// a new window manager instance.
 #[allow(dead_code)]
 pub struct WindowManager<X: XConn> {
-    pub(crate) conn: X,
-    pub(crate) desktop: Desktop,
-    pub(crate) screen: Screen,
-    pub(crate) root: u32,
+    /// The X Connection
+    conn: X,
+    /// The desktop containing all windows.
+    desktop: Desktop,
+    screen: Screen,
+    root: u32,
     handler: ErrorHandler,
     mousemode: MouseMode,
+    /// The window currently being manipulated
+    /// if `self.mousemode` is not None.
     selected: Option<XWindowID>,
+    /// The window currently in focus.
+    focused: Option<XWindowID>,
+    last_workspace: usize,
     last_mouse_x: i32,
     last_mouse_y: i32,
     to_quit: bool,
@@ -70,6 +79,8 @@ impl<X: XConn> WindowManager<X> {
             handler: Box::new(basic_error_handler),
             mousemode: MouseMode::None,
             selected: None,
+            focused: None,
+            last_workspace: 0,
             last_mouse_x: 0,
             last_mouse_y: 0,
             to_quit: false,
@@ -128,6 +139,13 @@ impl<X: XConn> WindowManager<X> {
     pub fn run_external(&mut self, args: &'static [&str]) {
         
         todo!()
+    }
+
+    /// Set an error handler for WindowManager.
+    pub fn set_error_handler<F>(&mut self, f: F) 
+    where 
+        F: FnMut(ToaruError) + 'static {
+        self.handler = Box::new(f);
     }
     
     /// Goes to the specified workspace.
