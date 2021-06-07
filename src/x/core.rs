@@ -308,13 +308,14 @@ pub trait XConn {
     /// Returns an empty string in case of error.
     fn get_wm_name(&self, window: XWindowID) -> String {
         let prop = self.get_prop_str("WM_NAME", window);
-        if prop.is_err() { 
-            "".into() 
-        } else {
-            let prop = prop.unwrap();
-            if let Property::UTF8String(mut prop) = prop {
-                prop.remove(0)
-            } else { "".into() }
+
+        match prop {
+            Ok(prop) => {
+                if let Property::UTF8String(mut prop) = prop {
+                    prop.remove(0)
+                } else { "".into() }
+            }
+            Err(_) => "".into() 
         }
     }
 
@@ -323,13 +324,14 @@ pub trait XConn {
     /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
         let prop = self.get_prop_str("WM_ICON_NAME", window);
-        if prop.is_err() { 
-            "".into() 
-        } else {
-            let prop = prop.unwrap();
-            if let Property::UTF8String(mut prop) = prop {
-                prop.remove(0)
-            } else { "".into() }
+
+        match prop {
+            Ok(prop) => {
+                if let Property::UTF8String(mut prop) = prop {
+                    prop.remove(0)
+                } else { "".into() }
+            }
+            Err(_) => "".into() 
         }
     }
 
@@ -367,7 +369,8 @@ pub trait XConn {
     fn get_wm_class(&self, window: XWindowID) -> (String, String) {
         use Property::*;
 
-        let prop = self.get_prop_str("WM_CLASS", window).unwrap_or(U8List(Vec::new()));
+        let prop = self.get_prop_str("WM_CLASS", window)
+        .unwrap_or_else(|_| U8List(Vec::new()));
 
         match prop {
             String(strs) | UTF8String(strs) => {
@@ -405,7 +408,7 @@ pub trait XConn {
                 1 => WindowState::Normal,
                 3 => WindowState::Iconic,
                 0 => WindowState::Withdrawn,
-                n @ _ => {
+                n => {
                     error!("Expected 1, 3, or 0 for WM_STATE, got {}", n);
                     return None
                 }
@@ -442,7 +445,7 @@ pub trait XConn {
             "_NET_WM_WINDOW_TYPE"
         ).expect("atom not interned");
 
-        if let Some(Property::Atom(atoms)) = self.get_prop_atom(atom, window).ok() {
+        if let Ok(Property::Atom(atoms)) = self.get_prop_atom(atom, window) {
             Some(atoms)
         } else {
             error!("Expected Atom type for get_window_type");

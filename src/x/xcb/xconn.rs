@@ -120,7 +120,7 @@ impl XConn for XCBConn {
             xcb::GRAB_MODE_ASYNC as u8,
         ).get_reply().map_err(|_|
             XError::ServerError(
-                format!("Unable to grab keyboard")
+                "Unable to grab keyboard".into()
             )
         );
         Ok(())
@@ -130,7 +130,7 @@ impl XConn for XCBConn {
         debug!("Ungrabbing kayboard");
         let _ = xcb::ungrab_keyboard(&self.conn, xcb::CURRENT_TIME)
         .request_check()
-        .map_err(|_| XError::ServerError(format!("Unable to ungrab keyboard")))?;
+        .map_err(|_| XError::ServerError("Unable to ungrab keyboard".into()))?;
         Ok(())
 
     }
@@ -145,7 +145,7 @@ impl XConn for XCBConn {
             &self.conn,
             false,
             window,
-            kb.modmask.into(),
+            kb.modmask,
             kb.code,
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::GRAB_MODE_ASYNC as u8,
@@ -164,7 +164,7 @@ impl XConn for XCBConn {
             &self.conn,
             kb.code,
             window,
-            kb.modmask.into(),
+            kb.modmask,
         ).request_check().map_err(|_|
             XError::ServerError(
                 format!("Unable to ungrab key {} for window {}", 
@@ -188,7 +188,7 @@ impl XConn for XCBConn {
             if confine { window } else { xcb::NONE },
             xcb::NONE,
             mb.button.into(),
-            mb.modmask.into(),
+            mb.modmask,
         ).request_check().map_err(|_|
             XError::ServerError(
                 format!("Unable to grab button {:?} for window {}", mb.button, window)
@@ -203,7 +203,7 @@ impl XConn for XCBConn {
             &self.conn,
             mb.button.into(),
             window,
-            mb.modmask.into(),
+            mb.modmask,
         ).request_check().map_err(|_|
             XError::ServerError(
                 format!("Unable to ungrab button {:?} for window {}",
@@ -399,7 +399,7 @@ impl XConn for XCBConn {
             "ATOM" => Property::Atom(
                 r.value()
                     .iter()
-                    .map(|a| self.lookup_atom(*a).unwrap_or("".into()))
+                    .map(|a| self.lookup_atom(*a).unwrap_or_else(|_| "".into()))
                     .collect::<Vec<String>>()
             ),
             "CARDINAL" => Property::Cardinal(r.value()[0]),
@@ -424,7 +424,7 @@ impl XConn for XCBConn {
             "WM_SIZE_HINTS" => Property::WMSizeHints(
                 WmSizeHints::try_from_bytes(r.value())?
             ),
-            n @ _ => {
+            n => {
                 if n == "WM_STATE" {
                     debug!("Type is WM_STATE");
                 }
@@ -438,7 +438,7 @@ impl XConn for XCBConn {
                     32 => Property::U32List(
                         r.value::<u32>().into()
                     ),
-                    n @ _ => {
+                    n => {
                         return Err(
                             XError::InvalidPropertyData(
                                 format!("received format {}", n)

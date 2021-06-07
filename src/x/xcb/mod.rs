@@ -77,76 +77,76 @@ impl XCBConn {
             .root();
 
         Ok(Self {
-            conn: conn,
-            root: root,
-            atoms: atoms,
+            conn,
+            root,
+            atoms,
             cursor: 0,
         })
     }
 
     pub fn init(&mut self) -> Result<()> {
-        self.atoms.insert("_NET_SUPPORTED".into(), self.conn.SUPPORTED());
-        self.atoms.insert("_NET_WM_WINDOW_TYPE".into(), self.conn.WM_WINDOW_TYPE());
-        self.atoms.insert("_NET_WM_STRUT".into(), self.conn.WM_STRUT());
-        self.atoms.insert("_NET_WM_STRUT_PARTIAL".into(), self.conn.WM_STRUT_PARTIAL());
+        self.atoms.insert("_NET_SUPPORTED", self.conn.SUPPORTED());
+        self.atoms.insert("_NET_WM_WINDOW_TYPE", self.conn.WM_WINDOW_TYPE());
+        self.atoms.insert("_NET_WM_STRUT", self.conn.WM_STRUT());
+        self.atoms.insert("_NET_WM_STRUT_PARTIAL", self.conn.WM_STRUT_PARTIAL());
 
         self.atoms.insert(
-            "WM_DELETE_WINDOW".into(),
+            "WM_DELETE_WINDOW",
             xcb::intern_atom(&self.conn, false, "WM_DELETE_WINDOW")
             .get_reply()?
             .atom());
 
         self.atoms.insert(
-            "WM_TAKE_FOCUS".into(),
+            "WM_TAKE_FOCUS",
             xcb::intern_atom(&self.conn, false, "WM_TAKE_FOCUS")
             .get_reply()?
             .atom());
 
         self.atoms.insert(
-            "WM_PROTOCOLS".into(), self.conn.WM_PROTOCOLS()
+            "WM_PROTOCOLS", self.conn.WM_PROTOCOLS()
         );
         self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DESKTOP".into(), 
+            "_NET_WM_WINDOW_TYPE_DESKTOP", 
             self.conn.WM_WINDOW_TYPE_DESKTOP()
         );
         self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DOCK".into(),
+            "_NET_WM_WINDOW_TYPE_DOCK",
             self.conn.WM_WINDOW_TYPE_DOCK()
         );
         self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_TOOLBAR".into(),
+            "_NET_WM_WINDOW_TYPE_TOOLBAR",
             self.conn.WM_WINDOW_TYPE_TOOLBAR()
         );
         self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_MENU".into(),
+            "_NET_WM_WINDOW_TYPE_MENU",
             self.conn.WM_WINDOW_TYPE_MENU()
         );
         self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_UTILITY".into(),
+            "_NET_WM_WINDOW_TYPE_UTILITY",
             self.conn.WM_WINDOW_TYPE_UTILITY()
         );
         self.atoms.insert(
-            "_NET_WINDOW_TYPE_SPLASH".into(),
+            "_NET_WINDOW_TYPE_SPLASH",
             self.conn.WM_WINDOW_TYPE_SPLASH()
         );
         self.atoms.insert(
-            "_NET_WINDOW_TYPE_DIALOG".into(),
+            "_NET_WINDOW_TYPE_DIALOG",
             self.conn.WM_WINDOW_TYPE_DIALOG()
         );
         self.atoms.insert(
-            "_NET_WINDOW_TYPE_DROPDOWN_MENU".into(),
+            "_NET_WINDOW_TYPE_DROPDOWN_MENU",
             self.conn.WM_WINDOW_TYPE_DROPDOWN_MENU()
         );
         self.atoms.insert(
-            "_NET_WINDOW_TYPE_NOTIFICATION".into(),
+            "_NET_WINDOW_TYPE_NOTIFICATION",
             self.conn.WM_WINDOW_TYPE_NOTIFICATION()
         );
         self.atoms.insert(
-            "_NET_WINDOW_TYPE_NORMAL".into(),
+            "_NET_WINDOW_TYPE_NORMAL",
             self.conn.WM_WINDOW_TYPE_NORMAL()
         );
         self.atoms.insert(
-            "_NET_WM_STATE".into(),
+            "_NET_WM_STATE",
             self.conn.WM_STATE()
         );
 
@@ -401,7 +401,7 @@ impl XCBConn {
                     type_: event.type_(),
                 }))
             }
-            n @ _ => {
+            n => {
                 Ok(Unknown(n))
             }
         }

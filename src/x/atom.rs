@@ -208,6 +208,7 @@ pub const EWMH_SUPPORTED_ATOMS: &[Atom] = &[
 /// an X-defined atom.
 /// 
 /// This allows the user to manage known atoms conveniently.
+#[derive(Default, Clone)]
 pub struct Atoms {
     /// Known atoms that can be managed as their enum variants.
     known: HashMap<Atom, XAtom>,
@@ -233,9 +234,9 @@ impl Atoms {
 
     pub fn retrieve(&self, atom: &str) -> Option<XAtom> {
         if let Ok(known) = Atom::from_str(atom) {
-            self.known.get(&known).map(|a| *a)
+            self.known.get(&known).copied()
         } else {
-            self.interned.get(&atom.to_string()).map(|a| *a)
+            self.interned.get(&atom.to_string()).copied()
         }
     }
 

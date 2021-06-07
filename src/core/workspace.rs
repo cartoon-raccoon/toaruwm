@@ -144,13 +144,11 @@ impl Workspace {
         if let Ok(ptr) = conn.query_pointer(scr.xwindow.id) {
             if ptr.child == scr.xwindow.id || ptr.child == id {
                 self.focus_window(conn, id);
+            } else if let Some(focused) = self.windows.focused_mut() {
+                focused.set_border(conn, BorderStyle::Unfocused);
             } else {
-                if let Some(focused) = self.windows.focused_mut() {
-                    focused.set_border(conn, BorderStyle::Unfocused);
-                } else {
-                    let win = self.windows.lookup_mut(id).unwrap();
-                    win.set_border(conn, BorderStyle::Unfocused);
-                }
+                let win = self.windows.lookup_mut(id).unwrap();
+                win.set_border(conn, BorderStyle::Unfocused);
             }
         }
 

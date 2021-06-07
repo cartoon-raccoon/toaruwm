@@ -250,9 +250,9 @@ impl TryFrom<&[u32]> for WmHints {
             ))
         }
 
-        let flags = WmHintsFlags::from_bits(from[0]).ok_or(
+        let flags = WmHintsFlags::from_bits(from[0]).ok_or_else(||
             InvalidPropertyData(
-                format!("invalid flags set for WmHintsFlags")
+                "invalid flags set for WmHintsFlags".into()
             )
         )?;
 
@@ -264,7 +264,7 @@ impl TryFrom<&[u32]> for WmHints {
             (true, 0) => WindowState::Withdrawn,
             (true, 1) => WindowState::Normal,
             (true, 3) | (true, 2) => WindowState::Iconic,
-            (true, n @ _) => return Err(InvalidPropertyData(
+            (true, n) => return Err(InvalidPropertyData(
                 format!("expected 0, 1, or 3 for window state, got {}", n)
             )),
             (false, _) => WindowState::Normal,
@@ -380,9 +380,9 @@ impl TryFrom<&[u32]> for WmSizeHints {
             ))
         }
 
-        let flags = WMSHFlags::from_bits(from[0]).ok_or(
+        let flags = WMSHFlags::from_bits(from[0]).ok_or_else(||
             InvalidPropertyData(
-                format!("invalid flags set for WmSizeHintsFlags")
+                "invalid flags set for WmSizeHintsFlags".into()
             )
         )?;
 
