@@ -4,9 +4,9 @@ todo:
 convert layout engine into a trait? use trait object to generate layout?
 (this would allow users to define their own special layouts, but would probably cause lifetime issues)
 
-implement parsing WM_HINTS and WM_SIZE_HINTS from property data (src/x/xcb/xconn.rs)
 finish implementing XConn for XCBConn (src/x/xcb/xconn.rs)
 finalise cursor methods
+integrate logging API
 
 learn randr methods
 add multiscreen support (randr)
