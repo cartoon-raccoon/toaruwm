@@ -11,7 +11,6 @@ use crate::types::{
     Geometry,
     XWinProperties,
     Atom,
-    NetWindowStates,
     ClientConfig,
     ClientAttrs,
 };
@@ -169,7 +168,7 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// An implementation of `XConn` is required for using a [WindowManager][1].
 /// The backend library used does not directly appear inside `WindowManager`.
 /// Thus, it is possible to create your own XConn type using a different
-/// library, posibly using XLib, and in theory this crate can run on
+/// library, possibly using XLib, and in theory this crate can run on
 /// any display server implementing the X protocol, given a proper
 /// implementor of `XConn`.
 /// 
@@ -453,8 +452,18 @@ pub trait XConn {
         }
     }
 
-    fn get_window_states(&self, window: XWindowID) -> NetWindowStates {
-        todo!()
+    fn get_window_states(&self, window: XWindowID) -> Option<Vec<String>> {
+        let atom = self.atom(
+            "_NET_WM_STATE"
+        ).expect("atom not interned");
+
+        if let Ok(Property::Atom(atoms)) = self.get_prop_atom(atom, window) {
+            Some(atoms)
+        } else {
+            error!("Expected Atom type for get_window_type");
+            None
+        }
+        
     }
 
     fn set_supported(&self, screen_idx: i32, atoms: &[Atom]) {

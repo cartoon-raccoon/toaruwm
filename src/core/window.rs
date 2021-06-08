@@ -289,7 +289,13 @@ impl Client {
         } else {
             WindowState::Normal
         };
-        self.net_states = conn.get_window_states(self.id());
+        self.net_states = match conn.get_window_states(self.id()) {
+            Some(atoms) => NetWindowStates::from_strings(atoms, conn),
+            None => {
+                warn!("Could not get _NET_WINDOW_STATE");
+                NetWindowStates::new()
+            }
+        };
         if self.protocols.is_empty() {
             self.set_supported(conn);
         }

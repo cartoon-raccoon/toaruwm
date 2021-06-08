@@ -5,6 +5,7 @@ use crate::layouts::LayoutType;
 
 pub use crate::core::{Ring, Selector};
 pub use crate::x::core::{
+    XConn,
     XWindowID,
     XError,
     StackMode,
@@ -385,6 +386,15 @@ impl NetWindowStates {
         Self {
             states: Vec::new()
         }
+    }
+
+    pub fn from_strings<X: XConn>(strs: Vec<String>, conn: &X) -> Self {
+        strs.into_iter()
+            .map(|s| conn.atom(&s))
+            .filter(|r| r.is_err()) // filter out errors
+            .map(|a| a.unwrap())    // safe to unwrap since errors filtered out
+            .collect::<Vec<Atom>>()
+            .into()
     }
 
     pub fn contains(&self, prop: Atom) -> bool {
