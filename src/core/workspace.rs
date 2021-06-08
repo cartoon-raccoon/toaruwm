@@ -55,6 +55,11 @@ impl Workspace {
         self.relayout(conn, scr);
     }
 
+    /// Tests whether the workspace contains a specfic window.
+    pub fn contains_window(&self, id: XWindowID) -> bool {
+        self.windows.contains(id)
+    }
+
     /// Maps all the windows in the workspace.
     pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         if self.windows.is_empty() {

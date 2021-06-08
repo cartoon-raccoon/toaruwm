@@ -59,6 +59,11 @@ impl Desktop {
         }
     }
 
+    /// Test whether a certain window is already managed.
+    pub fn is_managed(&self, id: XWindowID) -> bool {
+        self.workspaces.iter().any(|ws| ws.contains_window(id))
+    }
+
     /// Returns a reference to the current workspace.
     pub fn current(&self) -> &Workspace {
         &self.workspaces[self.current]
