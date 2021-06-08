@@ -178,18 +178,17 @@ pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeCombo,
     Atom::NetWindowTypeDesktop,
     Atom::NetWindowTypeDialog,
-    Atom::NetWindowTypeDock,
     Atom::NetWindowTypeDropdownMenu,
-    Atom::NetWindowTypeMenu,
     Atom::NetWindowTypeNotification,
+    Atom::NetWindowTypeMenu,
     Atom::NetWindowTypePopupMenu,
-    Atom::NetWindowTypeSplash,
     Atom::NetWindowTypeToolbar,
     Atom::NetWindowTypeUtility,
-];
-
+    ];
+    
 /// Windows with a type in this array will not be managed
 pub const UNMANAGED_WINDOW_TYPES: &[Atom] = &[
+    Atom::NetWindowTypeSplash,
     Atom::NetWindowTypeDock,
     Atom::NetWindowTypeNotification,
     Atom::NetWindowTypeToolbar,
