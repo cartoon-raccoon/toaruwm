@@ -58,7 +58,7 @@ impl ClientRing {
     }
 
     /// Tests whether the Ring contains a client with the given ID.
-    pub fn contains(&mut self, id: XWindowID) -> bool {
+    pub fn contains(&self, id: XWindowID) -> bool {
         matches!(self.element_by(|win| win.id() == id), Some(_))
     }
 
@@ -290,9 +290,10 @@ impl Client {
             WindowState::Normal
         };
         self.net_states = match conn.get_window_states(self.id()) {
-            Some(atoms) => NetWindowStates::from_strings(atoms, conn),
-            None => {
+            Ok(atoms) => NetWindowStates::from_strings(atoms, conn),
+            Err(e) => {
                 warn!("Could not get _NET_WINDOW_STATE");
+                error!("{}", e);
                 NetWindowStates::new()
             }
         };
