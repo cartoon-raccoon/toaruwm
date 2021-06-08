@@ -1,0 +1,39 @@
+ICCCM and EWMH compliance
+
++ -> fully supported
+- -> not supported
+/ -> partially supported
+
+==== ICCCM Compliance ====
++ WM_NAME
++ WM_ICON_NAME
+/ WM_NORMAL_HINTS
+    - min_aspect, max_aspect
+    - base
+    - gravity
+/ WM_HINTS
+    - ICON_PIXMAP
+    - ICON_WINDOW
+    - ICON_POS
+    - ICON_MASK
++ WM_CLASS
++ WM_TRANSIENT_FOR
++ WM_PROTOCOLS - WM_DELETE_WINDOW
++ WM_STATE (partially)
+
+==========================
+
+==== EWMH Compliance =====
+//Root Window Properties//
++ _NET_SUPPORTED
+- _NET_CLIENT_LIST (todo)
+- _NET_NUMBER_OF_DESKTOPS (todo)
+- _NET_DESKTOP_GEOMETRY (todo)
+- _NET_DESKTOP_VIEWPORT
+- _NET_CURRENT_DESKTOP (todo)
+- _NET_DESKTOP_NAMES (maybe)
+- _NET_ACTIVE_WINDOW (todo)
+
+//Application Window Properties//
+
+==========================
