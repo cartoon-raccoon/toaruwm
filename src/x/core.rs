@@ -168,6 +168,10 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// often mapping directly to X server protocol requests, with type
 /// conversion to present dependency-agnostic types.
 /// 
+/// An XConn implementation should also provide a way to manage X atoms.
+/// Its `atom()` method should intern an Atom if not known, and
+/// the implementation should store this in its internal state in some way.
+/// 
 /// An implementation of `XConn` is required for using a [WindowManager][1].
 /// The backend library used does not directly appear inside `WindowManager`.
 /// Thus, it is possible to create your own XConn type using a different
@@ -207,9 +211,14 @@ pub trait XConn {
     /// Returns randr data on all connected screens.
     fn all_outputs(&self) -> Result<Vec<Screen>>;
 
-    /// Get the value of an atom.
+    /// Get the value of an atom by its name.
+    /// 
+    /// You can use [Atom][1]'s `as_ref()` method to get a
+    /// known atom's string representation.
     /// 
     /// If the atom is unknown, intern it.
+    /// 
+    /// [1]: crate::x::atom::Atom
     fn atom(&self, atom: &str) -> Result<XAtom>;
 
     /// Looks up the name of an atom.
@@ -272,10 +281,7 @@ pub trait XConn {
     fn set_property(&self, window: XWindowID, prop: &str, data: Property) -> Result<()>;
 
     /// Retrieves a given property for a given window by its atom name.
-    fn get_prop_str(&self, prop: &str, window: XWindowID) -> Result<Property>;
-
-    /// Retrieves a given property for a given window by its atom value.
-    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Property>;
+    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Property>;
 
     /// Sets the root screen.
     fn set_root_scr(&mut self, scr: i32);
@@ -309,7 +315,7 @@ pub trait XConn {
     /// 
     /// Returns an empty string in case of error.
     fn get_wm_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop_str("WM_NAME", window);
+        let prop = self.get_prop("WM_NAME", window);
 
         match prop {
             Ok(prop) => {
@@ -325,7 +331,7 @@ pub trait XConn {
     /// 
     /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop_str(Atom::WmIconName.as_ref(), window);
+        let prop = self.get_prop(Atom::WmIconName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
@@ -341,7 +347,7 @@ pub trait XConn {
     /// 
     /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
-        let prop = self.get_prop_str(Atom::WmNormalHints.as_ref(), window).ok()?;
+        let prop = self.get_prop(Atom::WmNormalHints.as_ref(), window).ok()?;
 
         if let Property::WMSizeHints(sh) = prop {
             Some(sh)
@@ -355,7 +361,7 @@ pub trait XConn {
     /// 
     /// Returns None if not set or in case of error.
     fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints> {
-        let prop = self.get_prop_str("WM_HINTS", window).ok()?;
+        let prop = self.get_prop(Atom::WmHints.as_ref(), window).ok()?;
 
         if let Property::WMHints(hints) = prop {
             Some(hints)
@@ -369,9 +375,9 @@ pub trait XConn {
     /// 
     /// Returns a tuple of empty strings if not set or in case of error.
     fn get_wm_class(&self, window: XWindowID) -> (String, String) {
-        use Property::*;
+        use Property::{String, UTF8String, U8List};
 
-        let prop = self.get_prop_str("WM_CLASS", window)
+        let prop = self.get_prop(Atom::WmClass.as_ref(), window)
         .unwrap_or_else(|_| U8List(Vec::new()));
 
         match prop {
@@ -389,7 +395,7 @@ pub trait XConn {
     /// 
     /// Returns None if not set or in case of error.
     fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<XAtom>> {
-        let prop = self.get_prop_str("WM_PROTOCOLS", window).ok()?;
+        let prop = self.get_prop(Atom::WmProtocols.as_ref(), window).ok()?;
 
         if let Property::Atom(atoms) = prop {
             let mut ret = Vec::new();
@@ -403,7 +409,7 @@ pub trait XConn {
     }
 
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
-        let prop = self.get_prop_str("WM_STATE", window).ok()?;
+        let prop = self.get_prop(Atom::WmState.as_ref(), window).ok()?;
 
         if let Property::U32List(list) = prop {
             Some(match list[0] as xcb_util::icccm::WmState {
@@ -422,7 +428,7 @@ pub trait XConn {
     }
 
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
-        let prop = self.get_prop_str("WM_TRANSIENT_FOR", window).ok()?;
+        let prop = self.get_prop(Atom::WmTransientFor.as_ref(), window).ok()?;
 
         if let Property::Window(ids) = prop {
             if ids[0] == 0 {
@@ -443,11 +449,9 @@ pub trait XConn {
 
     // EWMH-related operations
     fn get_window_type(&self, window: XWindowID) -> Option<Vec<String>> {
-        let atom = self.atom(
-            "_NET_WM_WINDOW_TYPE"
-        ).expect("atom not interned");
+        let atom = Atom::NetWmWindowType.as_ref();
 
-        if let Ok(Property::Atom(atoms)) = self.get_prop_atom(atom, window) {
+        if let Ok(Property::Atom(atoms)) = self.get_prop(atom, window) {
             Some(atoms)
         } else {
             error!("Expected Atom type for get_window_type");
@@ -456,11 +460,9 @@ pub trait XConn {
     }
 
     fn get_window_states(&self, window: XWindowID) -> Option<Vec<String>> {
-        let atom = self.atom(
-            "_NET_WM_STATE"
-        ).expect("atom not interned");
+        let atom = Atom::NetWmState.as_ref();
 
-        if let Ok(Property::Atom(atoms)) = self.get_prop_atom(atom, window) {
+        if let Ok(Property::Atom(atoms)) = self.get_prop(atom, window) {
             Some(atoms)
         } else {
             error!("Expected Atom type for get_window_type");

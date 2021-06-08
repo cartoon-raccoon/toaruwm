@@ -27,8 +27,6 @@ use crate::util;
 
 use super::XCBConn;
 
-const MAX_LONG_LENGTH: u32 = 1024;
-
 impl XConn for XCBConn {
     // General X server operations
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -376,78 +374,9 @@ impl XConn for XCBConn {
         ).request_check()?)
     }
 
-    fn get_prop_str(&self, prop: &str, window: XWindowID) -> Result<Property> {
+    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Property> {
         let atom = self.atom(prop)?;
         self.get_prop_atom(atom, window)
-    }
-
-    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Property> {
-        let r = xcb::get_property(
-            &self.conn,
-            false,
-            window,
-            prop,
-            xcb::ATOM_ANY,
-            // start at offset 0
-            0, 
-            // allow for up to 4 * MAX_LONG_LENGTH bytes of information
-            MAX_LONG_LENGTH,
-        ).get_reply()?;
-        let atom_name = self.lookup_atom(r.type_())?;
-
-        Ok(match atom_name.as_str() {
-            "ATOM" => Property::Atom(
-                r.value()
-                    .iter()
-                    .map(|a| self.lookup_atom(*a).unwrap_or_else(|_| "".into()))
-                    .collect::<Vec<String>>()
-            ),
-            "CARDINAL" => Property::Cardinal(r.value()[0]),
-            "STRING" => Property::String(
-                String::from_utf8_lossy(&r.value().to_vec())
-                    .trim_matches('\0')
-                    .split('\0')
-                    .map(|a| a.to_string())
-                    .collect()
-            ),
-            "UTF8_STRING" => Property::String(
-                String::from_utf8(r.value().to_vec())?
-                    .trim_matches('\0')
-                    .split('\0')
-                    .map(|a| a.to_string())
-                    .collect()
-            ),
-            "WINDOW" => Property::Window(r.value().to_vec()),
-            "WM_HINTS" => Property::WMHints(
-                WmHints::try_from_bytes(r.value())?
-            ),
-            "WM_SIZE_HINTS" => Property::WMSizeHints(
-                WmSizeHints::try_from_bytes(r.value())?
-            ),
-            n => {
-                if n == "WM_STATE" {
-                    debug!("Type is WM_STATE");
-                }
-                match r.format() {
-                    8 => Property::U8List(
-                        r.value::<u8>().into()
-                    ),
-                    16 => Property::U16List(
-                        r.value::<u16>().into()
-                    ),
-                    32 => Property::U32List(
-                        r.value::<u32>().into()
-                    ),
-                    n => {
-                        return Err(
-                            XError::InvalidPropertyData(
-                                format!("received format {}", n)
-                            )
-                        )
-                    },
-                }
-            }
-        })
     }
 
     fn set_root_scr(&mut self, _scr: i32) {

@@ -14,6 +14,9 @@ use super::core::XAtom;
 //
 // thanks dude, and sorry for stealing your stuff.
 
+/// ToaruWM internal representations of X atoms.
+/// 
+/// This allows for some measure of type safety around dealing with atoms.
 #[derive(AsRefStr, Display, EnumString, EnumIter, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Atom {
     /// ATOM
@@ -168,6 +171,8 @@ pub enum Atom {
 #[error("Could not get known atom from given atom {0}")]
 pub struct TryFromAtomError(XAtom);
 
+
+
 /// Clients with one of these window types will be auto floated
 pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeCombo,
@@ -183,7 +188,7 @@ pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeUtility,
 ];
 
-/// Windows with a type in this array will not be managed by penrose
+/// Windows with a type in this array will not be managed
 pub const UNMANAGED_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeDock,
     Atom::NetWindowTypeNotification,
