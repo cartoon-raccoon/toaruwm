@@ -4,9 +4,11 @@ use xcb_util::{ewmh, cursor};
 
 use strum::IntoEnumIterator;
 
-use crate::x::{
+use super::{
     Atoms,
+    atom::Atom,
     core::{
+        XAtom,
         XWindowID, Result, 
         XError, XConn,
         StackMode,
@@ -24,14 +26,12 @@ use crate::x::{
     },
 };
 use crate::types::{
-    Atom as XAtom,
     Point, Geometry,
 };
 use crate::keybinds::{
     Mousebind, MouseEventKind,
 };
 use crate::util;
-use super::atom::Atom;
 
 mod xconn;
 mod convert;

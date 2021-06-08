@@ -7,7 +7,7 @@ use thiserror::Error;
 use strum::*;
 use strum_macros::EnumIter;
 
-use crate::types::Atom as XAtom;
+use super::core::XAtom;
 
 // shamelessly stolen from:
 // https://github.com/sminez/penrose/blob/develop/src/core/xconnection/atom.rs
@@ -52,6 +52,9 @@ pub enum Atom {
     /// WM_NAME
     #[strum(serialize = "WM_NAME")]
     WmName,
+    /// WM_ICON_NAME
+    #[strum(serialize = "WM_ICON_NAME")]
+    WmIconName,
     /// WM_TRANSIENT_FOR
     #[strum(serialize = "WM_TRANSIENT_FOR")]
     WmTransientFor,
@@ -106,6 +109,9 @@ pub enum Atom {
     /// _NET_WM_STATE_FULLSCREEN
     #[strum(serialize = "_NET_WM_STATE_FULLSCREEN")]
     NetWmStateFullscreen,
+    /// _NET_WM_STATE_HIDDEN
+    #[strum(serialize = "_NET_WM_STATE_HIDDEN")]
+    NetWmStateHidden,
     /// _NET_WM_WINDOW_TYPE
     #[strum(serialize = "_NET_WM_WINDOW_TYPE")]
     NetWmWindowType,

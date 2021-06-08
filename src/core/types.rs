@@ -1,22 +1,20 @@
 use std::ops::Deref;
 
 use crate::layouts::LayoutType;
-//use crate::manager::WindowManager;
 
 pub use crate::core::{Ring, Selector};
-pub use crate::x::core::{
-    XConn,
-    XWindowID,
-    XError,
-    StackMode,
+use crate::x::{
+    core::{
+        XAtom,
+        XConn,
+        StackMode,
+    },
+    property::{
+        WindowState,
+        WmHints, 
+        WmSizeHints,
+    },
 };
-pub use crate::x::property::{
-    WindowState,
-    WmHints, 
-    WmSizeHints,
-}; 
-
-pub type Atom = u32;
 
 pub use super::window::{Client, ClientRing};
 
@@ -378,7 +376,7 @@ pub enum ClientAttrs {
 /// Convenience wrapper around a Vec of NetWindowStates.
 #[derive(Debug, Clone, Default)]
 pub struct NetWindowStates {
-    states: Vec<Atom>,
+    states: Vec<XAtom>,
 }
 
 impl NetWindowStates {
@@ -393,19 +391,19 @@ impl NetWindowStates {
             .map(|s| conn.atom(&s))
             .filter(|r| r.is_err()) // filter out errors
             .map(|a| a.unwrap())    // safe to unwrap since errors filtered out
-            .collect::<Vec<Atom>>()
+            .collect::<Vec<XAtom>>()
             .into()
     }
 
-    pub fn contains(&self, prop: Atom) -> bool {
+    pub fn contains(&self, prop: XAtom) -> bool {
         self.states.contains(&prop)
     }
 
-    pub fn add(&mut self, prop: Atom) {
+    pub fn add(&mut self, prop: XAtom) {
         self.states.push(prop)
     }
 
-    pub fn remove(&mut self, prop: Atom) -> Atom {
+    pub fn remove(&mut self, prop: XAtom) -> XAtom {
         for (idx, atom) in self.states.iter().enumerate() {
             if *atom == prop {
                 return self.states.remove(idx)
@@ -416,8 +414,8 @@ impl NetWindowStates {
     }
 }
 
-impl From<Vec<Atom>> for NetWindowStates {
-    fn from(from: Vec<Atom>) -> Self {
+impl From<Vec<XAtom>> for NetWindowStates {
+    fn from(from: Vec<XAtom>) -> Self {
         Self {
             states: from
         }
@@ -425,7 +423,7 @@ impl From<Vec<Atom>> for NetWindowStates {
 }
 
 impl Deref for NetWindowStates {
-    type Target = [Atom];
+    type Target = [XAtom];
 
     fn deref(&self) -> &Self::Target {
         self.states.as_slice()
@@ -452,7 +450,7 @@ pub struct XWinProperties {
     pub(crate) wm_size_hints: Option<WmSizeHints>,
     pub(crate) wm_hints: Option<WmHints>,
     pub(crate) wm_class: (String, String), //Instance, Class
-    pub(crate) wm_protocols: Option<Vec<Atom>>,
+    pub(crate) wm_protocols: Option<Vec<XAtom>>,
     pub(crate) wm_state: Option<WindowState>,
 }
 
@@ -478,7 +476,7 @@ impl XWinProperties {
         (&self.wm_class.0, &self.wm_class.1)
     }
 
-    pub fn window_type(&self) -> Option<&[Atom]> {
+    pub fn window_type(&self) -> Option<&[XAtom]> {
         self.wm_protocols.as_deref()
     }
 

@@ -1,6 +1,6 @@
-use super::{XWindowID, core::StackMode};
+use super::{XWindowID, core::{XAtom, StackMode}};
 use crate::types::{
-    Geometry, Point, Atom,
+    Geometry, Point,
 };
 use crate::keybinds::Mousebind;
 
@@ -91,7 +91,7 @@ pub struct PropertyEvent {
     /// The window associated with the event.
     pub id: XWindowID,
     /// The atom representing the change.
-    pub atom: Atom,
+    pub atom: XAtom,
     /// The time of event.
     pub time: u32,
     /// Whether the property was deleted.
@@ -122,7 +122,7 @@ pub struct MouseEvent {
 pub struct ClientMessageEvent {
     pub window: XWindowID,
     pub data: ClientMessageData,
-    pub type_: Atom,
+    pub type_: XAtom,
 }
 
 /// The different formats of a Client message's data,

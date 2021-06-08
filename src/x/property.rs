@@ -1,9 +1,10 @@
 use std::convert::TryFrom;
 
 use crate::x::core::{
-    XConn, XWindowID, XError, Result,
+    XConn, XWindowID, XError, XAtom,
+    Result,
 };
-use crate::types::{Atom, Point};
+use crate::types::{Point};
 
 /// X server properties.
 #[derive(Debug, Clone)]
@@ -53,7 +54,7 @@ impl Property {
     /// representation as a Vec of Atoms instead of Strings.
     /// 
     /// If the property is not `Self::Atoms`, None is returned.
-    pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<Atom>> {
+    pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<XAtom>> {
         if let Self::Atom(strings) = self {
             Some({
                 let mut atoms = Vec::new();

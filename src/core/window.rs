@@ -6,12 +6,12 @@ use std::collections::HashSet;
 use super::{Ring, Selector};
 
 use crate::x::{
-    core::{XWindow, XWindowID, XConn},
+    core::{XWindow, XWindowID, XConn, XAtom},
+    property::{WindowState},
 };
 use crate::core::types::{
-    Geometry, Atom,
+    Geometry,
     WinLayoutState,
-    WindowState,
     NetWindowStates,
     BorderStyle,
     ClientAttrs,
@@ -107,7 +107,7 @@ pub struct Client {
     mapped_state: WindowState,
     net_states: NetWindowStates,
     layout_state: WinLayoutState,
-    protocols: HashSet<Atom>,
+    protocols: HashSet<XAtom>,
 }
 
 impl PartialEq for Client {
@@ -362,12 +362,12 @@ impl Client {
     }
 
     /// Adds a new _NET_WM_STATES property.
-    pub fn add_wm_state(&mut self, state: Atom) {
+    pub fn add_wm_state(&mut self, state: XAtom) {
         self.net_states.add(state)
     }
 
     /// Removes a _NET_WM_STATES property.
-    pub fn remove_wm_state(&mut self, state: Atom) {
+    pub fn remove_wm_state(&mut self, state: XAtom) {
         if self.net_states.contains(state) {
             self.net_states.remove(state);
         }
@@ -489,7 +489,7 @@ impl Client {
     }
 
     /// Tests whether the client supports this protocol.
-    pub fn supports(&self, prtcl: Atom) -> bool {
+    pub fn supports(&self, prtcl: XAtom) -> bool {
         self.protocols.contains(&prtcl)
     }
 }

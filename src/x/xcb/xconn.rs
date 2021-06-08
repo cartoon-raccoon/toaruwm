@@ -6,8 +6,8 @@ use xcb::{
 
 use crate::x::{
     core::{
-        XWindowID, Result, XConn, XError,
-        PointerQueryReply,
+        XWindowID, XConn, XError, XAtom,
+        PointerQueryReply, Result, 
     }, 
     event::{
         XEvent, 
@@ -18,7 +18,7 @@ use crate::x::{
 };
 use crate::core::{Screen, Client};
 use crate::types::{
-    Atom, Geometry,
+    Geometry,
     ClientAttrs,
     ClientConfig,
 };
@@ -85,7 +85,7 @@ impl XConn for XCBConn {
         todo!()
     }
 
-    fn atom(&self, atom: &str) -> Result<Atom> {
+    fn atom(&self, atom: &str) -> Result<XAtom> {
         if let Some(known) = self.atoms.retrieve(atom) {
             return Ok(known)
         }
@@ -95,7 +95,7 @@ impl XConn for XCBConn {
         Ok(x.atom())
     }
 
-    fn lookup_atom(&self, atom: Atom) -> Result<String> {
+    fn lookup_atom(&self, atom: XAtom) -> Result<String> {
         debug!("Looking up atom {}", atom);
         if let Some(name) = self.atoms.retrieve_by_value(atom) {
             return Ok(name)
@@ -104,7 +104,7 @@ impl XConn for XCBConn {
         Ok(xcb::get_atom_name(&self.conn, atom).get_reply()?.name().into())
     }
 
-    fn lookup_interned_atom(&self, name: &str) -> Option<Atom> {
+    fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
         debug!("Looking up interned atom name {}", name);
         self.atoms.retrieve(&name.to_string())
     }
@@ -381,7 +381,7 @@ impl XConn for XCBConn {
         self.get_prop_atom(atom, window)
     }
 
-    fn get_prop_atom(&self, prop: Atom, window: XWindowID) -> Result<Property> {
+    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Property> {
         let r = xcb::get_property(
             &self.conn,
             false,

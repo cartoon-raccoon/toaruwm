@@ -10,7 +10,6 @@ use crate::keybinds::{Keybind, Mousebind};
 use crate::types::{
     Geometry,
     XWinProperties,
-    Atom,
     ClientConfig,
     ClientAttrs,
 };
@@ -18,10 +17,14 @@ use crate::core::{Screen, Client};
 use super::{
     event::{XEvent, ClientMessageEvent},
     property::*,
+    atom::Atom,
 };
 
 /// An X server ID for a given window.
 pub type XWindowID = u32;
+
+/// An X Atom, an unsigned 32-bit integer.
+pub type XAtom = u32;
 
 /// Contains the basic atoms and other constants used by 
 /// the X specification protocol.
@@ -207,15 +210,15 @@ pub trait XConn {
     /// Get the value of an atom.
     /// 
     /// If the atom is unknown, intern it.
-    fn atom(&self, atom: &str) -> Result<Atom>;
+    fn atom(&self, atom: &str) -> Result<XAtom>;
 
     /// Looks up the name of an atom.
-    fn lookup_atom(&self, atom: Atom) -> Result<String>;
+    fn lookup_atom(&self, atom: XAtom) -> Result<String>;
 
     /// Looks up the value of an interned atom given its name.
     /// 
     /// If the atom is not interned, None should be returned.
-    fn lookup_interned_atom(&self, name: &str) -> Option<Atom>;
+    fn lookup_interned_atom(&self, name: &str) -> Option<XAtom>;
 
     /// Grabs the keyboard.
     fn grab_keyboard(&self) -> Result<()>;
@@ -272,7 +275,7 @@ pub trait XConn {
     fn get_prop_str(&self, prop: &str, window: XWindowID) -> Result<Property>;
 
     /// Retrieves a given property for a given window by its atom value.
-    fn get_prop_atom(&self, prop: Atom, window: XWindowID) -> Result<Property>;
+    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Property>;
 
     /// Sets the root screen.
     fn set_root_scr(&mut self, scr: i32);
@@ -322,7 +325,7 @@ pub trait XConn {
     /// 
     /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop_str("WM_ICON_NAME", window);
+        let prop = self.get_prop_str(Atom::WmIconName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
@@ -338,7 +341,7 @@ pub trait XConn {
     /// 
     /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
-        let prop = self.get_prop_str("WM_NORMAL_HINTS", window).ok()?;
+        let prop = self.get_prop_str(Atom::WmNormalHints.as_ref(), window).ok()?;
 
         if let Property::WMSizeHints(sh) = prop {
             Some(sh)
@@ -385,7 +388,7 @@ pub trait XConn {
     /// Gets WM_PROTOCOLS.
     /// 
     /// Returns None if not set or in case of error.
-    fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<Atom>> {
+    fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<XAtom>> {
         let prop = self.get_prop_str("WM_PROTOCOLS", window).ok()?;
 
         if let Property::Atom(atoms) = prop {
@@ -466,11 +469,11 @@ pub trait XConn {
         
     }
 
-    fn set_supported(&self, screen_idx: i32, atoms: &[Atom]) {
+    fn set_supported(&self, screen_idx: i32, atoms: &[XAtom]) {
         todo!()
     }
 
-    fn set_wm_state(&self, window: XWindowID, atoms: &[Atom]) {
+    fn set_wm_state(&self, window: XWindowID, atoms: &[XAtom]) {
         todo!()
     }
 }
