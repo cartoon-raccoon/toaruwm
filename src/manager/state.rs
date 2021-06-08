@@ -1,6 +1,6 @@
 use super::{WindowManager, MouseMode};
 
-use crate::core::{Ring, Workspace};
+use crate::core::{Ring, Workspace, Desktop};
 use crate::x::{XConn, XWindowID};
 
 /// Provides a view into the state of the window manager.
@@ -9,6 +9,7 @@ use crate::x::{XConn, XWindowID};
 pub(crate) struct WMState<'a, X: XConn> {
     pub conn: &'a X,
     pub workspaces: &'a Ring<Workspace>,
+    pub desktop: &'a Desktop,
     pub root: u32,
     pub mousemode: MouseMode,
     pub selected: Option<XWindowID>,
@@ -20,6 +21,7 @@ impl<X: XConn> WindowManager<X> {
         WMState {
             conn: &self.conn,
             workspaces: &self.desktop.workspaces,
+            desktop: &self.desktop,
             root: self.root,
             mousemode: self.mousemode,
             selected: self.selected,
