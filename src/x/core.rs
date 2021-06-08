@@ -3,6 +3,8 @@
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
+use std::str::FromStr;
+
 use thiserror::Error;
 
 use crate::keybinds::{Keybind, Mousebind};
@@ -17,7 +19,11 @@ use crate::core::{Screen, Client};
 use super::{
     event::{XEvent, ClientMessageEvent},
     property::*,
-    atom::Atom,
+    atom::{
+        Atom,
+        UNMANAGED_WINDOW_TYPES,
+        AUTO_FLOAT_WINDOW_TYPES,
+    }
 };
 
 /// An X server ID for a given window.
@@ -183,7 +189,6 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// 
 /// [1]: crate::manager::WindowManager
 /// [2]: crate::x::xcb::XCBConn
-#[allow(unused_variables)]
 pub trait XConn {
     //* General X server operations
 
@@ -448,34 +453,82 @@ pub trait XConn {
     }
 
     // EWMH-related operations
-    fn get_window_type(&self, window: XWindowID) -> Option<Vec<String>> {
+    fn get_window_type(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmWindowType.as_ref();
 
-        if let Ok(Property::Atom(atoms)) = self.get_prop(atom, window) {
-            Some(atoms)
+        if let Property::Atom(atoms) = self.get_prop(atom, window)? {
+            Ok(atoms)
         } else {
-            error!("Expected Atom type for get_window_type");
-            None
+            Err(XError::InvalidPropertyData(
+                "Expected Atom type for get_window_type".into()
+            ))
         }
     }
 
-    fn get_window_states(&self, window: XWindowID) -> Option<Vec<String>> {
+    fn get_window_states(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmState.as_ref();
 
-        if let Ok(Property::Atom(atoms)) = self.get_prop(atom, window) {
-            Some(atoms)
+        if let Property::Atom(atoms) = self.get_prop(atom, window)? {
+            Ok(atoms)
         } else {
-            error!("Expected Atom type for get_window_type");
-            None
+            Err(XError::InvalidPropertyData(
+                "Expected Atom type for get_window_states".into()
+            ))
         }
         
     }
 
-    fn set_supported(&self, screen_idx: i32, atoms: &[XAtom]) {
-        todo!()
-    }
+    // fn set_supported(&self, screen_idx: i32, atoms: &[XAtom]) {
+    //     todo!()
+    // }
 
     fn set_wm_state(&self, window: XWindowID, atoms: &[XAtom]) {
-        todo!()
+        let atoms = atoms.iter()
+            .map(|s| self.lookup_atom(*s).unwrap_or_else(|_|String::new()))
+            .filter(|s| !s.is_empty())
+            .collect();
+        self.set_property(
+            window, 
+            Atom::NetWmState.as_ref(), 
+            Property::Atom(atoms)
+        ).unwrap_or_else(|_| error!("failed to set wm state"));
+    }
+
+    /// Returns whether a WindowManager should manage a window.
+    fn should_manage(&self, window: XWindowID) -> bool {
+        let win_type = match self.get_window_type(window) {
+            Ok(atoms) => atoms
+                .into_iter()
+                .map(|s| Atom::from_str(&s))
+                .filter(|s| s.is_ok())
+                .map(|a| a.unwrap())
+                .collect::<Vec<Atom>>(),
+            Err(_) => return true
+        };
+    
+        !UNMANAGED_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
+    }
+
+    /// Returns whether a WindowManager should set a window to floating.
+    /// 
+    /// Can accept user-specified classes that should float.
+    fn should_float(&self, window: XWindowID, float_classes: &[&str]) -> bool {
+        let (_, class) = self.get_wm_class(window);
+
+        if float_classes.iter().any(|s| *s == class) {
+            return true
+        }
+
+        let win_type = match self.get_window_type(window) {
+            Ok(atoms) => atoms
+                .into_iter()
+                .map(|s| Atom::from_str(&s))
+                .filter(|s| s.is_ok())
+                .map(|a| a.unwrap())
+                .collect::<Vec<Atom>>(),
+            Err(_) => return true
+        };
+
+        AUTO_FLOAT_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
     }
 }
