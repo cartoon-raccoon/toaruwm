@@ -389,7 +389,7 @@ impl NetWindowStates {
     pub fn from_strings<X: XConn>(strs: Vec<String>, conn: &X) -> Self {
         strs.into_iter()
             .map(|s| conn.atom(&s))
-            .filter(|r| r.is_err()) // filter out errors
+            .filter(|r| r.is_ok()) // filter out errors
             .map(|a| a.unwrap())    // safe to unwrap since errors filtered out
             .collect::<Vec<XAtom>>()
             .into()
