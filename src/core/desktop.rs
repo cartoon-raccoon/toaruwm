@@ -16,6 +16,7 @@ use crate::layouts::{LayoutType, LayoutFn};
 /// Represents a physical monitor.
 #[derive(Clone, Copy, Debug)]
 pub struct Screen {
+    pub(crate) root_id: XWindowID,
     pub(crate) effective_geom: Geometry,
     pub(crate) true_geom: Geometry,
     pub(crate) idx: i32,
@@ -24,8 +25,13 @@ pub struct Screen {
 const MAX_WKSPACES: usize = 10;
 
 impl Screen {
-    pub fn new(screen_idx: i32, geom: Geometry) -> Self {
+    pub fn new(
+        screen_idx: i32, 
+        geom: Geometry, 
+        root_id: XWindowID
+    ) -> Self {
         Self {
+            root_id,
             effective_geom: geom,
             true_geom: geom,
             idx: screen_idx,
