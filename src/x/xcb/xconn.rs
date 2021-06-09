@@ -350,7 +350,7 @@ impl XConn for XCBConn {
             )?;
         }
 
-        if self.conn.flush() {
+        if !self.conn.flush() {
             return Err(XError::RequestError("could not flush conn"))
         }
 
