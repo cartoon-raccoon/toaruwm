@@ -88,9 +88,13 @@ impl Point {
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Geometry {
+    // The x coordinate of the top left corner.
     pub x: i32,
+    // The y coordinate of the top left corner.
     pub y: i32,
+    // The height of the geometry.
     pub height: u32,
+    // The width of the geometry.
     pub width: u32,
 }
 
@@ -150,6 +154,50 @@ impl Geometry {
             height: 0,
             width: 0,
         }
+    }
+
+    /// Check whether this geometry encloses another geometry.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let new = Geometry::new(2, 2, 50, 75);
+    /// 
+    /// assert!(original.contains(&new));
+    /// ```
+    pub fn contains(&self, other: &Geometry) -> bool {
+        match other {
+            Geometry { x, .. } if *x < self.x => false,
+            Geometry { x, width, .. } 
+                if (*x + *width as i32) > (self.x + self.width as i32) => false,
+            Geometry { y, .. } if *y < self.y => false,
+            Geometry { y, height, .. } 
+                if (*y + *height as i32) > (self.y + self.height as i32) => false,
+            _ => true,
+        }
+    }
+
+    /// Check whether this geometry contains a certain point.
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::{Geometry, Point};
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let point = Point::new(50, 50);
+    /// 
+    /// assert!(original.contains_point(point));
+    /// ```
+    pub fn contains_point(&self, pt: Point) -> bool {
+        let wrange = self.x..(self.x + self.width as i32);
+        let hrange = self.y..(self.y + self.height as i32);
+
+        wrange.contains(&pt.x) && hrange.contains(&pt.y)
     }
 
     /// Splits a Geometry into `n` parts horizontally, each part 
