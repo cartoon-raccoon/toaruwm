@@ -272,6 +272,7 @@ impl Geometry {
 
     /// Splits a Geometry into two parts horizontally by a given ratio
     /// where the ratio is the fraction of the original height.
+    /// The ratio is clamped between 0.0 and 1.0.
     /// 
     /// Returns `(top, bottom)`.
     /// 
@@ -279,7 +280,7 @@ impl Geometry {
     /// 
     /// # Panics
     /// 
-    /// Panics if the ratio given is > 1.0.
+    /// Panics if ratio is `f32::NAN`.
     /// 
     /// # Example
     /// 
@@ -294,8 +295,10 @@ impl Geometry {
     /// assert_eq!(bottom, Geometry::new(0, 75, 25, 200));
     /// ```
     pub fn split_horz_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
-        if ratio > 1.0 {
-            panic!("received ratio larger than 1.0")
+        let ratio = ratio.clamp(0.0, 1.0);
+
+        if ratio == f32::NAN {
+            panic!("Got f32::NAN");
         }
 
         let top_height = (self.height as f32 * ratio) as u32;
@@ -321,6 +324,7 @@ impl Geometry {
 
     /// Splits a Geometry into two parts vertically by a given ratio
     /// where the ratio is the fraction of the original width.
+    /// The ratio is clamped between 0.0 and 1.0.
     /// 
     /// Returns `(left, right)`.
     /// 
@@ -328,7 +332,7 @@ impl Geometry {
     /// 
     /// # Panics
     /// 
-    /// Panics if the ratio given is > 1.0.
+    /// Panics if ratio is `f32::NAN`.
     /// 
     /// # Example
     /// 
@@ -343,8 +347,10 @@ impl Geometry {
     /// assert_eq!(bottom, Geometry::new(150, 0, 100, 50));
     /// ```
     pub fn split_vert_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
-        if ratio > 1.0 {
-            panic!("received ratio larger than 1.0")
+        let ratio = ratio.clamp(0.0, 1.0);
+
+        if ratio == f32::NAN {
+            panic!("Got f32::NAN");
         }
 
         let left_width = (self.width as f32 * ratio) as u32;
@@ -364,6 +370,78 @@ impl Geometry {
                 y: self.y,
                 height: self.height,
                 width: right_width,
+            }
+        )
+    }
+
+    /// Splits a Geometry _horizontally_ into two Geometries
+    /// at a given height.
+    /// 
+    /// Returns (top, bottom), where bottom has the given height.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let (top, bottom) = original.split_at_height(60);
+    /// 
+    /// assert_eq!(top, Geometry::new(0, 0, 40, 200));
+    /// assert_eq!(bottom, Geometry::new(0, 60, 60, 200));
+    /// ```
+    pub fn split_at_height(&self, height: u32) -> (Geometry, Geometry) {
+        (
+            // Top
+            Geometry {
+                x: self.x,
+                y: self.y,
+                height: self.height - height,
+                width: self.width,
+            },
+            // Bottom
+            Geometry {
+                x: self.x,
+                y: self.y + height as i32,
+                height: height,
+                width: self.width,
+            }
+        )
+    }
+
+    /// Splits a Geometry _horizontally_ into two Geometries
+    /// at a given width.
+    /// 
+    /// Returns (left, right), where left has the given width.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Geometry;
+    /// 
+    /// let original = Geometry::new(0, 0, 100, 200);
+    /// 
+    /// let (left, right) = original.split_at_width(120);
+    /// 
+    /// assert_eq!(left, Geometry::new(0, 0, 100, 120));
+    /// assert_eq!(right, Geometry::new(120, 0, 100, 80));
+    /// ```
+    pub fn split_at_width(&self, width: u32) -> (Geometry, Geometry) {
+        (
+            // Left
+            Geometry {
+                x: self.x,
+                y: self.y,
+                height: self.height,
+                width: width,
+            },
+            // Right
+            Geometry {
+                x: self.x + width as i32,
+                y: self.y,
+                height: self.height,
+                width: self.width - width,
             }
         )
     }
