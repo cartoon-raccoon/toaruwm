@@ -94,6 +94,17 @@ impl From<XWindowID> for XWindow {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WindowClass {
+    /// An invisible window to make API calls
+    CheckWin,
+    /// A window that only accepts input
+    InputOnly,
+    /// A regular window. The Atom provided should be a valid
+    /// _NET_WM_WINDOW_TYPE.
+    InputOutput(Atom),
+}
+
 impl XWindow {
     /// Sets the geometry using an XConn object.
     pub fn set_geometry_conn<X: XConn>(&mut self, conn: &X) {
@@ -142,9 +153,18 @@ impl XWindow {
 #[derive(Debug, Error, Clone)]
 pub enum XError {
     /// An error when establishing a connection with the server.
-    #[error("Could not establish a connection to the X server.")]
+    #[error("Could not establish a connection to the X server")]
     Connection,
 
+    #[error("Could not find screens from X server")]
+    NoScreens,
+
+    #[error("Unknown screen selected")]
+    InvalidScreen,
+
+    #[error("RandR error: {0}")]
+    RandrError(String),
+    
     /// An internal server error.
     #[error("X server error: {0}")]
     ServerError(String),
@@ -157,8 +177,8 @@ pub enum XError {
     InvalidPropertyData(String),
 
     /// The request could not be fulfilled by the X server.
-    #[error("Could not complete specified request.")]
-    RequestError,
+    #[error("Could not complete specified request: {0}")]
+    RequestError(&'static str),
 
     #[error("{0}")]
     OtherError(String)
@@ -261,6 +281,8 @@ pub trait XConn {
     fn ungrab_pointer(&self) -> Result<()>;
 
     //* Window-related operations
+    /// Create a new window.
+    fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID>;
 
     /// Maps a given window.
     fn map_window(&self, window: XWindowID) -> Result<()>;

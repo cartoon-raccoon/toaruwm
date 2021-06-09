@@ -2,12 +2,14 @@
 use xcb::{
     ClientMessageData as XCBClientMsgData,
     ClientMessageEvent as XCBClientMsgEvent,
+    randr,
 };
 
 use crate::x::{
     core::{
         XWindowID, XConn, XError, XAtom,
-        PointerQueryReply, Result, 
+        PointerQueryReply, Result,
+        WindowClass, 
     }, 
     event::{
         XEvent, 
@@ -15,9 +17,11 @@ use crate::x::{
         ClientMessageEvent,
     },
     property::*,
+    Atom,
 };
 use crate::core::{Screen, Client};
 use crate::types::{
+    BORDER_WIDTH,
     Geometry,
     ClientAttrs,
     ClientConfig,
@@ -79,8 +83,38 @@ impl XConn for XCBConn {
     }
 
     fn all_outputs(&self) -> Result<Vec<Screen>> {
-        //todo: randr shit
-        todo!()
+        let check_id = self.check_win()?;
+        self.conn.flush();
+
+        let res = randr::get_screen_resources(&self.conn, check_id)
+            .get_reply()?;
+        
+        let crtcs = res.crtcs().iter()
+            // could do this with flat_map, but that just seems confusing
+
+            // for each crtc, get its info
+            .map(|c| randr::get_crtc_info(&self.conn, *c, 0).get_reply())
+            // filter out errors
+            .filter(|r| r.is_ok())
+            // unwrap it
+            .map(|ok| ok.unwrap())
+            // assign it an index
+            .enumerate()
+            // construct screen
+            .map(|(i, r)| {
+                let geom = Geometry::new(
+                    r.x() as i32, 
+                    r.y() as i32,
+                    r.height() as u32,
+                    r.width() as u32,
+                );
+                Screen::new(i as i32, geom)
+            })
+            .filter(|s| s.true_geom().width > 0).collect();
+
+        xcb::destroy_window(&self.conn, check_id);
+
+        Ok(crtcs)
     }
 
     fn atom(&self, atom: &str) -> Result<XAtom> {
@@ -235,6 +269,92 @@ impl XConn for XCBConn {
         xcb::ungrab_pointer(&self.conn, xcb::CURRENT_TIME).request_check()?;
 
         Ok(())
+    }
+
+    fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID> {
+        let (ty, bwidth, class, mut data, depth, visualid) = match ty {
+            WindowClass::CheckWin => (
+                None,
+                0,
+                xcb::WINDOW_CLASS_INPUT_OUTPUT,
+                Vec::new(),
+                0,
+                0,
+            ),
+            WindowClass::InputOnly => (
+                None,
+                0,
+                xcb::WINDOW_CLASS_INPUT_ONLY,
+                Vec::new(),
+                0,
+                0,
+            ),
+            WindowClass::InputOutput(a) => {
+                let id = self.conn.generate_id();
+                let screen = self.screen(self.idx as usize)?;
+                let depth = self.depth(&screen)?;
+                let visual = self.visual_type(&depth)?;
+
+                xcb::create_colormap(
+                    &self.conn,
+                    xcb::COLORMAP_ALLOC_NONE as u8,
+                    id,
+                    screen.root(),
+                    visual.visual_id(),
+                ).request_check()?;
+
+                (
+                    Some(a),
+                    BORDER_WIDTH,
+                    xcb::WINDOW_CLASS_INPUT_OUTPUT,
+                    vec![
+                        (xcb::CW_BORDER_PIXEL, util::FOCUSED_COL),
+                        (xcb::CW_COLORMAP, id),
+                        (
+                            xcb::CW_EVENT_MASK,
+                            xcb::EVENT_MASK_EXPOSURE | xcb::EVENT_MASK_KEY_PRESS,
+                        ),
+                    ],
+                    depth.depth(),
+                    visual.visual_id(),
+                )
+            }
+        };
+
+        if !managed {
+            data.push((xcb::CW_OVERRIDE_REDIRECT, 1));
+        }
+
+        let wid = self.conn.generate_id();
+        xcb::create_window(
+            &self.conn,
+            depth,
+            wid,
+            self.root,
+            geom.x as i16,
+            geom.y as i16,
+            geom.width as u16,
+            geom.height as u16,
+            bwidth as u16,
+            class as u16,
+            visualid,
+            &data,
+        ).request_check()?;
+
+        if let Some(a) = ty {
+            let net_name = Atom::NetWmWindowType.as_ref();
+            self.set_property(
+                wid, 
+                net_name, 
+                Property::Atom(vec![a.as_ref().into()])
+            )?;
+        }
+
+        if self.conn.flush() {
+            return Err(XError::RequestError("could not flush conn"))
+        }
+
+        Ok(wid)
     }
 
     // Window-related operations
