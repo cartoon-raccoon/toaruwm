@@ -1,6 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use xcb_util::{ewmh, cursor};
+use xcb::randr;
 
 use strum::IntoEnumIterator;
 
@@ -12,6 +13,7 @@ use super::{
         XWindowID, Result, 
         XError, XConn,
         StackMode,
+        WindowClass,
     },
     event::{
         XEvent,
@@ -45,6 +47,9 @@ const X_EVENT_MASK: u8 = 0x7f;
 
 const MAX_LONG_LENGTH: u32 = 1024;
 
+const RANDR_MAJ: u32 = 1;
+const RANDR_MIN: u32 = 2;
+
 // used for casting events and stuff
 macro_rules! cast {
     ($etype:ty, $event:expr) => {
@@ -55,7 +60,8 @@ macro_rules! cast {
 /// A connection to an X server, backed by the XCB library.
 /// 
 /// This is a very simple connection to the X server
-/// and is completely synchronous.
+/// and is completely synchronous, despite the async capabilities
+/// of the underlying xcb library.
 /// 
 /// It implements [XConn][1] and thus can be used with a
 /// [WindowManager][2].
@@ -65,102 +71,69 @@ macro_rules! cast {
 pub struct XCBConn {
     conn: ewmh::Connection,
     root: XWindowID,
+    idx: i32,
+    randr_base: u8,
     atoms: Atoms,
     cursor: u32,
 }
 
 impl XCBConn {
+    /// Connect to the X server and allocate a new Connection.
+    /// 
+    /// This also initialises the randr extension.
     pub fn connect() -> Result<Self> {
+        // initialize xcb connection
         let (x, idx) = xcb::Connection::connect(None)?;
+        // wrap it in an ewmh connection just for fun
         let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
-        
+        // initialize our atom handler
         let atoms = Atoms::new();
 
-        let root = conn.get_setup()
-            .roots()
-            .nth(idx as usize)
-            .expect("Could not get root id")
-            .root();
+        // get root window id
+        let root = match conn.get_setup().roots().nth(idx as usize) {
+            Some(root) => root.root(),
+            None => return Err(XError::NoScreens),
+        };
+
+        // initialize randr and get its event mask
+        let randr_base = conn.get_extension_data(&mut randr::id())
+            .ok_or_else(|| XError::RandrError("could not load randr".into()))?
+            .first_event();
 
         Ok(Self {
             conn,
             root,
+            idx,
+            randr_base,
             atoms,
             cursor: 0,
         })
     }
 
     pub fn init(&mut self) -> Result<()> {
-        self.atoms.insert("_NET_SUPPORTED", self.conn.SUPPORTED());
-        self.atoms.insert("_NET_WM_WINDOW_TYPE", self.conn.WM_WINDOW_TYPE());
-        self.atoms.insert("_NET_WM_STRUT", self.conn.WM_STRUT());
-        self.atoms.insert("_NET_WM_STRUT_PARTIAL", self.conn.WM_STRUT_PARTIAL());
 
-        self.atoms.insert(
-            "WM_DELETE_WINDOW",
-            xcb::intern_atom(&self.conn, false, "WM_DELETE_WINDOW")
-            .get_reply()?
-            .atom());
+        // validate randr version
+        let res = randr::query_version(&self.conn, RANDR_MAJ, RANDR_MIN)
+            .get_reply()?;
 
-        self.atoms.insert(
-            "WM_TAKE_FOCUS",
-            xcb::intern_atom(&self.conn, false, "WM_TAKE_FOCUS")
-            .get_reply()?
-            .atom());
+        let (maj, min) = (res.major_version(), res.minor_version());
 
-        self.atoms.insert(
-            "WM_PROTOCOLS", self.conn.WM_PROTOCOLS()
-        );
-        self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DESKTOP", 
-            self.conn.WM_WINDOW_TYPE_DESKTOP()
-        );
-        self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_DOCK",
-            self.conn.WM_WINDOW_TYPE_DOCK()
-        );
-        self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_TOOLBAR",
-            self.conn.WM_WINDOW_TYPE_TOOLBAR()
-        );
-        self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_MENU",
-            self.conn.WM_WINDOW_TYPE_MENU()
-        );
-        self.atoms.insert(
-            "_NET_WM_WINDOW_TYPE_UTILITY",
-            self.conn.WM_WINDOW_TYPE_UTILITY()
-        );
-        self.atoms.insert(
-            "_NET_WINDOW_TYPE_SPLASH",
-            self.conn.WM_WINDOW_TYPE_SPLASH()
-        );
-        self.atoms.insert(
-            "_NET_WINDOW_TYPE_DIALOG",
-            self.conn.WM_WINDOW_TYPE_DIALOG()
-        );
-        self.atoms.insert(
-            "_NET_WINDOW_TYPE_DROPDOWN_MENU",
-            self.conn.WM_WINDOW_TYPE_DROPDOWN_MENU()
-        );
-        self.atoms.insert(
-            "_NET_WINDOW_TYPE_NOTIFICATION",
-            self.conn.WM_WINDOW_TYPE_NOTIFICATION()
-        );
-        self.atoms.insert(
-            "_NET_WINDOW_TYPE_NORMAL",
-            self.conn.WM_WINDOW_TYPE_NORMAL()
-        );
-        self.atoms.insert(
-            "_NET_WM_STATE",
-            self.conn.WM_STATE()
-        );
+        if maj != RANDR_MAJ || min < RANDR_MIN {
+            return Err(XError::RandrError(
+                format!(
+                    "Received randr version {}.{}, requires v{}.{} or higher",
+                    maj, min, RANDR_MAJ, RANDR_MIN
+                )
+            ))
+        }
 
+        // intern all known atoms
         for atom in Atom::iter() {
             self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?)
         }
 
+        // initialize cursor and set it for the root screen
         self.create_cursor(cursor::LEFT_PTR)?;
         self.set_cursor(self.root)?;
 
@@ -198,9 +171,38 @@ impl XCBConn {
         ).request_check()?)
     }
 
-    #[allow(dead_code)]
     pub(crate) fn get_setup(&self) -> xcb::Setup<'_> {
         self.conn.get_setup()
+    }
+
+    pub(crate) fn check_win(&self) -> Result<XWindowID> {
+        self.create_window(
+            WindowClass::CheckWin, 
+            Geometry::new(0, 0, 1, 1,),
+            false,
+        )
+    }
+
+    pub(crate) fn screen(&self, idx: usize) -> Result<xcb::Screen<'_>> {
+        let mut roots: Vec<_> = self.get_setup().roots().collect();
+
+        if idx >= roots.len() {
+            Err(XError::InvalidScreen)
+        } else {
+            Ok(roots.remove(idx))
+        }
+    }
+
+    pub(crate) fn depth<'a>(&self, screen: &'a xcb::Screen<'_>) -> Result<xcb::Depth<'a>> {
+        screen.allowed_depths()
+            .max_by(|x, y| x.depth().cmp(&y.depth()))
+            .ok_or(XError::RequestError("get depth"))
+    }
+
+    pub(crate) fn visual_type(&self, depth: &xcb::Depth<'_>) -> Result<xcb::Visualtype> {
+        depth.visuals()
+            .find(|v| v.class() == xcb::VISUAL_CLASS_TRUE_COLOR as u8)
+            .ok_or(XError::RequestError("get visual type"))
     }
 
     fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
