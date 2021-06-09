@@ -14,6 +14,7 @@
 
 use std::collections::VecDeque;
 use std::ops::{Index, IndexMut};
+use std::iter::FromIterator;
 
 use super::types::Direction;
 
@@ -407,3 +408,15 @@ impl<T> IndexMut<usize> for Ring<T> {
         &mut self.items[idx]
     }
 } 
+
+impl<T> FromIterator<T> for Ring<T> {
+    fn from_iter<A>(iter: A) -> Self
+    where
+        A: IntoIterator<Item = T>
+    {
+        Ring {
+            items: VecDeque::from_iter(iter.into_iter()),
+            focused: None,
+        }
+    }
+}
