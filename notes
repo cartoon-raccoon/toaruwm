@@ -4,7 +4,7 @@ todo:
 convert layout engine into a trait? use trait object to generate layout?
 (this would allow users to define their own special layouts, but would probably cause lifetime issues)
 
-Implement multihead via randr
+Write tests for getting window properties
 Implement mapping windows and mapping policy
 Implement config and use it
 Add method to get layout type -> dependent on xrandr
@@ -14,9 +14,10 @@ implement api-agnostic pointer/button event mask for XConn
 implement Debug properly for user-facing types
 make Layout more user-friendly (see penrose)
 add hooks to allow users to modfify a client before it is mapped
-
-learn randr methods
-add multiscreen support (randr)
 figure out restarting in-place
+
+cool stuff to add:
+- Reading window layout from serialized data
+
 
 (refer to rcwm todo for additional stuff lol)
