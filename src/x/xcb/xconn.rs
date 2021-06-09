@@ -7,7 +7,8 @@ use xcb::{
 
 use crate::x::{
     core::{
-        XWindowID, XConn, XError, XAtom,
+        XWindow, XWindowID,
+        XConn, XError, XAtom,
         PointerQueryReply, Result,
         WindowClass, 
     }, 
@@ -43,7 +44,7 @@ impl XConn for XCBConn {
         }
     }
 
-    fn get_root(&self) -> XWindowID {
+    fn get_root(&self) -> XWindow {
         self.root
     }
 
@@ -88,6 +89,9 @@ impl XConn for XCBConn {
 
         let res = randr::get_screen_resources(&self.conn, check_id)
             .get_reply()?;
+
+        let info = randr::get_screen_info(&self.conn, check_id)
+            .get_reply()?;
         
         let crtcs = res.crtcs().iter()
             // could do this with flat_map, but that just seems confusing
@@ -108,7 +112,7 @@ impl XConn for XCBConn {
                     r.height() as u32,
                     r.width() as u32,
                 );
-                Screen::new(i as i32, geom)
+                Screen::new(i as i32, geom, info.root())
             })
             .filter(|s| s.true_geom().width > 0).collect();
 
@@ -330,7 +334,7 @@ impl XConn for XCBConn {
             &self.conn,
             depth,
             wid,
-            self.root,
+            self.root.id,
             geom.x as i16,
             geom.y as i16,
             geom.width as u16,

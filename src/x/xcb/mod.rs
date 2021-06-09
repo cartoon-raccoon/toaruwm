@@ -9,7 +9,7 @@ use super::{
     Atoms,
     atom::Atom,
     core::{
-        XAtom,
+        XAtom, XWindow,
         XWindowID, Result, 
         XError, XConn,
         StackMode,
@@ -70,7 +70,7 @@ macro_rules! cast {
 /// [2]: crate::manager::WindowManager
 pub struct XCBConn {
     conn: ewmh::Connection,
-    root: XWindowID,
+    root: XWindow,
     idx: i32,
     randr_base: u8,
     atoms: Atoms,
@@ -84,28 +84,18 @@ impl XCBConn {
     pub fn connect() -> Result<Self> {
         // initialize xcb connection
         let (x, idx) = xcb::Connection::connect(None)?;
+        debug!("Connected to x server, got preferred screen {}", idx);
         // wrap it in an ewmh connection just for fun
         let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
         // initialize our atom handler
         let atoms = Atoms::new();
 
-        // get root window id
-        let root = match conn.get_setup().roots().nth(idx as usize) {
-            Some(root) => root.root(),
-            None => return Err(XError::NoScreens),
-        };
-
-        // initialize randr and get its event mask
-        let randr_base = conn.get_extension_data(&mut randr::id())
-            .ok_or_else(|| XError::RandrError("could not load randr".into()))?
-            .first_event();
-
         Ok(Self {
             conn,
-            root,
+            root: XWindow::zeroed(),
             idx,
-            randr_base,
+            randr_base: 0,
             atoms,
             cursor: 0,
         })
@@ -128,16 +118,31 @@ impl XCBConn {
             ))
         }
 
+        // get root window id
+        self.root = match self.conn.get_setup().roots().nth(self.idx as usize) {
+            Some(root) => {
+                let geom = self.get_geometry(root.root())?;
+                XWindow::with_data(root.root(), geom)
+            },
+            None => return Err(XError::NoScreens),
+        };
+        debug!("Got root: {:?}", self.root);
+
+        // initialize randr and get its event mask
+        self.randr_base = self.conn.get_extension_data(&mut randr::id())
+            .ok_or_else(|| XError::RandrError("could not load randr".into()))?
+            .first_event();
+
+        debug!("Got randr_base {}", self.randr_base);
+
         // intern all known atoms
         for atom in Atom::iter() {
-            self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?)
+            self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?);
         }
 
         // initialize cursor and set it for the root screen
         self.create_cursor(cursor::LEFT_PTR)?;
-        self.set_cursor(self.root)?;
-
-        //todo: randr setup
+        self.set_cursor(self.root.id)?;
 
         Ok(())
     }
@@ -209,11 +214,16 @@ impl XCBConn {
         use XEvent::*;
 
         //todo: handle randr events
+        let etype = event.response_type() & X_EVENT_MASK;
 
-        match event.response_type() & X_EVENT_MASK {
+        if etype == self.randr_base + randr::NOTIFY {
+
+        }
+
+        match etype {
             xcb::CONFIGURE_NOTIFY => {
                 let event = cast!(xcb::ConfigureNotifyEvent, event);
-                if event.event() == self.root {
+                if event.event() == self.root.id {
                     debug!("Top level window configuration")
                 }
                 Ok(ConfigureNotify(ConfigureEvent {
@@ -224,7 +234,7 @@ impl XCBConn {
                         height: event.height() as u32,
                         width: event.width() as u32
                     },
-                    is_root: event.window() == self.root,
+                    is_root: event.window() == self.root.id,
                 }))
             }
             xcb::CONFIGURE_REQUEST => {
@@ -239,8 +249,8 @@ impl XCBConn {
                 };
 
                 let event = cast!(xcb::ConfigureRequestEvent, event);
-                let is_root = event.window() == self.root;
-                if event.parent() == self.root {
+                let is_root = event.window() == self.root.id;
+                if event.parent() == self.root.id {
                     debug!("Top level window configuration request");
                 }
                 let vmask = event.value_mask();

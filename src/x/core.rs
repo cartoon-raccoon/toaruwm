@@ -73,6 +73,21 @@ pub struct XWindow {
     pub geom: Geometry,
 }
 
+impl XWindow {
+    pub fn zeroed() -> Self {
+        XWindow {
+            id: 0,
+            geom: Geometry::zeroed(),
+        }
+    }
+
+    pub fn with_data(id: XWindowID, geom: Geometry) -> Self {
+        XWindow {
+            id, geom,
+        }
+    }
+}
+
 impl PartialEq for XWindow {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
@@ -221,8 +236,8 @@ pub trait XConn {
     /// Else, it returns Ok(Some(event)).
     fn poll_next_event(&self) -> Result<Option<XEvent>>;
 
-    /// Returns the ID of the root window.
-    fn get_root(&self) -> XWindowID;
+    /// Returns the ID and geometry of the root window.
+    fn get_root(&self) -> XWindow;
 
     /// Returns the geometry of a given window.
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
