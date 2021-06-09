@@ -8,7 +8,7 @@
 //! It encapsulates monitor resolution and is used by the tiling
 //! algorithms to resize windows.
 
-use crate::x::{XConn, XWindow, XWindowID};
+use crate::x::{XConn, XWindowID};
 use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::Workspace;
 use crate::layouts::{LayoutType, LayoutFn};
@@ -16,22 +16,32 @@ use crate::layouts::{LayoutType, LayoutFn};
 /// Represents a physical monitor.
 #[derive(Clone, Copy, Debug)]
 pub struct Screen {
-    pub xwindow: XWindow,
-    pub idx: i32,
+    pub(crate) effective_geom: Geometry,
+    pub(crate) true_geom: Geometry,
+    pub(crate) idx: i32,
 }
 
 const MAX_WKSPACES: usize = 10;
 
 impl Screen {
-    pub fn new(screen_idx: i32, root_id: XWindowID) -> Self {
+    pub fn new(screen_idx: i32, geom: Geometry) -> Self {
         Self {
-            xwindow: XWindow::from(root_id),
+            effective_geom: geom,
+            true_geom: geom,
             idx: screen_idx,
         }
     }
 
-    pub fn geom(&self) -> Geometry {
-        self.xwindow.geom
+    pub fn update_effective(&mut self,) {
+
+    }
+
+    pub fn true_geom(&self) -> Geometry {
+        self.true_geom
+    }
+
+    pub fn effective_geom(&self) -> Geometry {
+        self.effective_geom
     }
 }
 

@@ -153,8 +153,8 @@ impl Workspace {
 
         window.xwindow.set_geometry_conn(conn);
 
-        if let Ok(ptr) = conn.query_pointer(scr.xwindow.id) {
-            if ptr.child == scr.xwindow.id || ptr.child == id {
+        if let Ok(ptr) = conn.query_pointer(conn.get_root()) {
+            if ptr.child == conn.get_root() || ptr.child == id {
                 self.focus_window(conn, id);
             } else if let Some(focused) = self.windows.focused_mut() {
                 focused.set_border(conn, BorderStyle::Unfocused);
