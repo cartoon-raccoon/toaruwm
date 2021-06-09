@@ -70,7 +70,7 @@ impl<T> Ring<T> {
     /// 
     /// let ring: Ring<u32> = Ring::with_capacity(2);
     /// 
-    /// assert!(2, ring.capacity());
+    /// assert_eq!(2, ring.capacity());
     /// ```
     pub fn with_capacity(cap: usize) -> Self {
         Self {
@@ -84,7 +84,7 @@ impl<T> Ring<T> {
     /// # Example
     /// 
     /// ```no_run
-    /// use toaruwm::core::ring;
+    /// use toaruwm::core::Ring;
     /// 
     /// let mut ring: Ring<u32> = Ring::new();
     /// 
@@ -109,7 +109,7 @@ impl<T> Ring<T> {
     /// 
     /// let ring: Ring<u32> = Ring::with_capacity(2);
     /// 
-    /// assert!(2, ring.capacity());
+    /// assert_eq!(2, ring.capacity());
     /// ```
     #[inline(always)]
     pub fn capacity(&self) -> usize {
