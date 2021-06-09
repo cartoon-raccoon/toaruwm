@@ -7,6 +7,7 @@ use crate::x::{
         ConfigureRequestData,
         ClientMessageEvent,
         PropertyEvent,
+        PointerEvent,
     },
     atom::Atom,
 };
@@ -23,8 +24,12 @@ pub enum EventAction {
     ClientUnfocus(XWindowID),
     /// Change the WM_NAME property of the specified client.
     ClientNameChange(XWindowID),
-    /// Reconfigure the root window.
+    /// Detect screens and reconfigure layout.
     ScreenReconfigure,
+    /// Set the screen currently in focus from a point.
+    /// 
+    /// If point is None set based on cursor location.
+    SetFocusedScreen(Option<Point>),
     /// Destroy the specified client.
     DestroyClient(XWindowID),
     /// Map the specified client and track it internally.
@@ -59,7 +64,7 @@ impl EventAction {
         match event {
             ConfigureNotify(event) => {
                 debug!("Configure notify");
-                if event.id == state.root {
+                if event.id == state.root.id {
                     vec![ScreenReconfigure]
                 } else {
                     vec![]
@@ -86,18 +91,18 @@ impl EventAction {
                 vec![DestroyClient(id)]
             },
             // if pointer is not grabbed, tell WM to focus on client
-            EnterNotify(id, grab) => {
-                debug!("Enter notify for window {}; grab: {}", id, grab);
+            EnterNotify(ev, grab) => {
+                debug!("Enter notify for window {}; grab: {}", ev.id, grab);
                 if !grab {
-                    vec![ClientFocus(id)]
+                    process_enter_notify(ev, state)
                 } else {
                     vec![]
                 }
             },
-            LeaveNotify(id, grab) => {
-                debug!("Leave notify for window {}; grab: {}", id, grab);
+            LeaveNotify(ev, grab) => {
+                debug!("Leave notify for window {}; grab: {}", ev.id, grab);
                 if !grab {
-                    vec![ClientUnfocus(id)]
+                    vec![ClientUnfocus(ev.id), SetFocusedScreen(Some(ev.abs))]
                 } else {
                     vec![]
                 }
@@ -129,6 +134,8 @@ impl EventAction {
                 info!("Client message received: {:#?}", event);
                 process_client_message(event, state)
             },
+            RandrNotify => vec![ScreenReconfigure],
+            ScreenChange => vec![SetFocusedScreen(None)],
             Unknown(smth) => {
                 info!("Unrecognised event: code {}", smth);
                 vec![]
@@ -141,7 +148,6 @@ fn process_map_request<X: XConn>(
     id: XWindowID, ovrd: bool, state: WMState<'_, X>
 ) -> Vec<EventAction> {
     use EventAction::*;
-    use XEvent::*;
 
     // if window is override-redirect or we already have the window,
     // ignore the request.
@@ -161,6 +167,22 @@ fn process_config_request<X: XConn>(
 ) -> Vec<EventAction> {
     //todo
     vec![]
+}
+
+fn process_enter_notify<X: XConn>(
+   pt: PointerEvent, state: WMState<'_, X>
+) -> Vec<EventAction> {
+    use EventAction::*;
+
+    let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
+
+    if let Some(focused) = state.focused {
+        if focused != pt.id {
+            actions.insert(0, ClientUnfocus(focused))
+        }
+    }
+
+    actions
 }
 
 fn process_property_notify<X: XConn>(

@@ -22,6 +22,7 @@ use super::{
         ReparentEvent,
         PropertyEvent,
         KeypressEvent,
+        PointerEvent,
         MouseEvent as MouseEventType,
         ClientMessageEvent,
         ClientMessageData,
@@ -48,7 +49,7 @@ const X_EVENT_MASK: u8 = 0x7f;
 const MAX_LONG_LENGTH: u32 = 1024;
 
 const RANDR_MAJ: u32 = 1;
-const RANDR_MIN: u32 = 2;
+const RANDR_MIN: u32 = 4;
 
 // used for casting events and stuff
 macro_rules! cast {
@@ -108,6 +109,8 @@ impl XCBConn {
             .get_reply()?;
 
         let (maj, min) = (res.major_version(), res.minor_version());
+
+        debug!("Got randr version {}.{}", maj, min);
 
         if maj != RANDR_MAJ || min < RANDR_MIN {
             return Err(XError::RandrError(
@@ -217,7 +220,9 @@ impl XCBConn {
         let etype = event.response_type() & X_EVENT_MASK;
 
         if etype == self.randr_base + randr::NOTIFY {
-
+            return Ok(XEvent::RandrNotify)
+        } else if etype == self.randr_base + randr::SCREEN_CHANGE_NOTIFY {
+            return Ok(XEvent::ScreenChange)
         }
 
         match etype {
@@ -322,14 +327,26 @@ impl XCBConn {
 
                 let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
 
-                Ok(EnterNotify(event.event(), grab))
+                let id = event.event();
+                let abs = Point::new(event.root_x() as i32, event.root_y() as i32);
+                let rel = Point::new(event.event_x() as i32, event.event_y() as i32);
+
+                let ptrev = PointerEvent {id, abs, rel};
+
+                Ok(EnterNotify(ptrev, grab))
             }
             xcb::LEAVE_NOTIFY => {
                 let event = cast!(xcb::LeaveNotifyEvent, event);
 
                 let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
 
-                Ok(LeaveNotify(event.event(), grab))
+                let id = event.event();
+                let abs = Point::new(event.root_x() as i32, event.root_y() as i32);
+                let rel = Point::new(event.event_x() as i32, event.event_y() as i32);
+
+                let ptrev = PointerEvent {id, abs, rel};
+
+                Ok(LeaveNotify(ptrev, grab))
             }
             xcb::REPARENT_NOTIFY => {
                 let event = cast!(xcb::ReparentNotifyEvent, event);

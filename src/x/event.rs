@@ -22,9 +22,13 @@ pub enum XEvent {
     /// A Client has destroyed a window.
     DestroyNotify(XWindowID),
     /// The pointer has entered a window.
-    EnterNotify(XWindowID, bool),
+    /// 
+    /// The bool is whether the pointer is grabbed.
+    EnterNotify(PointerEvent, bool),
     /// The pointer has left a window.
-    LeaveNotify(XWindowID, bool),
+    /// 
+    /// The bool is whether the pointer is grabbed.
+    LeaveNotify(PointerEvent, bool),
     /// A window was reparented.
     ReparentNotify(ReparentEvent),
     /// A window property was changed.
@@ -38,6 +42,10 @@ pub enum XEvent {
     MouseEvent(MouseEvent),
     /// A client message was received.
     ClientMessage(ClientMessageEvent),
+    /// Received a randr notification.
+    RandrNotify,
+    /// Received a randr screen change notify event.
+    ScreenChange,
     /// Unknown event type, used as a catchall for events not tracked by toaruwm.
     Unknown(u8),
 }
@@ -79,10 +87,25 @@ pub struct ConfigureRequestData {
 /// Data associated with a reparent event.
 #[derive(Debug, Clone, Copy)]
 pub struct ReparentEvent {
+    /// The event window.
     pub event: XWindowID,
+    /// The parent window.
     pub parent: XWindowID,
+    /// The child of the parent window.
     pub child: XWindowID,
+    /// Whether the child window is override-redirect.
     pub over_red: bool,
+}
+
+/// Data associated with a pointer change event (Enter, Leave).
+#[derive(Debug, Clone, Copy)]
+pub struct PointerEvent {
+    /// The id of the event window.
+    pub id: XWindowID,
+    /// The absolute position of the pointer (relative to root).
+    pub abs: Point,
+    /// The relative position of the pointer to the event window.
+    pub rel: Point,
 }
 
 /// Data associated with a property change event.
