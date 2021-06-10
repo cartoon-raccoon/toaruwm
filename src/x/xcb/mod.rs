@@ -228,7 +228,6 @@ impl XCBConn {
     fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
         use XEvent::*;
 
-        //todo: handle randr events
         let etype = event.response_type() & X_EVENT_MASK;
 
         if etype == self.randr_base + randr::NOTIFY {
