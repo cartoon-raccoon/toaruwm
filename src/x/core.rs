@@ -357,7 +357,7 @@ pub trait XConn {
     /// 
     /// Returns an empty string in case of error.
     fn get_wm_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop("WM_NAME", window);
+        let prop = self.get_prop(Atom::WmName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
