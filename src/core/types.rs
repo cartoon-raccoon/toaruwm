@@ -297,7 +297,7 @@ impl Geometry {
     pub fn split_horz_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
         let ratio = ratio.clamp(0.0, 1.0);
 
-        if ratio == f32::NAN {
+        if ratio.is_nan() {
             panic!("Got f32::NAN");
         }
 
@@ -349,7 +349,7 @@ impl Geometry {
     pub fn split_vert_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
         let ratio = ratio.clamp(0.0, 1.0);
 
-        if ratio == f32::NAN {
+        if ratio.is_nan() {
             panic!("Got f32::NAN");
         }
 
@@ -404,7 +404,7 @@ impl Geometry {
             Geometry {
                 x: self.x,
                 y: self.y + height as i32,
-                height: height,
+                height,
                 width: self.width,
             }
         )
@@ -434,7 +434,7 @@ impl Geometry {
                 x: self.x,
                 y: self.y,
                 height: self.height,
-                width: width,
+                width,
             },
             // Right
             Geometry {

@@ -415,7 +415,7 @@ impl<T> FromIterator<T> for Ring<T> {
         A: IntoIterator<Item = T>
     {
         Ring {
-            items: VecDeque::from_iter(iter.into_iter()),
+            items: iter.into_iter().collect(),
             focused: None,
         }
     }

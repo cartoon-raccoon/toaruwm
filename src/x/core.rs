@@ -420,7 +420,7 @@ pub trait XConn {
         use Property::{String, UTF8String};
 
         let prop = self.get_prop(Atom::WmClass.as_ref(), window)
-        .unwrap_or_else(|_| None);
+        .unwrap_or(None);
 
         match prop {
             Some(String(strs)) | Some(UTF8String(strs)) => {
