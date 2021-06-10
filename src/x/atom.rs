@@ -34,6 +34,9 @@ pub enum Atom {
     /// UTF8_STRING
     #[strum(serialize = "UTF8_STRING")]
     UTF8String,
+    /// COMPOUND_TEXT
+    #[strum(serialize = "COMPOUND_TEXT")]
+    CompoundText,
     /// WM_CLASS
     #[strum(serialize = "WM_CLASS")]
     WmClass,
