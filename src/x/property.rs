@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fmt;
 
 use crate::x::core::{
     XConn, XWindowID, XError, XAtom,
@@ -32,21 +33,24 @@ pub enum Property {
 
     /// Raw data as a vec of bytes.
     /// Returned if the format of the response is 8.
+    /// The property type is also provided as a String.
     /// 
     /// Used if the property type is not recognized by toaruwm.
-    U8List(Vec<u8>),
+    U8List(String, Vec<u8>),
 
     /// Raw data as a vec of words.
     /// Returned if the format of the response is 16.
+    /// The property type is also provided as a String.
     /// 
-    /// Used of the property type is not recognized by toaruwm.
-    U16List(Vec<u16>),
+    /// Used if the property type is not recognized by toaruwm.
+    U16List(String, Vec<u16>),
 
     /// Raw data as a vec of doublewords.
     /// Returned if the format of the response is 32.
+    /// The property type is also provided as a String.
     /// 
-    /// Used of the property type is not recognized by toaruwm.
-    U32List(Vec<u32>),
+    /// Used if the property type is not recognized by toaruwm.
+    U32List(String, Vec<u32>),
 }
 
 impl Property {
@@ -87,9 +91,82 @@ derive_is!(is_utf8str, Self::UTF8String(_));
 derive_is!(is_window, Self::Window(_));
 derive_is!(is_wmhints, Self::WMHints(_));
 derive_is!(is_sizehints, Self::WMSizeHints(_));
-derive_is!(is_u8list, Self::U8List(_));
-derive_is!(is_u16list, Self::U16List(_));
-derive_is!(is_u32list, Self::U32List(_));
+derive_is!(is_u8list, Self::U8List(_,_));
+derive_is!(is_u16list, Self::U16List(_,_));
+derive_is!(is_u32list, Self::U32List(_,_));
+
+impl fmt::Display for Property {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use Property::*;
+        use std::string::String as StdString;
+
+        match self {
+            Atom(strs) => {
+                write!(f, "Atom: {:?}", strs)
+            }
+            Cardinal(n) => {
+                write!(f, "Cardinal: {}", n)
+            }
+            String(strs) => {
+                write!(f, "Strings: {:?}", strs)
+            }
+            UTF8String(strs) => {
+                write!(f, "Strings: {:?}", strs)
+            }
+            Window(ids) => {
+                write!(f, "Windows: {:?}", ids)
+            }
+            WMHints(hints) => {
+                write!(f, "WmHints: {:#?}", hints)
+            }
+            WMSizeHints(hints) => {
+                write!(f, "WmSizeHints: {:#?}", hints)
+            }
+            U8List(s, u8s) => {
+                let mut out = format!("{}: [", s);
+
+                out.push_str(
+                    &u8s.iter()
+                    .map(|s| format!("{:#04x}", s))
+                    .collect::<Vec<StdString>>()
+                    .join(",")
+                );
+
+                out.push(']');
+
+                write!(f, "u8[] - {}", out)
+            }
+            U16List(s, u16s) => {
+                let mut out = format!("{}: [", s);
+
+                out.push_str(
+                    &u16s.iter()
+                    .map(|s| format!("{:#06x}", s))
+                    .collect::<Vec<StdString>>()
+                    .join(",")
+                );
+
+                out.push(']');
+
+                write!(f, "u16[] - {}", out)
+            }
+            U32List(s, u32s) => {
+                let mut out = format!("{}: [", s);
+
+                out.push_str(
+                    &u32s.iter()
+                    .map(|s| format!("{:#08x}", s))
+                    .collect::<Vec<StdString>>()
+                    .join(",")
+                );
+
+                out.push(']');
+
+                write!(f, "u32[] - {}", out)
+            }
+        }
+    }
+}
 
 /// The ICCCM-defined window states.
 #[derive(Clone, Copy, Debug)]
