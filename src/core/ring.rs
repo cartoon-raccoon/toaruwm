@@ -19,6 +19,7 @@ use std::iter::FromIterator;
 use super::types::Direction;
 
 /// A point at which to insert an element.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InsertPoint {
     /// At a given index.
     Index(usize),
@@ -34,10 +35,16 @@ pub enum InsertPoint {
     Last,
 }
 
+/// A type to select items from a Ring.
+#[derive(Clone, Copy)]
 pub enum Selector<'a, T> {
+    /// Any item.
     Any,
+    /// The focused item.
     Focused,
+    /// At a specific index.
     Index(usize),
+    /// Whichever item fulfills a given predicate.
     Condition(&'a dyn Fn(&T) -> bool),
 }
 
