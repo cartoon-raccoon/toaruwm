@@ -545,8 +545,8 @@ impl From<FromUtf8Error> for XError {
 }
 
 impl From<xcb::ConnError> for XError {
-    fn from(_: xcb::ConnError) -> XError {
-        XError::Connection
+    fn from(e: xcb::ConnError) -> XError {
+        XError::Connection(e.to_string())
     }
 }
 

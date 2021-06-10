@@ -168,8 +168,8 @@ impl XWindow {
 #[derive(Debug, Error, Clone)]
 pub enum XError {
     /// An error when establishing a connection with the server.
-    #[error("Could not establish a connection to the X server")]
-    Connection,
+    #[error("X connection error: {0}")]
+    Connection(String),
 
     #[error("Could not find screens from X server")]
     NoScreens,
