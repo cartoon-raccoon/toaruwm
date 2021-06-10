@@ -5,6 +5,8 @@
 //! Workspace layouts can be changed on the fly, and will adjust themselves
 //! as necessary.
 
+use std::fmt;
+
 use crate::core::{
     window::{Client, ClientRing},
     desktop::Screen,
@@ -29,6 +31,17 @@ pub struct Workspace {
     pub(crate) windows: ClientRing,
     pub(crate) master: Option<XWindowID>,
     pub(crate) layoutter: LayoutEngine,
+}
+
+impl fmt::Debug for Workspace {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Workspace")
+            .field("name", &self.name)
+            .field("windows", &self.windows)
+            .field("master", &self.master)
+            .field("layout", &self.layoutter.layout())
+            .finish()
+    }
 }
 
 #[allow(unused_variables)]
