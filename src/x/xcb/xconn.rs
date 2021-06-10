@@ -122,7 +122,7 @@ impl XConn for XCBConn {
     }
 
     fn atom(&self, atom: &str) -> Result<XAtom> {
-        if let Some(known) = self.atoms.retrieve(atom) {
+        if let Some(known) = self.atoms().retrieve(atom) {
             return Ok(known)
         }
         debug!("Interning atom {}", atom);
@@ -133,16 +133,22 @@ impl XConn for XCBConn {
 
     fn lookup_atom(&self, atom: XAtom) -> Result<String> {
         debug!("Looking up atom {}", atom);
-        if let Some(name) = self.atoms.retrieve_by_value(atom) {
+        if let Some(name) = self.atoms().retrieve_by_value(atom) {
             return Ok(name)
         }
         debug!("Name not known, looking up via X connection");
-        Ok(xcb::get_atom_name(&self.conn, atom).get_reply()?.name().into())
+        let name = xcb::get_atom_name(&self.conn, atom).get_reply()?.name().to_string();
+
+        let mut atoms = self.atoms.take();
+        atoms.insert(&name, atom);
+        self.atoms.set(atoms);
+
+        Ok(name)
     }
 
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
         debug!("Looking up interned atom name {}", name);
-        self.atoms.retrieve(&name.to_string())
+        self.atoms().retrieve(&name.to_string())
     }
 
     fn grab_keyboard(&self) -> Result<()> {
@@ -498,7 +504,7 @@ impl XConn for XCBConn {
         ).request_check()?)
     }
 
-    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Property> {
+    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
         let atom = self.atom(prop)?;
         self.get_prop_atom(atom, window)
     }

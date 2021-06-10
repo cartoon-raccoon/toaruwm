@@ -1,4 +1,5 @@
 use std::convert::{TryFrom, TryInto};
+use std::cell::Cell;
 
 use xcb_util::{ewmh, cursor};
 use xcb::randr;
@@ -44,6 +45,9 @@ use crate::util;
 mod xconn;
 mod convert;
 
+#[cfg(test)]
+mod tests;
+
 const X_EVENT_MASK: u8 = 0x7f;
 
 const MAX_LONG_LENGTH: u32 = 1024;
@@ -74,7 +78,7 @@ pub struct XCBConn {
     root: XWindow,
     idx: i32,
     randr_base: u8,
-    atoms: Atoms,
+    atoms: Cell<Atoms>,
     cursor: u32,
 }
 
@@ -90,7 +94,7 @@ impl XCBConn {
         let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
         // initialize our atom handler
-        let atoms = Atoms::new();
+        let atoms = Cell::new(Atoms::new());
 
         Ok(Self {
             conn,
@@ -138,9 +142,11 @@ impl XCBConn {
 
         debug!("Got randr_base {}", self.randr_base);
 
+        
         // intern all known atoms
         for atom in Atom::iter() {
-            self.atoms.insert(atom.as_ref(), self.atom(atom.as_ref())?);
+            let atom_val = self.atom(atom.as_ref())?;
+            self.atoms.get_mut().insert(atom.as_ref(), atom_val);
         }
 
         // initialize cursor and set it for the root screen
@@ -151,14 +157,20 @@ impl XCBConn {
     }
 
     pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
-        self.atoms.insert(name.as_ref(), atom);
+        self.atoms.get_mut().insert(name.as_ref(), atom);
     }
 
     pub fn atoms(&self) -> &Atoms {
-        &self.atoms
+        // SAFETY: returns an immutable reference
+        unsafe {&*self.atoms.as_ptr()}
     }
 
     pub fn conn(&self) -> &xcb::Connection {
+        &self.conn
+    }
+
+    #[cfg(test)]
+    pub fn ewmh_conn(&self) -> &ewmh::Connection {
         &self.conn
     }
 
@@ -443,7 +455,7 @@ impl XCBConn {
         }
     }
 
-    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Property> {
+    fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Option<Property>> {
         let r = xcb::get_property(
             &self.conn,
             false,
@@ -455,51 +467,61 @@ impl XCBConn {
             // allow for up to 4 * MAX_LONG_LENGTH bytes of information
             MAX_LONG_LENGTH,
         ).get_reply()?;
-        let atom_name = self.lookup_atom(r.type_())?;
 
-        Ok(match atom_name.as_str() {
-            "ATOM" => Property::Atom(
+        if r.type_() == xcb::NONE {
+            debug!("prop type is none");
+            return Ok(None)
+        }
+
+        let prop_type = self.lookup_atom(r.type_())?;
+        debug!("got prop_type {}", prop_type);
+
+        Ok(match prop_type.as_str() {
+            "ATOM" => Some(Property::Atom(
                 r.value()
                     .iter()
                     .map(|a| self.lookup_atom(*a).unwrap_or_else(|_| "".into()))
                     .collect::<Vec<String>>()
-            ),
-            "CARDINAL" => Property::Cardinal(r.value()[0]),
-            "STRING" => Property::String(
+            )),
+            "CARDINAL" => Some(Property::Cardinal(r.value()[0])),
+            "STRING" => Some(Property::String(
                 String::from_utf8_lossy(&r.value().to_vec())
                     .trim_matches('\0')
                     .split('\0')
                     .map(|a| a.to_string())
                     .collect()
-            ),
-            "UTF8_STRING" => Property::String(
+            )),
+            "UTF8_STRING" => Some(Property::UTF8String(
                 String::from_utf8(r.value().to_vec())?
                     .trim_matches('\0')
                     .split('\0')
                     .map(|a| a.to_string())
                     .collect()
-            ),
-            "WINDOW" => Property::Window(r.value().to_vec()),
-            "WM_HINTS" => Property::WMHints(
+            )),
+            "WINDOW" => Some(Property::Window(r.value().to_vec())),
+            "WM_HINTS" => Some(Property::WMHints(
                 WmHints::try_from_bytes(r.value())?
-            ),
-            "WM_SIZE_HINTS" => Property::WMSizeHints(
+            )),
+            "WM_SIZE_HINTS" => Some(Property::WMSizeHints(
                 WmSizeHints::try_from_bytes(r.value())?
-            ),
+            )),
             n => {
                 if n == "WM_STATE" {
                     debug!("Type is WM_STATE");
                 }
                 match r.format() {
-                    8 => Property::U8List(
+                    8 => Some(Property::U8List(
+                        n.into(),
                         r.value::<u8>().into()
-                    ),
-                    16 => Property::U16List(
+                    )),
+                    16 => Some(Property::U16List(
+                        n.into(),
                         r.value::<u16>().into()
-                    ),
-                    32 => Property::U32List(
+                    )),
+                    32 => Some(Property::U32List(
+                        n.into(),
                         r.value::<u32>().into()
-                    ),
+                    )),
                     n => {
                         return Err(
                             XError::InvalidPropertyData(
