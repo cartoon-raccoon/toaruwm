@@ -52,7 +52,7 @@ impl Screen {
 }
 
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Desktop {
     pub(crate) workspaces: Ring<Workspace>,
     current: usize,
@@ -73,6 +73,11 @@ impl Desktop {
             },
             current: 0,
         }
+    }
+
+    /// The layout of the current workspace.
+    pub fn current_layout(&self) -> &LayoutType {
+        self.current().layout()
     }
 
     /// Test whether a certain window is already managed.
