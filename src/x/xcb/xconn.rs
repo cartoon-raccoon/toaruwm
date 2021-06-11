@@ -32,6 +32,10 @@ use crate::util;
 
 use super::XCBConn;
 
+// Grab numlock separately and filter it out when receiving events
+// Taken from https://github.com/sminez/penrose/blob/develop/src/xcb/api.rs.
+const MODIFIERS: &[u16] = &[0, xcb::MOD_MASK_2 as u16];
+
 impl XConn for XCBConn {
     // General X server operations
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -180,22 +184,22 @@ impl XConn for XCBConn {
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()> {
         debug!("Grabbing key {} for window {}", kb.code, window);
 
-        //let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
-
+        for m in MODIFIERS.iter() {
+            xcb::grab_key(
+                &self.conn,
+                false,
+                window,
+                kb.modmask | m,
+                kb.code,
+                xcb::GRAB_MODE_ASYNC as u8,
+                xcb::GRAB_MODE_ASYNC as u8,
+            ).request_check().map_err(|_|
+                XError::ServerError(
+                    format!("Unable to grab key {} for window {}", kb.code, window)
+                )
+            )?;
+        }
         
-        xcb::grab_key(
-            &self.conn,
-            false,
-            window,
-            kb.modmask,
-            kb.code,
-            xcb::GRAB_MODE_ASYNC as u8,
-            xcb::GRAB_MODE_ASYNC as u8,
-        ).request_check().map_err(|_|
-            XError::ServerError(
-                format!("Unable to grab key {} for window {}", kb.code, window)
-            )
-        )?;
         Ok(())
     }
 
@@ -220,22 +224,27 @@ impl XConn for XCBConn {
     fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()> {
         debug!("Grab button {:?} for window: {}", mb.button, window);
 
-        xcb::grab_button(
-            &self.conn, 
-            false, 
-            window, 
-            util::ROOT_BUTTON_GRAB_MASK as u16,
-            xcb::GRAB_MODE_ASYNC as u8,
-            xcb::GRAB_MODE_ASYNC as u8,
-            if confine { window } else { xcb::NONE },
-            xcb::NONE,
-            mb.button.into(),
-            mb.modmask,
-        ).request_check().map_err(|_|
-            XError::ServerError(
-                format!("Unable to grab button {:?} for window {}", mb.button, window)
-            )
-        )
+        for m in MODIFIERS.iter() {
+            xcb::grab_button(
+                &self.conn, 
+                false, 
+                window, 
+                util::ROOT_BUTTON_GRAB_MASK as u16,
+                xcb::GRAB_MODE_ASYNC as u8,
+                xcb::GRAB_MODE_ASYNC as u8,
+                if confine { window } else { xcb::NONE },
+                xcb::NONE,
+                mb.button.into(),
+                mb.modmask | m,
+            ).request_check().map_err(|_|
+                XError::ServerError(
+                    format!("Unable to grab button {:?} for window {}", mb.button, window)
+                )
+            )?;
+        }
+
+        Ok(())
+
     }
 
     fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()> {
