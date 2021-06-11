@@ -49,6 +49,9 @@ pub enum Atom {
     /// WM_NORMAL_HINTS
     #[strum(serialize = "WM_NORMAL_HINTS")]
     WmNormalHints,
+    /// WM_SIZE_HINTS
+    #[strum(serialize = "WM_SIZE_HINTS")]
+    WmSizeHints,
     /// WM_PROTOCOLS
     #[strum(serialize = "WM_PROTOCOLS")]
     WmProtocols,
