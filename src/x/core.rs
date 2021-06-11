@@ -15,7 +15,7 @@ use crate::types::{
     ClientConfig,
     ClientAttrs,
 };
-use crate::core::{Screen, Client};
+use crate::core::{Screen};
 use super::{
     event::{XEvent, ClientMessageEvent},
     property::*,
@@ -306,9 +306,11 @@ pub trait XConn {
     fn unmap_window(&self, window: XWindowID) -> Result<()>;
 
     /// Destroys a window.
-    /// 
-    /// Provides a reference to a Client so as to make use of ICCCM WM_DELETE_WINDOW.
-    fn destroy_window(&self, window: &Client) -> Result<()>; 
+    ///
+    /// Implementors should make use of the provided
+    /// `XConn::win_supports()` method to delete the window
+    /// via ICCCM WM_DELETE_WINDOW if supported.
+    fn destroy_window(&self, window: XWindowID) -> Result<()>; 
 
     /// Sends a message to a given client.
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()>;
@@ -448,6 +450,15 @@ pub trait XConn {
         } else {
             None
         }
+    }
+
+    /// Check whether a window supports the given protocol.
+    fn win_supports(&self, protocol: &str, id: XWindowID) -> bool {
+        self.atom(protocol).map(|atom| {
+            self.get_wm_protocols(id).map(|protocols| {
+                protocols.contains(&atom)
+            }).unwrap_or(false)
+        }).unwrap_or(false)
     }
 
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {

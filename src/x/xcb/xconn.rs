@@ -20,7 +20,7 @@ use crate::x::{
     property::*,
     Atom,
 };
-use crate::core::{Screen, Client};
+use crate::core::Screen;
 use crate::types::{
     BORDER_WIDTH,
     Geometry,
@@ -392,19 +392,20 @@ impl XConn for XCBConn {
         }
     }
 
-    fn destroy_window(&self, window: &Client) -> Result<()> {
-        let atom = self.atom("WM_DELETE_WINDOW")?;
-        if window.supports(atom) {
+    fn destroy_window(&self, window: XWindowID) -> Result<()> {
+        let atom = Atom::WmDeleteWindow.as_ref();
+        let atomval = self.atom(atom)?;
+        if self.win_supports(atom, window) {
             debug!("Destroying via ICCCM WM_DELETE_WINDOW");
             let event = ClientMessageEvent {
-                window: window.id(),
-                data: ClientMessageData::U32([atom, 0, 0, 0, 0]),
-                type_: atom,
+                window,
+                data: ClientMessageData::U32([atomval, 0, 0, 0, 0]),
+                type_: atomval,
             };
-            return self.send_client_message(window.id(), event)
+            return self.send_client_message(window, event)
         } else {
             debug!("Destroying via xcb::destroy_window");
-            xcb::destroy_window(&self.conn, window.id()).request_check()?;
+            xcb::destroy_window(&self.conn, window).request_check()?;
         }
         Ok(())
     }
