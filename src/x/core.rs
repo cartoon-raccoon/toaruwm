@@ -530,9 +530,19 @@ pub trait XConn {
         
     }
 
-    // fn set_supported(&self, screen_idx: i32, atoms: &[XAtom]) {
-    //     todo!()
-    // }
+    /// Sets the _NET_SUPPORTED property on the root window.
+    /// 
+    /// This indicated the protocols supported by the window manager.
+    fn set_supported(&self, atoms: &[Atom]) -> Result<()> {
+        self.set_property(
+            self.get_root().id,
+            Atom::NetSupported.as_ref(),
+            Property::Atom(atoms.iter()
+                .map(|a| a.to_string())
+                .collect()
+            )
+        )
+    }
 
     fn set_wm_state(&self, window: XWindowID, atoms: &[XAtom]) {
         let atoms = atoms.iter()
