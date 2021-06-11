@@ -7,6 +7,7 @@
 
 use std::fmt;
 
+use crate::{Result, ToaruError};
 use crate::core::{
     window::{Client, ClientRing},
     desktop::Screen,
@@ -71,6 +72,10 @@ impl Workspace {
     /// Tests whether the workspace contains a specfic window.
     pub fn contains_window(&self, id: XWindowID) -> bool {
         self.windows.contains(id)
+    }
+
+    pub fn focused_client(&self) -> Option<&Client> {
+        self.windows.focused()
     }
 
     /// Maps all the windows in the workspace.
@@ -138,20 +143,22 @@ impl Workspace {
 
     pub fn del_window<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
-    ) -> Client {
-        match self.layout() {
-            LayoutType::Floating => {
-                self.del_window_floating(conn, scr, id)
-            }
-            _ => {
-                self.del_window_tiled(conn, scr, id)
+    ) -> Result<Client> {
+        if let Some(win) = self.windows.lookup(id) {
+            if win.is_floating() {
+                return Ok(self.del_window_floating(conn, scr, id))
+            } else {
+                return Ok(self.del_window_tiled(conn, scr, id))
             }
         }
+        Err(ToaruError::UnknownClient(id))
     }
 
-    fn add_window_floating<X: XConn>(&mut self, 
+    pub fn add_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
+        function_ends!("add_window_floating");
+        
         let mut window = Client::floating(id, conn);
 
         window.set_supported(conn);
@@ -183,7 +190,7 @@ impl Workspace {
         self.relayout(conn, scr);
     }
 
-    fn add_window_tiled<X: XConn>(&mut self, 
+    pub fn add_window_tiled<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
         todo!("tiling algorithm not implemented")
@@ -194,6 +201,7 @@ impl Workspace {
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Client {
         let mut window = self.windows.remove_by_id(id)
+        //todo: return Result instead
         .expect("Could not find window");
 
         window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
@@ -310,7 +318,7 @@ impl Workspace {
     ) -> Option<Client> {
         if let Some(window) = self.windows.focused() {
             let window = window.to_owned();
-            self.del_window(conn, screen, window.id());
+            self.del_window(conn, screen, window.id()).ok()?;
 
             Some(window)
         } else {

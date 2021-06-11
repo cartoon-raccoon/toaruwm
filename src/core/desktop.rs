@@ -10,7 +10,7 @@
 
 use crate::x::{XConn, XWindowID};
 use crate::types::{Ring, Geometry, Direction, Selector};
-use crate::core::Workspace;
+use crate::core::{Workspace, Client};
 use crate::layouts::{LayoutType, LayoutFn};
 
 /// Represents a physical monitor.
@@ -21,8 +21,6 @@ pub struct Screen {
     pub(crate) true_geom: Geometry,
     pub(crate) idx: i32,
 }
-
-const MAX_WKSPACES: usize = 10;
 
 impl Screen {
     pub fn new(
@@ -59,13 +57,13 @@ pub struct Desktop {
 }
 
 impl Desktop {
-    pub fn new(layout: LayoutType, lfn: Option<LayoutFn>) -> Self {
+    pub fn new(layout: LayoutType, lfn: Option<LayoutFn>, wksps: Vec<String>) -> Self {
         Self {
             workspaces: {
-                let mut workspaces = Ring::with_capacity(MAX_WKSPACES);
+                let mut workspaces = Ring::with_capacity(wksps.len());
 
-                for i in 0..MAX_WKSPACES {
-                    workspaces.push(Workspace::with_layout(layout.clone(), lfn, &i.to_string()));
+                for name in wksps {
+                    workspaces.push(Workspace::with_layout(layout.clone(), lfn, &name));
                 }
 
                 workspaces.set_focused(0);
@@ -80,8 +78,15 @@ impl Desktop {
         self.current().layout()
     }
 
+    pub fn current_client(&self) -> Option<&Client> {
+        match self.workspaces.focused() {
+            Some(ws) => ws.focused_client(),
+            None => None
+        }
+    }
+
     /// Test whether a certain window is already managed.
-    pub fn is_managed(&self, id: XWindowID) -> bool {
+    pub fn is_managing(&self, id: XWindowID) -> bool {
         self.workspaces.iter().any(|ws| ws.contains_window(id))
     }
 
