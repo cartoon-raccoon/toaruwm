@@ -574,7 +574,7 @@ pub trait XConn {
     /// Returns whether a WindowManager should set a window to floating.
     /// 
     /// Can accept user-specified classes that should float.
-    fn should_float(&self, window: XWindowID, float_classes: &[&str]) -> bool {
+    fn should_float(&self, window: XWindowID, float_classes: &[String]) -> bool {
         let (_, class) = self.get_wm_class(window);
 
         if float_classes.iter().any(|s| *s == class) {
