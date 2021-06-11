@@ -228,7 +228,7 @@ impl XConn for XCBConn {
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::GRAB_MODE_ASYNC as u8,
             if confine { window } else { xcb::NONE },
-            xcb::NONE,
+            self.cursor,
             mb.button.into(),
             mb.modmask,
         ).request_check().map_err(|_|
