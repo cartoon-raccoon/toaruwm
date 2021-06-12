@@ -151,7 +151,7 @@ fn process_map_request<X: XConn>(
 
     // if window is override-redirect or we already have the window,
     // ignore the request.
-    if ovrd || state.desktop.is_managed(id) {
+    if ovrd || state.desktop.is_managing(id) {
         return Vec::new()
     }
 
