@@ -256,6 +256,8 @@ impl Client {
 
     /// Updates all the internal properties of the client.
     pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
+        fn_ends!("Client::update_all_properties");
+
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
             debug!("Got size hints: {:#?}", sizes);
@@ -342,6 +344,7 @@ impl Client {
 
     /// Maps the client.
     pub fn map<X: XConn>(&mut self, conn: &X) {
+        fn_ends!("Client::map");
         //self.update_all_properties(conn);
         self.update_geometry(conn);
         conn.change_window_attributes(
@@ -353,6 +356,8 @@ impl Client {
 
     /// Unmaps the client.
     pub fn unmap<X: XConn>(&mut self, conn: &X) {
+        fn_ends!("Client::unmap");
+        
         self.mapped_state = WindowState::Iconic;
         conn.unmap_window(self.id()).unwrap_or_else(|e| error!("{}", e));
     }
