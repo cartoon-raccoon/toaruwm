@@ -9,10 +9,33 @@ pub mod dtiled;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayoutType {
+    /// A simple floating layout style that
+    /// does not enforce any rules.
     Floating,
+    /// A dynamically tiled layout style that
+    /// enforces a master region and satellite windows.
+    /// 
+    /// Similar to XMonad or Qtile.
     DTiled,
+    /// A manually tiled layout style that
+    /// enforces equal-sized windows.
     MTiled,
+    /// User-specified layout.
     Other(String)
+}
+
+impl LayoutType {
+    pub fn other(name: &str) -> LayoutType {
+        LayoutType::Other(name.into())
+    }
+
+    /// Check whether self is floating.
+    /// 
+    /// Returns false if it is Self::Other(_), even if other is
+    /// a floating layout.
+    pub fn is_floating(&self) -> bool {
+        matches!(self, Self::Floating)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
