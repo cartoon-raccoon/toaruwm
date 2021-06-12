@@ -157,8 +157,8 @@ impl Workspace {
     pub fn add_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
-        function_ends!("add_window_floating");
-        
+        fn_ends!("add_window_floating");
+
         let mut window = Client::floating(id, conn);
 
         window.set_supported(conn);
@@ -232,7 +232,7 @@ impl Workspace {
 
     /// Pushes a window directly.
     pub(crate) fn push_window(&mut self, window: Client) {
-        function_ends!("[start] workspace::push_window");
+        fn_ends!("[start] workspace::push_window");
         if let LayoutType::Floating = self.layout() {
             self.windows.push(window);
         } else if self.master.is_none() {
@@ -249,7 +249,7 @@ impl Workspace {
         } else {
             self.windows.append(window);
         }
-        function_ends!("[end] workspace::push_window");
+        fn_ends!("[end] workspace::push_window");
     }
 
     pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
@@ -280,6 +280,18 @@ impl Workspace {
             // tell x to focus
             window_stack_and_focus(self, conn, window);
         }
+    }
+
+    pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
+        // remove focus if window to unfocus is currently focused
+        if let Some(win) = self.windows.focused() {
+            if win.id() == window {
+                self.windows.unset_focused();
+            }
+        }
+        conn.change_window_attributes(window, &[
+            ClientAttrs::BorderColour(BorderStyle::Unfocused)
+        ]).unwrap_or_else(|e| error!("{}", e));
     }
 
     pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
