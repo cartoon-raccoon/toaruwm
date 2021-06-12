@@ -87,6 +87,8 @@ impl XCBConn {
     /// 
     /// This also initialises the randr extension.
     pub fn connect() -> Result<Self> {
+        fn_ends!("XCBConn::connect");
+
         // initialize xcb connection
         let (x, idx) = xcb::Connection::connect(None)?;
         debug!("Connected to x server, got preferred screen {}", idx);
@@ -107,6 +109,7 @@ impl XCBConn {
     }
 
     pub fn init(&mut self) -> Result<()> {
+        fn_ends!("XCBConn::init");
 
         // validate randr version
         let res = randr::query_version(&self.conn, RANDR_MAJ, RANDR_MIN)
@@ -383,7 +386,7 @@ impl XCBConn {
                 let event = cast!(xcb::KeyPressEvent, event);
                 let numlock = xcb::MOD_MASK_2 as u16;
 
-                Ok(KeyPress(event.event(), KeypressEvent {
+                Ok(KeyPress(event.child(), KeypressEvent {
                     mask: event.state() & !numlock,
                     keycode: event.detail(),
                 }))
