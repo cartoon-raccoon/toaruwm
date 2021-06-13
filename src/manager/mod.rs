@@ -16,6 +16,7 @@ use crate::x::{
     Atom,
 };
 use crate::types::{
+    Cardinal,
     Ring, Selector,
     Point,
     MouseMode, Direction,
@@ -289,6 +290,32 @@ impl<X: XConn> WindowManager<X> {
     /// and the entire desktop is re-laid out.
     pub fn resize_window_ptr(&mut self) {
         todo!()
+    }
+
+    /// Warps the window up or down depending on the cardinal 
+    /// passed to it.
+    pub fn warp_window_vert(&mut self, dy: i32, dir: Cardinal) {
+        let current = self.desktop.current_mut();
+        if let Some(win) = current.focused_client_mut() {
+            match dir {
+                Cardinal::Up => win.do_move(&self.conn, 0, -dy),
+                Cardinal::Down => win.do_move(&self.conn, 0, dy),
+                _ => {}
+            }
+        }
+    }
+
+    /// Warps the window left or right depending on the cardinal
+    /// passed to it.
+    pub fn warp_window_horz(&mut self, dx: i32, dir: Cardinal) {
+        let current = self.desktop.current_mut();
+        if let Some(win) = current.focused_client_mut() {
+            match dir {
+                Cardinal::Left => win.do_move(&self.conn, -dx, 0),
+                Cardinal::Right => win.do_move(&self.conn, dx, 0),
+                _ => {}
+            }
+        }
     }
 
     /// Closes the focused window
