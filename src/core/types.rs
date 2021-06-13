@@ -27,6 +27,15 @@ pub enum Direction {
     Backward,
 }
 
+/// A cardinal direction.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Cardinal {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
 /// A type for representing a point on a display or screen.
 /// 
 /// Implements [`PartialEq`][1], so you can compare it directly with
