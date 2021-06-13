@@ -355,20 +355,45 @@ pub trait XConn {
         }
     }
 
-    /// Gets WM_NAME.
+    /// Gets _NET_WM_NAME or failing which, WM_NAME.
     /// 
-    /// Returns an empty string in case of error.
+    /// Returns an empty string in case of error or if neither is set.
     fn get_wm_name(&self, window: XWindowID) -> String {
+        let prop = self.get_prop(Atom::NetWmName.as_ref(), window);
+
+        match prop {
+            Ok(prop) => {
+                if let Some(prop) = prop {
+                    match prop {
+                        Property::String(mut s) | 
+                        Property::UTF8String(mut s) => {
+                            return s.remove(0)
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Err(e) => error!("{}", e),
+        }
+
         let prop = self.get_prop(Atom::WmName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
-                if let Some(Property::UTF8String(mut prop)) = prop {
-                    prop.remove(0)
-                } else { "".into() }
+                if let Some(prop) = prop {
+                    match prop {
+                        Property::String(mut s) | 
+                        Property::UTF8String(mut s) => {
+                            return s.remove(0)
+                        }
+                        _ => {}
+                    }
+                }
             }
-            Err(_) => "".into() 
+            Err(e) => error!("{}", e),
         }
+
+        String::from("")
     }
 
     /// Gets WM_ICON_NAME.
@@ -379,8 +404,14 @@ pub trait XConn {
 
         match prop {
             Ok(prop) => {
-                if let Some(Property::UTF8String(mut prop)) = prop {
-                    prop.remove(0)
+                if let Some(prop) = prop {
+                    match prop {
+                        Property::String(mut s) |
+                        Property::UTF8String(mut s) => {
+                            s.remove(0)
+                        }
+                        _ => "".into()
+                    }
                 } else { "".into() }
             }
             Err(_) => "".into() 
@@ -413,6 +444,12 @@ pub trait XConn {
             debug!("Got wrong property: {:?}", prop);
             None
         }
+    }
+
+    fn accepts_input(&self, window: XWindowID) -> bool {
+        if let Some(hints) = self.get_wm_hints(window) {
+            hints.accepts_input
+        } else {false}
     }
 
     /// Gets WM_CLASS.
