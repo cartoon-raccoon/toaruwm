@@ -64,7 +64,7 @@ impl TryFrom<u32> for ButtonIndex {
             xcb::BUTTON_INDEX_3 => Ok(ButtonIndex::Right),
             xcb::BUTTON_INDEX_4 => Ok(ButtonIndex::Button4),
             xcb::BUTTON_INDEX_5 => Ok(ButtonIndex::Button5),
-            _ => Err(XError::ConversionError),
+            n => Err(XError::OtherError(format!("Unknown mouse button {}", n))),
         }
     }
 }
