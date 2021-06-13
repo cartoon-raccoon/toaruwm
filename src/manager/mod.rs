@@ -16,7 +16,8 @@ use crate::x::{
     Atom,
 };
 use crate::types::{
-    Ring,
+    Ring, Selector,
+    Point,
     MouseMode, Direction,
     ClientAttrs,
 };
@@ -337,7 +338,7 @@ impl<X: XConn> WindowManager<X> {
                 ClientUnfocus(id) => {self.client_unfocus(id)?},
                 ClientNameChange(id) => {self.client_name_change(id)?},
                 ScreenReconfigure => {self.screen_reconfigure()?},
-                SetFocusedScreen(pt) => {},
+                SetFocusedScreen(pt) => {self.set_focused_screen(pt)?},
                 DestroyClient(id) => {},
                 MapTrackedClient(id) => {self.map_tracked_client(id)?},
                 MapUntrackedClient(id) => {self.map_untracked_client(id)?},
@@ -386,6 +387,30 @@ impl<X: XConn> WindowManager<X> {
 
         self.desktop.current_mut().unfocus_window(&self.conn, id);
         self.focused = self.desktop.current_client().map(|c| c.id());
+        Ok(())
+    }
+
+    fn set_focused_screen(&mut self, ptr: Option<Point>) -> Result<()> {
+        // get pointer position
+        // if ptr is None, query the pointer directly
+        let ptr = if let Some(ptr) = ptr {
+            ptr
+        } else {
+            let pq = self.conn.query_pointer(self.root.id)?;
+            Point::new(pq.root_x, pq.root_y)
+        };
+
+        // get the screen to focus to
+        let to_focus = self.screens.index(Selector::Condition(&|s| {
+            s.effective_geom().contains_point(ptr)
+        }));
+
+        if let Some(idx) = to_focus {
+            self.screens.set_focused(idx);
+        } else {
+            return Err(ToaruError::InvalidPoint(ptr.x, ptr.y))
+        }
+        //todo: if per-screen workspaces, need to focus workspace also
         Ok(())
     }
 

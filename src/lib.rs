@@ -54,6 +54,9 @@ pub enum ToaruError {
     /// Received a reference to a client not tracked by ToaruWM.
     #[error("Unknown client {0}")]
     UnknownClient(XWindowID),
+
+    #[error("Invalid Point ({0}, {1})")]
+    InvalidPoint(i32, i32),
 }
 
 impl From<XError> for ToaruError {
