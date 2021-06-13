@@ -17,7 +17,10 @@ pub use crate::x::core::Result as XResult;
 pub use crate::manager::WindowManager;
 
 use crate::x::xcb::XCBConn;
+
 use std::ops::FnMut;
+use std::io;
+use std::num::ParseIntError;
 
 /// Convenience function for creating a XCB-backed WindowManager.
 pub fn xcb_backed_wm() -> XResult<WindowManager<XCBConn>> {
@@ -44,12 +47,19 @@ pub enum ToaruError {
     XConnError(XError),
 
     /// Unable to spawn process.
-    #[error("Unable to successfully run program {0}")]
+    #[error("Error while running program: {0}")]
     SpawnProc(String),
 
     /// Unable to parse an X data type into a type known to ToaruWM.
-    #[error("Could not parse X data type")]
+    #[error("Could not parse X data type from integer")]
     ParseInt,
+
+    #[error("Could not parse keybind \"{0}\"")]
+    ParseKeybind(String),
+
+    /// Unable to convert external data into an internal Toaru datatype.
+    #[error("Could not convert external data type for internal use")]
+    ConversionError,
 
     /// Received a reference to a client not tracked by ToaruWM.
     #[error("Unknown client {0}")]
@@ -62,6 +72,18 @@ pub enum ToaruError {
 impl From<XError> for ToaruError {
     fn from(e: XError) -> ToaruError {
         ToaruError::XConnError(e)
+    }
+}
+
+impl From<io::Error> for ToaruError {
+    fn from(e: io::Error) -> ToaruError {
+        ToaruError::SpawnProc(e.to_string())
+    }
+}
+
+impl From<ParseIntError> for ToaruError {
+    fn from(_: ParseIntError) -> ToaruError {
+        ToaruError::ParseInt
     }
 }
 
