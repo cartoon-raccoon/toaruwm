@@ -139,7 +139,7 @@ impl Client {
                 (class1.into(), class2.into())
             },
             initial_geom: Geometry::default(),
-            transient_for: None,
+            transient_for: conn.get_wm_transient_for(from),
             urgent: false,
             mapped_state: WindowState::Normal,
             net_states: NetWindowStates::new(),
@@ -205,19 +205,13 @@ impl Client {
     /// Tests whether the client is tiled.
     #[inline]
     pub fn is_tiled(&self) -> bool {
-        if let WinLayoutState::Tiled = self.layout_state {
-            return true
-        }
-        false
+        !self.is_floating()
     }
 
     /// Tests whether the client is floating.
     #[inline]
     pub fn is_floating(&self) -> bool {
-        if let WinLayoutState::Floating = self.layout_state {
-            return true
-        }
-        false
+        matches!(self.layout_state, WinLayoutState::Floating)
     }
 
     /// Tests whether the client's urgent flag is set.
