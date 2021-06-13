@@ -78,6 +78,10 @@ impl Workspace {
         self.windows.focused()
     }
 
+    pub fn focused_client_mut(&mut self) -> Option<&mut Client> {
+        self.windows.focused_mut()
+    }
+
     /// Maps all the windows in the workspace.
     pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         if self.windows.is_empty() {
@@ -459,11 +463,8 @@ fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindo
     let win = ws.windows.lookup_mut(window).unwrap();
 
     // if there is a focused window, stack it above
-    // if let Some(win) = ws.windows.focused() {
-    //     debug!("Focusing window {}", win.id());
-    //     conn.configure_window(window, &utils::stack_above(win.id()));
-    // }
 
+    win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
     
     // focus to current window
     win.set_border(conn, Focused);
