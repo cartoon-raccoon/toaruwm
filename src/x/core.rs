@@ -146,6 +146,27 @@ impl XWindow {
         );
         self.geom = geom;
     }
+
+    /// Sets the width of the window.
+    pub fn set_width(&mut self, x: u32) {
+        self.geom.width = x;
+    }
+
+    /// Sets the height of the window.
+    pub fn set_height(&mut self, y: u32) {
+        self.geom.height = y;
+    }
+
+    /// Sets the x coordinate of the window.
+    pub fn set_pos_x(&mut self, x: i32) {
+        self.geom.x = x;
+    }
+
+    /// Sets the y coordinate of the window.
+    pub fn set_pos_y(&mut self, y: i32) {
+        self.geom.y = y;
+    }
+
     /// Updates the width by a given difference.
     pub fn update_width(&mut self, dx: u32) {
         self.geom.width += dx;
