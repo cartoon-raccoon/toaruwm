@@ -397,17 +397,6 @@ impl Client {
         self.xwindow.update_height(dy);
         self.xwindow.update_width(dx);
 
-        // let scrx = scr.xwindow.geom.x;
-        // let scry = scr.xwindow.geom.y;
-        // let scrh = scr.xwindow.geom.height;
-        // let scrw = scr.xwindow.geom.width;
-
-        // ensure_in_bounds(
-        //     &mut self.xwindow.geom.height, 
-        //     WIN_HEIGHT_MIN, scry + scrh - self.xwindow.geom.y);
-        // ensure_in_bounds(&mut self.xwindow.geom.width, 
-        //     WIN_WIDTH_MIN, scrx + scrw - self.xwindow.geom.x);
-
         conn.configure_window(self.xwindow.id,
             &[ClientConfig::Resize{h: self.height(), w: self.width()}]
         ).unwrap_or_else(|_|
@@ -427,18 +416,6 @@ impl Client {
         self.xwindow.update_pos_y(dy);
         self.xwindow.update_pos_x(dx);
 
-        // let scrx = scr.xwindow.geom.x;
-        // let scry = scr.xwindow.geom.y;
-        // let scrh = scr.xwindow.geom.height;
-        // let scrw = scr.xwindow.geom.width;
-
-        // ensure_in_bounds(&mut self.xwindow.geom.x, 
-        //     scrx - self.xwindow.geom.width + MIN_ONSCREEN, 
-        //     scrx + scrw - MIN_ONSCREEN);
-        // ensure_in_bounds(&mut self.xwindow.geom.y, 
-        //     scry - self.xwindow.geom.height + MIN_ONSCREEN, 
-        //     scry + scrh - MIN_ONSCREEN);
-
         conn.configure_window(self.xwindow.id, 
             &[ClientConfig::Move{x: self.x(), y: self.y()}]
         ).unwrap_or_else(|_|
@@ -449,6 +426,28 @@ impl Client {
         //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}", 
         //     self.x(), self.y(), self.height(), self.width()
         // );
+    }
+
+    pub fn set_position<X: XConn>(&mut self, conn: &X, x: i32, y: i32) {
+        self.xwindow.set_pos_x(x);
+        self.xwindow.set_pos_y(y);
+
+        conn.configure_window(self.xwindow.id, 
+            &[ClientConfig::Move{x: self.x(), y: self.y()}]
+        ).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
+    }
+
+    pub fn set_size<X: XConn>(&mut self, conn: &X, height: u32, width: u32) {
+        self.xwindow.set_height(height);
+        self.xwindow.set_width(width);
+
+        conn.configure_window(self.xwindow.id, 
+            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
+        ).unwrap_or_else(|_|
+            warn!("Could not configure window {}", self.id())
+        );
     }
 
     /// Sets the geometry of the window, but does not update it to the X server.
