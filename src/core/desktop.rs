@@ -85,6 +85,13 @@ impl Desktop {
         }
     }
 
+    pub fn current_client_mut(&mut self) -> Option<&mut Client> {
+        match self.workspaces.focused_mut() {
+            Some(ws) => ws.focused_client_mut(),
+            None => None
+        }
+    }
+
     /// Test whether a certain window is already managed.
     pub fn is_managing(&self, id: XWindowID) -> bool {
         self.workspaces.iter().any(|ws| ws.contains_window(id))
@@ -98,6 +105,10 @@ impl Desktop {
     /// Returns a mutable reference to the current workspace.
     pub fn current_mut(&mut self) -> &mut Workspace {
         &mut self.workspaces[self.current]
+    }
+
+    pub fn current_idx(&self) -> usize {
+        self.workspaces.focused.unwrap()
     }
 
     /// Get a reference to the workspace containing the window
