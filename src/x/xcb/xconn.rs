@@ -143,9 +143,9 @@ impl XConn for XCBConn {
         debug!("Name not known, looking up via X connection");
         let name = xcb::get_atom_name(&self.conn, atom).get_reply()?.name().to_string();
 
-        let mut atoms = self.atoms.take();
-        atoms.insert(&name, atom);
-        self.atoms.set(atoms);
+        if let Ok(mut atoms) = self.atoms.try_borrow_mut() {
+            atoms.insert(&name, atom);
+        }
 
         Ok(name)
     }

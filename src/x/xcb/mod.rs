@@ -1,5 +1,5 @@
 use std::convert::{TryFrom, TryInto};
-use std::cell::{Cell, };
+use std::cell::{Cell, RefCell};
 
 use xcb_util::{ewmh, cursor};
 use xcb::randr;
@@ -77,7 +77,7 @@ pub struct XCBConn {
     root: XWindow,
     idx: i32,
     randr_base: u8,
-    atoms: Cell<Atoms>,
+    atoms: RefCell<Atoms>,
     cursor: u32,
     mousemode: Cell<Option<ButtonIndex>>,
 }
@@ -96,7 +96,7 @@ impl XCBConn {
         let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
         // initialize our atom handler
-        let atoms = Cell::new(Atoms::new());
+        let atoms = RefCell::new(Atoms::new());
 
         Ok(Self {
             conn,
