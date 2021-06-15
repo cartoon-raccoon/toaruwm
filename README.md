@@ -24,7 +24,7 @@ Non-reparenting (for now, but based on the design goals, it may become a reality
 I do not plan to fully implement ICCCM or EWMH compliance.
 See [this](http://www.call-with-current-continuation.org/rants/icccm.txt) for why.
 
-Current SLOC count: `4478`
+Current SLOC count: `4794`
 
 This crate is NOT production ready; far from it. However, it is under active development and will be ready soon.
 
