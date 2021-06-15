@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
+use strum::*;
+
 use crate::manager::WindowManager;
 use crate::x::{
     core::XConn,
     event::KeypressEvent,
 };
+use crate::types::Point;
 use crate::{ToaruError, Result};
 
 //* Re-exports
@@ -14,7 +17,7 @@ pub mod keysym {
     pub use x11::keysym::*;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ModKey {
     Ctrl,
     Alt,
@@ -22,7 +25,7 @@ pub enum ModKey {
     Meta,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Hash, EnumIter)]
 pub enum ButtonMask {
     Left,
     Middle,
@@ -31,7 +34,7 @@ pub enum ButtonMask {
     Button5,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ButtonIndex {
     Left,
     Middle,
@@ -62,9 +65,15 @@ pub const fn kb(modmask: u16, code: u8) -> Keybind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub const fn mb(modmask: Vec<ModKey>, button: ButtonIndex, kind: MouseEventKind) -> Mousebind {
+    Mousebind {
+        modmask, button, kind
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Mousebind {
-    pub modmask: KeyMask,
+    pub modmask: Vec<ModKey>,
     pub button: ButtonIndex,
     pub kind: MouseEventKind,
 }
@@ -97,14 +106,20 @@ impl Keymap {
         let raw_xmod = String::from_utf8_lossy(&output.stdout).into_owned();
     
         for line in raw_xmod.lines() {
+
+            // format:
+            // keycode <byte> = [keysyms]
             let tokens: Vec<&str> = line.split_whitespace().collect();
             assert_eq!(tokens[0], "keycode");
             assert_eq!(tokens[2], "=");
     
             let keycode = tokens[1].parse::<u8>()?;
-            let keysyms: Vec<String> = tokens[3..].iter()
-                .map(|s| s.to_string())
-                .collect();
+            let keysyms: Vec<String> = if tokens.len() > 3 {
+                tokens[3..].iter()
+                    .map(|s| s.to_string())
+                    .collect()
+            } else {Vec::new()};
+            
     
             map.insert(keysyms, keycode);
         }
@@ -152,13 +167,29 @@ impl Keymap {
     }
 }
 
-pub type Keybinds<X> = HashMap<Keybind, Box<dyn FnMut(&mut WindowManager<X>)>>;
+/// A set of keybinds that can be run by the the window manager.
+/// 
+/// It consists of two components: A keybind, and its associated
+/// callback function. It accepts a mutable reference to a
+/// WindowManager to run associated methods.
+pub type Keybinds<X> = 
+    HashMap<Keybind, Box<dyn FnMut(&mut WindowManager<X>)>>;
 
 pub fn new_keybinds<X: XConn>() -> Keybinds<X> {
     HashMap::new()
 }
 
-pub type Mousebinds<X> = HashMap<Mousebind, Box<dyn FnMut(&mut WindowManager<X>)>>;
+/// A set of mousebinds that can be run by the window manager.
+/// 
+/// Like Keybinds, it consists of a mousebind and its associated
+/// callback function. It accepts a mutable reference to a WindowManager
+/// and a [Point][1], which contains the current coordinates of the pointer.
+/// This point is used internally by the WindowManager and should not appear
+/// in the user-facing API.
+/// 
+/// [1]: crate::core::types::Point
+pub type Mousebinds<X> = 
+    HashMap<Mousebind, Box<dyn FnMut(&mut WindowManager<X>, Point)>>;
 
 pub fn new_mousebinds<X: XConn>() -> Mousebinds<X> {
     HashMap::new()
@@ -173,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_construct_keymap() {
-        let map = Keymap::new().unwrap();
+        Keymap::new().unwrap();
     }
 
     #[test]

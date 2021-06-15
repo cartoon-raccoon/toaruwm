@@ -7,7 +7,7 @@ use crate::keybinds::Mousebind;
 /// Low-level wrapper around actual X server events.
 /// 
 /// Translated to EventActions by `WindowManager`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum XEvent {
     /// Notification that a client has changed its configuration.
     ConfigureNotify(ConfigureEvent),
@@ -131,7 +131,7 @@ pub struct KeypressEvent {
 }
 
 /// Data associated with a button press event.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MouseEvent {
     /// The window the pointer was on when the button was pressed.
     pub id: XWindowID,
