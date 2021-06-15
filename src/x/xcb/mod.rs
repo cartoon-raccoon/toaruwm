@@ -70,6 +70,19 @@ macro_rules! cast {
 /// It implements [XConn][1] and thus can be used with a
 /// [WindowManager][2].
 /// 
+/// # Usage
+///
+/// ```rust
+/// use toaruwm::x::xcb::XCBConn;
+/// 
+/// let mut conn = XCBConn::connect();
+/// 
+/// conn.init().expect("Could not initialize");
+/// 
+/// /* or: */
+/// let mut conn = XCBConn::new().expect("Connection error");
+/// ```
+/// 
 /// [1]: crate::x::core::XConn
 /// [2]: crate::manager::WindowManager
 pub struct XCBConn {
@@ -83,9 +96,15 @@ pub struct XCBConn {
 }
 
 impl XCBConn {
+    /// Connects and initializes a new Connection.
+    pub fn new() -> Result<Self> {
+        let mut conn = Self::connect()?;
+        conn.init()?;
+
+        Ok(conn)
+    }
+
     /// Connect to the X server and allocate a new Connection.
-    /// 
-    /// This also initialises the randr extension.
     pub fn connect() -> Result<Self> {
         fn_ends!("XCBConn::connect");
 
@@ -109,6 +128,17 @@ impl XCBConn {
         })
     }
 
+    /// Initializes the connection.
+    /// 
+    /// It does the following:
+    /// 
+    /// - Verifies the randr version is compatible.
+    /// - Initializes the randr extension.
+    /// - Initializes the root window and its dimensions.
+    /// - Interns all known [atoms][1].
+    /// - Creates and sets the cursor.
+    /// 
+    /// [1]: crate::x::Atom;
     pub fn init(&mut self) -> Result<()> {
         fn_ends!("XCBConn::init");
 
@@ -160,15 +190,18 @@ impl XCBConn {
         Ok(())
     }
 
+    /// Adds an atom to internal atom storage.
     pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
         self.atoms.get_mut().insert(name.as_ref(), atom);
     }
 
+    /// Returns a reference to its internal atom storage.
     pub fn atoms(&self) -> &Atoms {
         // SAFETY: returns an immutable reference
         unsafe {&*self.atoms.as_ptr()}
     }
 
+    /// Exposes its internal connection.
     pub fn conn(&self) -> &xcb::Connection {
         &self.conn
     }
