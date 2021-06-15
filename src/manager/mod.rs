@@ -25,6 +25,7 @@ use crate::types::{
 use crate::keybinds::{
     Mousebinds,
     Mousebind,
+    MouseEventKind,
     Keybinds, 
     Keybind,
 };
@@ -69,8 +70,7 @@ pub struct WindowManager<X: XConn> {
     /// The window currently in focus.
     focused: Option<XWindowID>,
     last_workspace: usize,
-    last_mouse_x: i32,
-    last_mouse_y: i32,
+    last_mouse_pos: Point,
     // If the wm is running.
     running: bool,
     // Set if the loop breaks and the user wants a restart.
@@ -84,6 +84,7 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
             .field("workspaces", &self.desktop.workspaces)
             .field("screens", &self.screens)
             .field("root", &self.root)
+            .field("selected", &self.selected)
             .field("focused", &self.focused)
             .finish()
     }
@@ -119,8 +120,7 @@ impl<X: XConn> WindowManager<X> {
             selected: None,
             focused: None,
             last_workspace: 0,
-            last_mouse_x: 0,
-            last_mouse_y: 0,
+            last_mouse_pos: Point {x: 0, y: 0},
             running: true,
             restart: false,
         }
@@ -176,7 +176,7 @@ impl<X: XConn> WindowManager<X> {
     ) -> Result<()> {
         let root_id = self.conn.get_root().id;
         for (binding, _) in mb {
-            self.conn.grab_button(*binding, root_id, true)?;
+            self.conn.grab_button(binding, root_id, true)?;
         }
         
         for (binding, _) in kb {
@@ -280,15 +280,31 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
-    pub fn move_window_ptr(&mut self) {
-        todo!()
+    pub fn move_window_ptr(&mut self, pt: Point) {
+        fn_ends!("move_window_ptr");
+
+        let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
+
+        if let Some(win) = self.selected {
+            if let Some(win) = self.desktop.current_mut().windows.lookup_mut(win) {
+                win.do_move(&self.conn, dx, dy);
+            } else {
+                error!("Tried to move untracked window {}", win)
+            }
+        } else {
+            warn!("Nothing selected");
+        }
+
+        self.last_mouse_pos = pt;
     }
 
     /// Grabs the pointer and resizes the window the pointer is on.
     /// 
     /// If the window is tiled, its state is toggled to floating
     /// and the entire desktop is re-laid out.
-    pub fn resize_window_ptr(&mut self) {
+    pub fn resize_window_ptr(&mut self, pt: Point) {
+        let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
+        
         todo!()
     }
 
@@ -372,7 +388,7 @@ impl<X: XConn> WindowManager<X> {
                 UnmapClient(id) => {self.unmap_client(id)?},
                 ConfigureClient(id, geom) => {},
                 RunKeybind(kb, id) => {self.run_keybind(kb, keybinds, id)},
-                RunMousebind(mb, id, _) => {self.run_mousebind(mb, mousebinds, id)},
+                RunMousebind(mb, id, pt) => {self.run_mousebind(mb, mousebinds, id, pt)},
                 ToggleClientFullscreen(id, thing) => {},
                 ToggleUrgency(id) => {},
                 HandleError(err, evt) => {self.handle_error(err, evt)},
@@ -443,7 +459,10 @@ impl<X: XConn> WindowManager<X> {
 
     /// Query _NET_WM_NAME or WM_NAME and change it accordingly
     fn client_name_change(&mut self, id: XWindowID) -> Result<()> {
-        todo!()
+        if let Some(c) = self.desktop.current_client_mut() {
+            c.update_dynamic(&self.conn);
+        }
+        Ok(())
     }
 
     fn map_tracked_client(&mut self, id: XWindowID) -> Result<()> {
@@ -481,26 +500,50 @@ impl<X: XConn> WindowManager<X> {
     fn run_keybind(&mut self, 
         kb: Keybind, bdgs: &mut Keybinds<X>, id: XWindowID
     ) {
+        fn_ends!("run_keybind for window {}", id);
+
         if let Some(focused) = self.focused {
             if focused != id {
-                warn!("Keypress event and focused window are different")
+                warn!("Keypress event and focused window are different");
             }
         }
         if let Some(cb) = bdgs.get_mut(&kb) {
             cb(self);
+        } else {
+            warn!("Binding not found for keypress event");
         }
     }
 
     fn run_mousebind(&mut self, 
-        mb: Mousebind, bdgs: &mut Mousebinds<X>, id: XWindowID
+        mb: Mousebind, bdgs: &mut Mousebinds<X>, id: XWindowID, pt: Point,
     ) {
+        fn_ends!("run_mousebind for window {}", id);
+
+        match mb.kind {
+            MouseEventKind::Press => {
+                self.conn.grab_pointer(self.root.id, 0)
+                    .unwrap_or_else(|e| error!("{}", e));
+                self.selected = Some(id);
+                self.last_mouse_pos = pt;
+            }
+            MouseEventKind::Release => {
+                self.conn.ungrab_pointer()
+                    .unwrap_or_else(|e| error!("{}", e));
+                self.selected = None;
+                self.last_mouse_pos = pt;
+            }
+            MouseEventKind::Motion => {}
+        }
+
         if let Some(focused) = self.focused {
             if focused != id {
-                warn!("Mouse event and focused window are different")
+                warn!("Mouse event and focused window are different");
             }
         }
         if let Some(cb) = bdgs.get_mut(&mb) {
-            cb(self);
+            cb(self, pt);
+        } else {
+            warn!("Binding not found for mouse event");
         }
     }
 
