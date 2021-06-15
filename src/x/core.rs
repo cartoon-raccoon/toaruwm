@@ -148,12 +148,12 @@ impl XWindow {
     }
 
     /// Sets the width of the window.
-    pub fn set_width(&mut self, x: u32) {
+    pub fn set_width(&mut self, x: i32) {
         self.geom.width = x;
     }
 
     /// Sets the height of the window.
-    pub fn set_height(&mut self, y: u32) {
+    pub fn set_height(&mut self, y: i32) {
         self.geom.height = y;
     }
 
@@ -168,11 +168,11 @@ impl XWindow {
     }
 
     /// Updates the width by a given difference.
-    pub fn update_width(&mut self, dx: u32) {
+    pub fn update_width(&mut self, dx: i32) {
         self.geom.width += dx;
     }
     /// Updates the height by given difference.
-    pub fn update_height(&mut self, dy: u32) {
+    pub fn update_height(&mut self, dy: i32) {
         self.geom.height += dy;
     }
     /// Updates the x coordinate of the window by a given difference.

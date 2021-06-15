@@ -102,9 +102,9 @@ pub struct Geometry {
     // The y coordinate of the top left corner.
     pub y: i32,
     // The height of the geometry.
-    pub height: u32,
+    pub height: i32,
     // The width of the geometry.
-    pub width: u32,
+    pub width: i32,
 }
 
 impl Default for Geometry {
@@ -136,7 +136,7 @@ impl Geometry {
     /// 
     /// assert_eq!(geom1, geom2);
     /// ```
-    pub fn new(x: i32, y: i32, h: u32, w: u32) -> Self {
+    pub fn new(x: i32, y: i32, h: i32, w: i32) -> Self {
         Geometry {
             x, y,
             height: h,
@@ -226,7 +226,7 @@ impl Geometry {
     ///     Geometry::new(0, 50, 50, 200),
     /// ]);
     /// ```
-    pub fn split_horz_n(&self, n: u32) -> Vec<Geometry> {
+    pub fn split_horz_n(&self, n: i32) -> Vec<Geometry> {
         let new_height = self.height / n;
 
         let mut ret = Vec::new();
@@ -262,7 +262,7 @@ impl Geometry {
     ///     Geometry::new(100, 0, 100, 100),
     /// ]);
     /// ```
-    pub fn split_vert_n(&self, n: u32) -> Vec<Geometry> {
+    pub fn split_vert_n(&self, n: i32) -> Vec<Geometry> {
         let new_width = self.width / n;
 
         let mut ret = Vec::new();
@@ -310,7 +310,7 @@ impl Geometry {
             panic!("Got f32::NAN");
         }
 
-        let top_height = (self.height as f32 * ratio) as u32;
+        let top_height = (self.height as f32 * ratio) as i32;
         let bottom_height = self.height - top_height;
 
         (
@@ -362,7 +362,7 @@ impl Geometry {
             panic!("Got f32::NAN");
         }
 
-        let left_width = (self.width as f32 * ratio) as u32;
+        let left_width = (self.width as f32 * ratio) as i32;
         let right_width = self.width - left_width;
 
         (
@@ -400,7 +400,7 @@ impl Geometry {
     /// assert_eq!(top, Geometry::new(0, 0, 40, 200));
     /// assert_eq!(bottom, Geometry::new(0, 60, 60, 200));
     /// ```
-    pub fn split_at_height(&self, height: u32) -> (Geometry, Geometry) {
+    pub fn split_at_height(&self, height: i32) -> (Geometry, Geometry) {
         (
             // Top
             Geometry {
@@ -436,7 +436,7 @@ impl Geometry {
     /// assert_eq!(left, Geometry::new(0, 0, 100, 120));
     /// assert_eq!(right, Geometry::new(120, 0, 100, 80));
     /// ```
-    pub fn split_at_width(&self, width: u32) -> (Geometry, Geometry) {
+    pub fn split_at_width(&self, width: i32) -> (Geometry, Geometry) {
         (
             // Left
             Geometry {
@@ -488,7 +488,7 @@ pub enum ClientConfig {
     /// Position of the window.
     Position(Geometry),
     /// Resizing the window.
-    Resize {h: u32, w: u32},
+    Resize {h: i32, w: i32},
     /// Moving the window.
     Move {x: i32, y: i32},
     /// Stacking mode of the window.

@@ -168,13 +168,13 @@ impl Client {
 
     /// Returns the height of the window.
     #[inline(always)]
-    pub fn height(&self) -> u32 {
+    pub fn height(&self) -> i32 {
         self.xwindow.geom.height
     }
 
     /// Returns the width of the window.
     #[inline(always)]
-    pub fn width(&self) -> u32 {
+    pub fn width(&self) -> i32 {
         self.xwindow.geom.width
     }
     
@@ -258,8 +258,8 @@ impl Client {
             Geometry {
                 x: if let Some(pos) = sizes.position {pos.0} else {0},
                 y: if let Some(pos) = sizes.position {pos.1} else {0},
-                height: if let Some(dim) = sizes.size {dim.0 as u32} else {100},
-                width: if let Some(dim) = sizes.size {dim.1 as u32} else {160},
+                height: if let Some(dim) = sizes.size {dim.0} else {100},
+                width: if let Some(dim) = sizes.size {dim.1} else {160},
             }
         } else {
             debug!("initial size is None");
@@ -393,7 +393,7 @@ impl Client {
     /// Resize the window using _changes_ in height and width.
     /// 
     /// Does not do bounds checking.
-    pub fn do_resize<X: XConn>(&mut self, conn: &X, dx: u32, dy: u32) {
+    pub fn do_resize<X: XConn>(&mut self, conn: &X, dx: i32, dy: i32) {
         self.xwindow.update_height(dy);
         self.xwindow.update_width(dx);
 
@@ -439,7 +439,7 @@ impl Client {
         );
     }
 
-    pub fn set_size<X: XConn>(&mut self, conn: &X, height: u32, width: u32) {
+    pub fn set_size<X: XConn>(&mut self, conn: &X, height: i32, width: i32) {
         self.xwindow.set_height(height);
         self.xwindow.set_width(width);
 

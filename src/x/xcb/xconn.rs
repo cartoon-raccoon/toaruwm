@@ -58,8 +58,8 @@ impl XConn for XCBConn {
             .map(|ok| Geometry {
                     x: ok.x() as i32, 
                     y: ok.y() as i32, 
-                    height: ok.height() as u32, 
-                    width: ok.width() as u32,
+                    height: ok.height() as i32, 
+                    width: ok.width() as i32,
                 }
             )?
         )
@@ -113,8 +113,8 @@ impl XConn for XCBConn {
                 let geom = Geometry::new(
                     r.x() as i32, 
                     r.y() as i32,
-                    r.height() as u32,
-                    r.width() as u32,
+                    r.height() as i32,
+                    r.width() as i32,
                 );
                 Screen::new(i as i32, geom, info.root())
             })

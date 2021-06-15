@@ -251,8 +251,8 @@ impl XCBConn {
                     geom: Geometry {
                         x: event.x() as i32,
                         y: event.y() as i32,
-                        height: event.height() as u32,
-                        width: event.width() as u32
+                        height: event.height() as i32,
+                        width: event.width() as i32
                     },
                     is_root: event.window() == self.root.id,
                 }))
