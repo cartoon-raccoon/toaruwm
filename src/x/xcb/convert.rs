@@ -1,16 +1,25 @@
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
+
+use strum::*;
 
 use crate::keybinds::{
     ButtonMask,
     ButtonIndex,
     ModKey,
+    Mousebind,
+    MouseEventKind,
 };
 use crate::types::{
+    Point,
     BorderStyle,
     ClientConfig,
     ClientAttrs,
 };
-use crate::x::core::{XError, Result};
+use crate::x::{
+    core::{XError, Result},
+    event::MouseEvent,
+    xcb::{X_EVENT_MASK, XCBConn},
+};
 use crate::util;
 
 impl From<ButtonMask> for xcb::ButtonMask {
@@ -50,6 +59,93 @@ impl From<ModKey> for u16 {
             Alt => xcb::MOD_MASK_1 as u16,
             Shift => xcb::MOD_MASK_SHIFT as u16,
             Meta => xcb::MOD_MASK_4 as u16,
+        }
+    }
+}
+
+impl Mousebind {
+    pub(super) fn modmask(&self) -> u16 {
+        self.modmask.iter()
+            .map(|u| u16::from(*u))
+            .fold(0, |acc, u| acc | u)
+    }
+}
+
+impl ModKey {
+    fn was_held(&self, state: u16) -> bool {
+        state & u16::from(*self) > 0
+    }
+}
+
+impl XCBConn {
+    pub(super) fn mouse_event_from_generic(&self, ev: &xcb::GenericEvent) -> Result<MouseEvent> {
+        match ev.response_type() & X_EVENT_MASK {
+            xcb::BUTTON_PRESS => {
+                let ev = unsafe {xcb::cast_event::<xcb::ButtonPressEvent>(ev)};
+
+                let button: ButtonIndex = (ev.detail() as u32).try_into()?;
+                self.mousemode.set(Some(button));
+
+                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
+
+                Ok(MouseEvent {
+                    id: ev.child(),
+                    location: Point {
+                        x: ev.root_x() as i32,
+                        y: ev.root_y() as i32,
+                    },
+                    state: Mousebind {
+                        button,
+                        modmask,
+                        kind: MouseEventKind::Press,
+                    }
+                })
+            }
+            xcb::BUTTON_RELEASE => {
+                let ev = unsafe {xcb::cast_event::<xcb::ButtonReleaseEvent>(ev)};
+
+                self.mousemode.set(None);
+
+                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
+
+                Ok(MouseEvent {
+                    id: ev.child(),
+                    location: Point {
+                        x: ev.root_x() as i32,
+                        y: ev.root_y() as i32,
+                    },
+                    state: Mousebind {
+                        button: (ev.detail() as u32).try_into()?,
+                        modmask,
+                        kind: MouseEventKind::Release,
+                    }
+                })
+            }
+            xcb::MOTION_NOTIFY => {
+                let ev = unsafe {xcb::cast_event::<xcb::MotionNotifyEvent>(ev)};
+
+                //* should be safe to unwrap here since
+                //* we only get motion events if a button is pressed
+                //? fixme?
+                let button = self.mousemode.get().unwrap();
+                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
+
+                Ok(MouseEvent {
+                    id: ev.child(),
+                    location: Point {
+                        x: ev.root_x() as i32,
+                        y: ev.root_y() as i32,
+                    },
+                    state: Mousebind {
+                        button,
+                        modmask,
+                        kind: MouseEventKind::Motion,
+                    }
+                })
+            }
+            _ => {
+                Err(XError::ConversionError)
+            }
         }
     }
 }

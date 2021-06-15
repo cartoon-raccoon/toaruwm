@@ -1,5 +1,5 @@
 use std::convert::{TryFrom, TryInto};
-use std::cell::Cell;
+use std::cell::{Cell, };
 
 use xcb_util::{ewmh, cursor};
 use xcb::randr;
@@ -24,7 +24,6 @@ use super::{
         PropertyEvent,
         KeypressEvent,
         PointerEvent,
-        MouseEvent as MouseEventType,
         ClientMessageEvent,
         ClientMessageData,
     },
@@ -37,9 +36,7 @@ use super::{
 use crate::types::{
     Point, Geometry,
 };
-use crate::keybinds::{
-    Mousebind, MouseEventKind,
-};
+use crate::keybinds::ButtonIndex;
 use crate::util;
 
 mod xconn;
@@ -51,6 +48,8 @@ mod tests;
 const X_EVENT_MASK: u8 = 0x7f;
 
 const MAX_LONG_LENGTH: u32 = 1024;
+
+const NUMLOCK: u16 = xcb::MOD_MASK_2 as u16;
 
 const RANDR_MAJ: u32 = 1;
 const RANDR_MIN: u32 = 4;
@@ -80,6 +79,7 @@ pub struct XCBConn {
     randr_base: u8,
     atoms: Cell<Atoms>,
     cursor: u32,
+    mousemode: Cell<Option<ButtonIndex>>,
 }
 
 impl XCBConn {
@@ -105,6 +105,7 @@ impl XCBConn {
             randr_base: 0,
             atoms,
             cursor: 0,
+            mousemode: Cell::new(None),
         })
     }
 
@@ -384,63 +385,17 @@ impl XCBConn {
             }
             xcb::KEY_PRESS => {
                 let event = cast!(xcb::KeyPressEvent, event);
-                let numlock = xcb::MOD_MASK_2 as u16;
 
                 Ok(KeyPress(event.child(), KeypressEvent {
-                    mask: event.state() & !numlock,
+                    mask: event.state() & !NUMLOCK,
                     keycode: event.detail(),
                 }))
             }
             xcb::KEY_RELEASE => {
                 Ok(KeyRelease)
             }
-            xcb::BUTTON_PRESS => {
-                let event = cast!(xcb::ButtonPressEvent, event);
-
-                Ok(MouseEvent(MouseEventType {
-                    id: event.event(),
-                    location: Point {
-                        x: event.root_x() as i32,
-                        y: event.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button: (event.detail() as u32).try_into()?,
-                        modmask: event.state(),
-                        kind: MouseEventKind::Press,
-                    }
-                }))
-            }
-            xcb::BUTTON_RELEASE => {
-                let event = cast!(xcb::ButtonReleaseEvent, event);
-
-                Ok(MouseEvent(MouseEventType {
-                    id: event.event(),
-                    location: Point {
-                        x: event.root_x() as i32,
-                        y: event.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button: (event.detail() as u32).try_into()?,
-                        modmask: event.state(),
-                        kind: MouseEventKind::Release,
-                    }
-                }))
-            }
-            xcb::MOTION_NOTIFY => {
-                let event = cast!(xcb::MotionNotifyEvent, event);
-
-                Ok(MouseEvent(MouseEventType {
-                    id: event.event(),
-                    location: Point {
-                        x: event.root_x() as i32,
-                        y: event.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button: (event.detail() as u32).try_into()?,
-                        modmask: event.state(),
-                        kind: MouseEventKind::Motion,
-                    }
-                }))
+            xcb::BUTTON_PRESS | xcb::BUTTON_RELEASE | xcb::MOTION_NOTIFY => {
+                Ok(MouseEvent(self.mouse_event_from_generic(&event)?))
             }
             xcb::CLIENT_MESSAGE => {
                 let event = cast!(xcb::ClientMessageEvent, event);
