@@ -57,19 +57,23 @@ pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 pub struct WindowManager<X: XConn> {
     /// The X Connection
     conn: X,
+    /// The WM configuration.
     config: Config,
     /// The desktop containing all windows.
     desktop: Desktop,
+    /// All screens connected to the computer.
     screens: Ring<Screen>,
+    /// The root window.
     root: XWindow,
+    /// A main error handler function.
     ehandler: ErrorHandler,
-    mousemode: MouseMode,
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
     selected: Option<XWindowID>,
     /// The window currently in focus.
     focused: Option<XWindowID>,
     last_workspace: usize,
+    /// Used when window is moved to track pointer location.
     last_mouse_pos: Point,
     // If the wm is running.
     running: bool,
@@ -116,7 +120,6 @@ impl<X: XConn> WindowManager<X> {
             screens,
             root,
             ehandler: Box::new(basic_error_handler),
-            mousemode: MouseMode::None,
             selected: None,
             focused: None,
             last_workspace: 0,
@@ -303,9 +306,21 @@ impl<X: XConn> WindowManager<X> {
     /// If the window is tiled, its state is toggled to floating
     /// and the entire desktop is re-laid out.
     pub fn resize_window_ptr(&mut self, pt: Point) {
+        fn_ends!("resize_window_ptr");
+
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
-        
-        todo!()
+
+        if let Some(win) = self.selected {
+            if let Some(win) = self.desktop.current_mut().windows.lookup_mut(win) {
+                win.do_resize(&self.conn, dx as i32, dy as i32);
+            } else {
+                error!("Tried to move untracked window {}", win)
+            }
+        } else {
+            warn!("Nothing selected");
+        }
+
+        self.last_mouse_pos = pt;
     }
 
     /// Warps the window up or down depending on the cardinal 
@@ -459,6 +474,8 @@ impl<X: XConn> WindowManager<X> {
 
     /// Query _NET_WM_NAME or WM_NAME and change it accordingly
     fn client_name_change(&mut self, id: XWindowID) -> Result<()> {
+
+        //todo
         if let Some(c) = self.desktop.current_client_mut() {
             c.update_dynamic(&self.conn);
         }
