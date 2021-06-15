@@ -297,18 +297,26 @@ pub trait XConn {
     fn ungrab_keyboard(&self) -> Result<()>;
 
     /// Grabs a key-mask combo for a given window.
+    /// 
+    /// Can move keybind into it because Keybind is Copy.
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
     /// Ungrabs a key-mask combo for a given window.
+    /// 
+    /// Can move keybind into it because Keybind is Copy.
     fn ungrab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
     /// Grabs a mouse button-mask combo for a given window.
     /// 
+    /// Uses a `&Mousebind` because Mousebind is not Copy.
+    /// 
     /// `confine` denotes whether or not the event should be generated.
-    fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()>;
+    fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()>;
 
     /// Ungrabs a mouse button-mask combo for a given window.
-    fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()>;
+    /// 
+    /// Uses a `&Mousebind` because Mousebind is not Copy.
+    fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()>;
 
     /// Grabs the pointer.
     fn grab_pointer(&self, winid: XWindowID, mask: u32) -> Result<()>;

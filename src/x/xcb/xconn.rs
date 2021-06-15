@@ -221,7 +221,7 @@ impl XConn for XCBConn {
 
     }
 
-    fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()> {
+    fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()> {
         debug!("Grab button {:?} for window: {}", mb.button, window);
 
         for m in MODIFIERS.iter() {
@@ -235,7 +235,7 @@ impl XConn for XCBConn {
                 if confine { window } else { xcb::NONE },
                 xcb::NONE,
                 mb.button.into(),
-                mb.modmask | m,
+                mb.modmask() | m,
             ).request_check().map_err(|_|
                 XError::ServerError(
                     format!("Unable to grab button {:?} for window {}", mb.button, window)
@@ -247,14 +247,14 @@ impl XConn for XCBConn {
 
     }
 
-    fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()> {
+    fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()> {
         debug!("Ungrabbing button {:?} for window {}", mb.button, window);
 
         xcb::ungrab_button(
             &self.conn,
             mb.button.into(),
             window,
-            mb.modmask,
+            mb.modmask(),
         ).request_check().map_err(|_|
             XError::ServerError(
                 format!("Unable to ungrab button {:?} for window {}",
