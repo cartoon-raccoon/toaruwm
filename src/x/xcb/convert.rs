@@ -1,3 +1,5 @@
+//! Conversions between Toaru and xcb types.
+
 use std::convert::{TryFrom, TryInto};
 
 use strum::*;
@@ -22,6 +24,7 @@ use crate::x::{
 };
 use crate::util;
 
+//* conversions for button masks
 impl From<ButtonMask> for xcb::ButtonMask {
     fn from(from: ButtonMask) -> xcb::ButtonMask {
         use ButtonMask::*;
@@ -50,6 +53,7 @@ impl From<ButtonIndex> for u8 {
     }
 }
 
+//* modifier key conversions
 impl From<ModKey> for u16 {
     fn from(from: ModKey) -> u16 {
         use ModKey::*;
@@ -64,6 +68,7 @@ impl From<ModKey> for u16 {
 }
 
 impl Mousebind {
+    /// Express the modifier mask as an xcb-friendly type.
     pub(super) fn modmask(&self) -> u16 {
         self.modmask.iter()
             .map(|u| u16::from(*u))
@@ -78,6 +83,7 @@ impl ModKey {
 }
 
 impl XCBConn {
+    /// Converts generic events into mouse events.
     pub(super) fn mouse_event_from_generic(&self, ev: &xcb::GenericEvent) -> Result<MouseEvent> {
         match ev.response_type() & X_EVENT_MASK {
             xcb::BUTTON_PRESS => {
@@ -165,6 +171,7 @@ impl TryFrom<u32> for ButtonIndex {
     }
 }
 
+// converting ClientConfigs to (u16, u32) slices for xcb
 impl From<&ClientConfig> for Vec<(u16, u32)> {
     fn from(from: &ClientConfig) -> Vec<(u16, u32)> {
         use ClientConfig::*;
