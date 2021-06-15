@@ -183,8 +183,7 @@ impl Workspace {
             } else if let Some(focused) = self.windows.focused_mut() {
                 focused.set_border(conn, BorderStyle::Unfocused);
             } else {
-                let win = self.windows.lookup_mut(id).unwrap();
-                win.set_border(conn, BorderStyle::Unfocused);
+                window.set_border(conn, BorderStyle::Unfocused);
             }
         }
 
