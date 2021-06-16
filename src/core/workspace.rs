@@ -189,7 +189,7 @@ impl Workspace {
 
         window.change_attributes(conn, &[ClientAttrs::EnableClientEvents]);
 
-        self.windows.push(window);
+        self.windows.append(window);
         self.relayout(conn, scr);
     }
 
@@ -203,19 +203,15 @@ impl Workspace {
     fn del_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Client {
-        let mut window = self.windows.remove_by_id(id)
+        let window = self.windows.remove_by_id(id)
         //todo: return Result instead
         .expect("Could not find window");
 
-        window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
-        window.unmap(conn);
+        //window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
+        //window.unmap(conn);
 
-        if let Some(idx) = self.windows.get_idx(id) {
-            if idx == 0 {
-                if let Some(next) = self.windows.get(0) {
-                    window_stack_and_focus(self, conn, next.id())
-                }
-            }
+        if let Some(win) = self.windows.focused() {
+            window_stack_and_focus(self, conn, win.id());
         }
 
         if self.is_empty() {
@@ -287,14 +283,11 @@ impl Workspace {
 
     pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         // remove focus if window to unfocus is currently focused
-        if let Some(win) = self.windows.focused() {
-            if win.id() == window {
-                self.windows.unset_focused();
-            }
+        if let Some(win) = self.windows.lookup(window) {
+            conn.change_window_attributes(window, &[
+                ClientAttrs::BorderColour(BorderStyle::Unfocused)
+            ]).unwrap_or_else(|e| error!("{}", e));
         }
-        conn.change_window_attributes(window, &[
-            ClientAttrs::BorderColour(BorderStyle::Unfocused)
-        ]).unwrap_or_else(|e| error!("{}", e));
     }
 
     pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
