@@ -209,7 +209,10 @@ impl<T> Ring<T> {
 
     /// Pushes an element to the front of the Ring.
     pub fn push(&mut self, item: T) {
-        self.items.push_front(item)
+        self.items.push_front(item);
+        if let Some(idx) = self.focused {
+            self.set_focused(idx + 1)
+        }
     }
 
     /// Pushes an element to the back of the Ring.
@@ -227,7 +230,13 @@ impl<T> Ring<T> {
     }
 
     pub fn remove(&mut self, idx: usize) -> Option<T> {
-        self.items.remove(idx)
+        let ret = self.items.remove(idx);
+
+        if self.is_empty() {
+            self.unset_focused();
+        }
+
+        ret
     }
 
     /// Insert an item into the Ring with an insert point.
