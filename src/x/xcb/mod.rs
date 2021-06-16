@@ -4,7 +4,7 @@ use std::cell::{Cell, RefCell};
 use xcb_util::{ewmh, cursor};
 use xcb::randr;
 
-use strum::IntoEnumIterator;
+use strum::*;
 
 use super::{
     Atoms,
@@ -75,7 +75,7 @@ macro_rules! cast {
 /// ```rust
 /// use toaruwm::x::xcb::XCBConn;
 /// 
-/// let mut conn = XCBConn::connect();
+/// let mut conn = XCBConn::connect().expect("Connection error");
 /// 
 /// conn.init().expect("Could not initialize");
 /// 
@@ -176,11 +176,25 @@ impl XCBConn {
 
         debug!("Got randr_base {}", self.randr_base);
 
+        let atomcount = Atom::iter().count();
+        let mut atomvec = Vec::with_capacity(atomcount);
         
         // intern all known atoms
+
+        // get cookies for all first
         for atom in Atom::iter() {
-            let atom_val = self.atom(atom.as_ref())?;
-            self.atoms.get_mut().insert(atom.as_ref(), atom_val);
+            atomvec.push((
+                atom.to_string(),
+                xcb::intern_atom(&self.conn, false, atom.as_ref())
+            ));
+        }
+
+        // then get replies
+        for (name, atom) in atomvec {
+            self.atoms.get_mut().insert(
+                &name,
+                atom.get_reply()?.atom(),
+            );
         }
 
         // initialize cursor and set it for the root screen
