@@ -30,9 +30,9 @@ impl From<ButtonMask> for xcb::ButtonMask {
         use ButtonMask::*;
 
         match from {
-            Left => xcb::BUTTON_MASK_1,
-            Middle => xcb::BUTTON_MASK_2,
-            Right => xcb::BUTTON_MASK_3,
+            Left    => xcb::BUTTON_MASK_1,
+            Middle  => xcb::BUTTON_MASK_2,
+            Right   => xcb::BUTTON_MASK_3,
             Button4 => xcb::BUTTON_MASK_4,
             Button5 => xcb::BUTTON_MASK_5,
         }
@@ -44,9 +44,9 @@ impl From<ButtonIndex> for u8 {
         use ButtonIndex::*;
 
         match from {
-            Left => xcb::BUTTON_INDEX_1 as u8,
-            Middle => xcb::BUTTON_INDEX_2 as u8,
-            Right => xcb::BUTTON_INDEX_3 as u8,
+            Left    => xcb::BUTTON_INDEX_1 as u8,
+            Middle  => xcb::BUTTON_INDEX_2 as u8,
+            Right   => xcb::BUTTON_INDEX_3 as u8,
             Button4 => xcb::BUTTON_INDEX_4 as u8,
             Button5 => xcb::BUTTON_INDEX_5 as u8,
         }
@@ -59,10 +59,10 @@ impl From<ModKey> for u16 {
         use ModKey::*;
 
         match from {
-            Ctrl => xcb::MOD_MASK_CONTROL as u16,
-            Alt => xcb::MOD_MASK_1 as u16,
+            Ctrl  => xcb::MOD_MASK_CONTROL as u16,
+            Alt   => xcb::MOD_MASK_1 as u16,
             Shift => xcb::MOD_MASK_SHIFT as u16,
-            Meta => xcb::MOD_MASK_4 as u16,
+            Meta  => xcb::MOD_MASK_4 as u16,
         }
     }
 }
@@ -198,9 +198,9 @@ impl From<&ClientConfig> for Vec<(u16, u32)> {
             StackingMode(sm) => {
                 let stackmode = xcb::CONFIG_WINDOW_STACK_MODE as u16;
                 match sm {
-                    Above => vec![(stackmode, xcb::STACK_MODE_ABOVE)],
-                    Below => vec![(stackmode, xcb::STACK_MODE_BELOW)],
-                    TopIf => vec![(stackmode, xcb::STACK_MODE_TOP_IF)],
+                    Above    => vec![(stackmode, xcb::STACK_MODE_ABOVE)],
+                    Below    => vec![(stackmode, xcb::STACK_MODE_BELOW)],
+                    TopIf    => vec![(stackmode, xcb::STACK_MODE_TOP_IF)],
                     BottomIf => vec![(stackmode, xcb::STACK_MODE_BOTTOM_IF)],
                     Opposite => vec![(stackmode, xcb::STACK_MODE_OPPOSITE)],
                 }
@@ -218,9 +218,9 @@ impl From<&ClientAttrs> for Vec<(u32, u32)> {
             BorderColour(bs) => {
                 let bcolour = xcb::CW_BORDER_PIXEL;
                 match bs {
-                    Focused => vec![(bcolour, util::FOCUSED_COL)],
+                    Focused   => vec![(bcolour, util::FOCUSED_COL)],
                     Unfocused => vec![(bcolour, util::UNFOCUSED_COL)],
-                    Urgent => vec![(bcolour, util::URGENT_COL)],
+                    Urgent    => vec![(bcolour, util::URGENT_COL)],
                 }
             },
             EnableClientEvents => {
