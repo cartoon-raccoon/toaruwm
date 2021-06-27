@@ -49,16 +49,24 @@ impl Screen {
     }
 }
 
-
+/// Encapsulates all the workspaces managed by the window manager.
+/* 
+* technically I could just set this as a field in the windowmanager,
+* but I wanted to encapsulate this away so that the window manager's
+* delegated tasks are more specific to the general operation of the
+* manager itself, and the workspace handling logic can be implemented
+* separately.
+*/
 #[derive(Debug, Clone)]
 pub struct Desktop {
+    // * focused should never be none
     pub(crate) workspaces: Ring<Workspace>,
-    current: usize,
+    last_ws: usize,
 }
 
 impl Desktop {
     pub fn new(layout: LayoutType, lfn: Option<LayoutFn>, wksps: Vec<String>) -> Self {
-        Self {
+        let mut desktop = Self {
             workspaces: {
                 let mut workspaces = Ring::with_capacity(wksps.len());
 
@@ -69,27 +77,19 @@ impl Desktop {
                 workspaces.set_focused(0);
                 workspaces
             },
-            current: 0,
-        }
+            last_ws: 0,
+        };
+
+        desktop.workspaces.set_focused(0);
+
+        desktop
     }
+
+    //* Retrieval and Convenience Methods *//
 
     /// The layout of the current workspace.
     pub fn current_layout(&self) -> &LayoutType {
         self.current().layout()
-    }
-
-    pub fn current_client(&self) -> Option<&Client> {
-        match self.workspaces.focused() {
-            Some(ws) => ws.focused_client(),
-            None => None
-        }
-    }
-
-    pub fn current_client_mut(&mut self) -> Option<&mut Client> {
-        match self.workspaces.focused_mut() {
-            Some(ws) => ws.focused_client_mut(),
-            None => None
-        }
     }
 
     /// Test whether a certain window is already managed.
@@ -97,18 +97,45 @@ impl Desktop {
         self.workspaces.iter().any(|ws| ws.contains_window(id))
     }
 
+    /// Get a reference to the focused client of the focused workspace.
+    pub fn current_client(&self) -> Option<&Client> {
+        match self.workspaces.focused() {
+            Some(ws) => ws.focused_client(),
+            None => None
+        }
+    }
+
+    /// Get a mutable reference to the focused client of the focused
+    /// workspace.
+    pub fn current_client_mut(&mut self) -> Option<&mut Client> {
+        match self.workspaces.focused_mut() {
+            Some(ws) => ws.focused_client_mut(),
+            None => None
+        }
+    }
+
     /// Returns a reference to the current workspace.
     pub fn current(&self) -> &Workspace {
-        &self.workspaces[self.current]
+        &self.workspaces[self.current_idx()]
     }
 
     /// Returns a mutable reference to the current workspace.
     pub fn current_mut(&mut self) -> &mut Workspace {
-        &mut self.workspaces[self.current]
+        let current = self.current_idx();
+        &mut self.workspaces[current]
     }
 
-    pub fn current_idx(&self) -> usize {
-        self.workspaces.focused.unwrap()
+    /// Name of the workspace in focus.
+    pub fn current_name(&self) -> &str {
+        &self.current().name
+    }
+
+    pub(crate) fn current_idx(&self) -> usize {
+        self.workspaces.focused.expect("Focused index not set")
+    }
+
+    pub(crate) fn set_current(&mut self, idx: usize) {
+        self.workspaces.set_focused(idx);
     }
 
     /// Get a reference to the workspace containing the window
@@ -133,7 +160,42 @@ impl Desktop {
 
         None
     }
+    
+    /// Get a reference to a workspace by its index
+    pub fn get(&self, idx: usize) -> Option<&Workspace> {
+        if idx + 1 >= self.workspaces.len() {
+            return None
+        }
+        
+        Some(&self.workspaces[idx])
+    }
+    
+    /// Get a mutable reference to a workspace by index.
+    pub fn get_mut(&mut self, idx: usize) -> Option<&mut Workspace> {
+        if idx + 1 > self.workspaces.len() {
+            return None
+        }
+        
+        Some(&mut self.workspaces[idx])
+    }
+    
+    /// Find a workspace by its name.
+    /// 
+    /// Returns an immutable reference.
+    pub fn find(&self, name: &str) -> Option<&Workspace> {
+        self.workspaces.element_by(|ws| ws.name == name).map(|(_, ws)| ws)
+    }
+    
+    /// Find a workspace by its name.
+    /// 
+    /// Returns a mutable reference.
+    pub fn find_mut(&mut self, name: &str) -> Option<&mut Workspace> {
+        self.workspaces.element_by_mut(|ws| ws.name == name).map(|(_, ws)| ws)
+    }
 
+    //* Mutator and Manipulation Methods *//
+    
+    /// Cycle workspaces in given direction.
     pub fn cycle_workspace<X: XConn>(&mut self, 
         conn: &X, 
         scr: &Screen, 
@@ -153,38 +215,6 @@ impl Desktop {
         self.goto(&name, conn, scr);
     }
 
-    /// Get a reference to a workspace by its index
-    pub fn get(&self, idx: usize) -> Option<&Workspace> {
-        if idx + 1 >= self.workspaces.len() {
-            return None
-        }
-
-        Some(&self.workspaces[idx])
-    }
-
-    /// Get a mutable reference to a workspace by index.
-    pub fn get_mut(&mut self, idx: usize) -> Option<&mut Workspace> {
-        if idx + 1 > self.workspaces.len() {
-            return None
-        }
-
-        Some(&mut self.workspaces[idx])
-    }
-
-    /// Find a workspace by its name.
-    /// 
-    /// Returns an immutable reference.
-    pub fn find(&self, name: &str) -> Option<&Workspace> {
-        self.workspaces.element_by(|ws| ws.name == name).map(|(_, ws)| ws)
-    }
-
-    /// Find a workspace by its name.
-    /// 
-    /// Returns a mutable reference.
-    pub fn find_mut(&mut self, name: &str) -> Option<&mut Workspace> {
-        self.workspaces.element_by_mut(|ws| ws.name == name).map(|(_, ws)| ws)
-    }
-
     /// Switch to a given workspace by its name.
     pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
         let new_idx = self.workspaces.index(Selector::Condition(&|ws| ws.name == name));
@@ -193,16 +223,15 @@ impl Desktop {
             return
         }
         let new_idx = new_idx.unwrap();
-        if self.current == new_idx {
+        if self.current_idx() == new_idx {
             return
         }
         debug!("Goto desktop {}", new_idx);
 
         self.current_mut().deactivate(conn);
-        
-        self.current = new_idx;
+        self.set_current(new_idx);
 
-        if let Some(ws) = self.get_mut(self.current) {
+        if let Some(ws) = self.get_mut(self.current_idx()) {
             ws.activate(conn, scr);
         } else {
             error!("No workspace found for index {}", new_idx);
