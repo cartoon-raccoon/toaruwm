@@ -189,9 +189,11 @@ impl XCBConn {
             ));
         }
 
+        let atoms = self.atoms.get_mut();
+
         // then get replies
         for (name, atom) in atomvec {
-            self.atoms.get_mut().insert(
+            atoms.insert(
                 &name,
                 atom.get_reply()?.atom(),
             );
