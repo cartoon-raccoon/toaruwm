@@ -19,7 +19,7 @@ use crate::types::{
     Cardinal,
     Ring, Selector,
     Point,
-    MouseMode, Direction,
+    Direction,
     ClientAttrs,
 };
 use crate::keybinds::{
@@ -72,7 +72,6 @@ pub struct WindowManager<X: XConn> {
     selected: Option<XWindowID>,
     /// The window currently in focus.
     focused: Option<XWindowID>,
-    last_workspace: usize,
     /// Used when window is moved to track pointer location.
     last_mouse_pos: Point,
     // If the wm is running.
@@ -122,7 +121,6 @@ impl<X: XConn> WindowManager<X> {
             ehandler: Box::new(basic_error_handler),
             selected: None,
             focused: None,
-            last_workspace: 0,
             last_mouse_pos: Point {x: 0, y: 0},
             running: true,
             restart: false,
@@ -282,6 +280,11 @@ impl<X: XConn> WindowManager<X> {
         self.desktop.current_mut().toggle_focused_state(&self.conn, self.screens.focused().unwrap());
     }
 
+    /// Cycles the layouts used by the `WindowManager`.
+    pub fn cycle_layout(&mut self) {
+        todo!()
+    }
+
     /// Grabs the pointer and moves the window the pointer is on.
     pub fn move_window_ptr(&mut self, pt: Point) {
         fn_ends!("move_window_ptr");
@@ -310,6 +313,8 @@ impl<X: XConn> WindowManager<X> {
 
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
+        self.toggle_focused_state();
+
         if let Some(win) = self.selected {
             if let Some(win) = self.desktop.current_mut().windows.lookup_mut(win) {
                 win.do_resize(&self.conn, dx as i32, dy as i32);
@@ -323,28 +328,15 @@ impl<X: XConn> WindowManager<X> {
         self.last_mouse_pos = pt;
     }
 
-    /// Warps the window up or down depending on the cardinal 
-    /// passed to it.
-    pub fn warp_window_vert(&mut self, dy: i32, dir: Cardinal) {
+    /// Warps the window in the direction passed to it.
+    pub fn warp_window(&mut self, dist: i32, dir: Cardinal) {
         let current = self.desktop.current_mut();
         if let Some(win) = current.focused_client_mut() {
             match dir {
-                Cardinal::Up => win.do_move(&self.conn, 0, -dy),
-                Cardinal::Down => win.do_move(&self.conn, 0, dy),
-                _ => {}
-            }
-        }
-    }
-
-    /// Warps the window left or right depending on the cardinal
-    /// passed to it.
-    pub fn warp_window_horz(&mut self, dx: i32, dir: Cardinal) {
-        let current = self.desktop.current_mut();
-        if let Some(win) = current.focused_client_mut() {
-            match dir {
-                Cardinal::Left => win.do_move(&self.conn, -dx, 0),
-                Cardinal::Right => win.do_move(&self.conn, dx, 0),
-                _ => {}
+                Cardinal::Up    => win.do_move(&self.conn, 0, -dist),
+                Cardinal::Down  => win.do_move(&self.conn, 0,  dist),
+                Cardinal::Left  => win.do_move(&self.conn, -dist, 0),
+                Cardinal::Right => win.do_move(&self.conn,  dist, 0),
             }
         }
     }
@@ -566,6 +558,10 @@ impl<X: XConn> WindowManager<X> {
 
     fn screen_reconfigure(&mut self) -> Result<()> {
         todo!()
+    }
+
+    fn focus_screen(&mut self, idx: usize) {
+        
     }
 
     fn handle_error(&mut self, err: XError, _evt: XEvent) {
