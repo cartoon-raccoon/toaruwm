@@ -51,9 +51,36 @@ pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 /// and receives and responds to events.
 /// 
 /// The manager is generic over a type argument X that 
-/// implements the `XConn` trait, but is never directly exposed
-/// by the type's public API and is only used when constructing
-/// a new window manager instance.
+/// implements the `XConn` trait, but this is never directly exposed
+/// by `WindowManager`'s public API and is only used when constructing
+/// a new `WindowManager` instance.
+/// 
+/// # Usage
+/// 
+/// To run a WindowManager, it needs to first be registered with
+/// the X server, so as to select the event masks on the root window
+/// required for its operation. It then needs to grab user keybinds
+/// and mousebindings and register those with the X server as well.
+/// After that, then it can initiate the event loop.
+/// 
+/// ```ignore
+/// use std::collections::HashMap;
+/// use toaruwm::{XCBConn, WindowManager};
+/// 
+/// let conn = XCBConn::new().unwrap();
+/// 
+/// let mut wm = WindowManager::new(conn);
+/// 
+/// wm.register(Vec::new());
+/// 
+/// wm.grab_and_run(HashMap::new(), HashMap::new());
+/// ```
+/// 
+/// # Defaults
+/// 
+/// The Window Manager uses a default configuration if none is provided.
+/// It also employs a basic error handler that simply logs errors to 
+/// stdout, but can be changed with `WindowManager::set_error_handler`.
 pub struct WindowManager<X: XConn> {
     /// The X Connection
     conn: X,
