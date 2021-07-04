@@ -14,9 +14,9 @@ pub(crate) mod util;
 
 pub use crate::core::types;
 pub use crate::x::core::Result as XResult;
+pub use crate::x::core::XConn;
+pub use crate::x::xcb::XCBConn;
 pub use crate::manager::WindowManager;
-
-use crate::x::xcb::XCBConn;
 
 use std::ops::FnMut;
 use std::io;
