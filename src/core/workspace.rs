@@ -21,7 +21,7 @@ use crate::types::{
 use crate::layouts::{
     LayoutType, 
     LayoutEngine, 
-    ResizeAction,
+    LayoutAction,
     LayoutFn,
 };
 use crate::x::{XConn, XWindowID, core::StackMode};
@@ -259,11 +259,21 @@ impl Workspace {
     fn apply_layout<X: XConn>(
         &mut self, 
         conn: &X, 
-        layouts: Vec<ResizeAction>
+        layouts: Vec<LayoutAction>
     ) {
         for rsaction in layouts {
-            let window = self.windows.lookup_mut(rsaction.id()).unwrap();
-            window.set_and_update_geometry(conn, rsaction.geometry());
+            match rsaction {
+                LayoutAction::SetMaster(id) => {
+                    let master_idx = self.windows.get_idx(id).unwrap();
+                    self.windows.move_front(master_idx);
+                    self.set_master(id);
+                }
+                LayoutAction::UnsetMaster => self.unset_master(),
+                LayoutAction::Resize {id, geom} => {
+                    let window = self.windows.lookup_mut(id).unwrap();
+                    window.set_and_update_geometry(conn, geom);
+                }
+            }
         }
     }
 

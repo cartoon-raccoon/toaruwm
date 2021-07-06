@@ -39,32 +39,38 @@ impl LayoutType {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-pub struct ResizeAction {
-    id: XWindowID,
-    geom: Geometry,
+pub enum LayoutAction {
+    SetMaster(XWindowID),
+    UnsetMaster,
+    Resize {id: XWindowID, geom: Geometry},
 }
 
-impl ResizeAction {
-    #[inline]
-    pub fn new(id: XWindowID, geom: Geometry) -> Self {
-        Self {
-            id, geom,
-        }
-    }
+// impl LayoutAction {
+//     #[inline]
+//     pub fn new(id: XWindowID, geom: Geometry) -> Self {
+//         Self {
+//             id, geom,
+//         }
+//     }
 
-    #[inline(always)]
-    pub fn id(&self) -> XWindowID {
-        self.id
-    }
+//     #[inline(always)]
+//     pub fn id(&self) -> XWindowID {
+//         self.id
+//     }
 
-    #[inline(always)]
-    pub fn geometry(&self) -> Geometry {
-        self.geom
-    }
-}
+//     #[inline(always)]
+//     pub fn geometry(&self) -> Geometry {
+//         self.geom
+//     }
+// }
 
 /// A function that can lay out windows in a user-specified way.
-pub type LayoutFn = fn(&Workspace, &Screen) -> Vec<ResizeAction>;
+/// Parameters:
+/// - &Workspace: the workspace to layout.
+/// - &Screen: the screen the workspace is on.
+/// - u32: The border width.
+/// - f32: The master ratio.
+pub type LayoutFn = fn(&Workspace, &Screen, u32, f32) -> Vec<LayoutAction>;
 
 /// An object responsible for arranging layouts within a screen.
 #[derive(Clone)]
@@ -121,7 +127,8 @@ impl LayoutEngine {
     }
     
     /// Generate the layout for the given workspace.
-    pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<ResizeAction> {
-        (self._layoutgen)(ws, scr)
+    pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
+        //todo: pass in proper border width and ratio numbers
+        (self._layoutgen)(ws, scr, crate::types::BORDER_WIDTH, 0.5)
     }
 }
