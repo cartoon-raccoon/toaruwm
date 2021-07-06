@@ -226,12 +226,12 @@ impl Geometry {
     ///     Geometry::new(0, 50, 50, 200),
     /// ]);
     /// ```
-    pub fn split_horz_n(&self, n: i32) -> Vec<Geometry> {
-        let new_height = self.height / n;
+    pub fn split_horz_n(&self, n: usize) -> Vec<Geometry> {
+        let new_height = self.height / n as i32;
 
         let mut ret = Vec::new();
 
-        for i in 0..n as usize {
+        for i in 0..n {
             ret.push(Geometry {
                 x: self.x,
                 y: self.y + (i as i32 * new_height as i32),
@@ -262,8 +262,8 @@ impl Geometry {
     ///     Geometry::new(100, 0, 100, 100),
     /// ]);
     /// ```
-    pub fn split_vert_n(&self, n: i32) -> Vec<Geometry> {
-        let new_width = self.width / n;
+    pub fn split_vert_n(&self, n: usize) -> Vec<Geometry> {
+        let new_width = self.width / n as i32;
 
         let mut ret = Vec::new();
 
