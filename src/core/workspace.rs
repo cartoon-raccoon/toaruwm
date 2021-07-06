@@ -169,6 +169,9 @@ impl Workspace {
         conn: &X, scr: &Screen, id: XWindowID
     ) {
         fn_ends!("add_window_tiled");
+        if self.master.is_none() {
+            self.set_master(id);
+        }
         self._add_window(conn, scr, Client::tiled(id, conn));
     }
 
@@ -211,7 +214,7 @@ impl Workspace {
         //todo: return Result instead
         .expect("Could not find window");
 
-        //window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
+        window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
         //window.unmap(conn);
 
         if let Some(win) = self.windows.focused() {
@@ -230,7 +233,59 @@ impl Workspace {
     fn del_window_tiled<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Client {
-        todo!("tiling algorithm not implemented")
+        fn_ends!("[start] dtiled::del_window");
+
+        // internally remove window from tracking
+        let window = self.windows.remove_by_id(id)
+        .expect("Could not find window");
+
+        // disable events and unmap the window
+        window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
+        self.windows.unset_focused();
+
+        // set new workspace master or unset it if empty
+        if self.is_master(id) {
+            debug!("del_window: Window to destroy is master, doing unmap checks");
+            if self.tiled_count() == 0 {
+                debug!(
+                    "del_window: Workspace is now empty, unsetting master"
+                );
+                self.unset_master(); //workspace is now empty
+                self.windows.unset_focused();
+            } else {
+                debug!(
+                    "del_window: Workspace has {} tiled windows, setting new master", 
+                    self.tiled_count()
+                );
+                let new_master = self.windows.get(0).unwrap().id();
+                debug!("New master is now {}", new_master);
+                self.set_master(new_master);
+                debug!("Window at idx 0 is {:#?}", self.windows.get(0));
+                window_stack_and_focus(self, conn, new_master);
+            }
+        } else {
+            // only master is left
+            if self.tiled_count() == 1 {
+                let master = self.master.unwrap();
+                window_stack_and_focus(self, conn, master);        
+            } else {
+                if !self.is_empty() {
+                    assert!(self.tiled_count() > 1);
+                    //todo: add last focused so we can focus to that
+                    // placeholder code to focus to master by default
+                    let master = self.master.unwrap();
+                    window_stack_and_focus(self, conn, master);
+                } else {
+                    self.windows.unset_focused();
+                }
+            }
+        }
+
+        // recalculate layouts
+        self.relayout(conn, scr);
+
+        fn_ends!("[end] dtiled::del_window");
+        window
     }
 
     /// Pushes a window directly.
