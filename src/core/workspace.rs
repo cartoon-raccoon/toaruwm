@@ -422,6 +422,16 @@ impl Workspace {
         self.master
     }
 
+    #[inline]
+    pub fn clients(&self) -> impl Iterator<Item = &Client> {
+        self.windows.iter()
+    }
+
+    #[inline]
+    pub fn clients_mut(&mut self) -> impl Iterator<Item = &mut Client> {
+        self.windows.iter_mut()
+    }
+
     pub fn tiled_count(&self) -> usize {
         self.windows.iter().filter(|win| win.is_tiled()).count()
     }
