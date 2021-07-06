@@ -162,9 +162,19 @@ impl Workspace {
         conn: &X, scr: &Screen, id: XWindowID
     ) {
         fn_ends!("add_window_floating");
+        self._add_window(conn, scr, Client::floating(id, conn));
+    }
 
-        let mut window = Client::floating(id, conn);
+    pub fn add_window_tiled<X: XConn>(&mut self, 
+        conn: &X, scr: &Screen, id: XWindowID
+    ) {
+        fn_ends!("add_window_tiled");
+        self._add_window(conn, scr, Client::tiled(id, conn));
+    }
 
+    fn _add_window<X: XConn>(&mut self,
+        conn: &X, scr: &Screen, mut window: Client
+    ) {
         window.set_supported(conn);
         window.map(conn);
         window.configure(conn, &[
@@ -178,8 +188,8 @@ impl Workspace {
         window.xwindow.set_geometry_conn(conn);
 
         if let Ok(ptr) = conn.query_pointer(conn.get_root().id) {
-            if ptr.child == conn.get_root().id || ptr.child == id {
-                self.focus_window(conn, id);
+            if ptr.child == conn.get_root().id || ptr.child == window.id() {
+                self.focus_window(conn, window.id());
             } else if let Some(focused) = self.windows.focused_mut() {
                 focused.set_border(conn, BorderStyle::Unfocused);
             } else {
@@ -191,12 +201,6 @@ impl Workspace {
 
         self.windows.append(window);
         self.relayout(conn, scr);
-    }
-
-    pub fn add_window_tiled<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
-    ) {
-        todo!("tiling algorithm not implemented")
     }
 
     #[allow(mutable_borrow_reservation_conflict)]
