@@ -25,8 +25,7 @@ pub(super) fn gen_layout(
         } else {
             debug!("Multiple windows mapped, recalculating");
 
-            let g = ws.windows.lookup(id).unwrap().geometry();
-            let (master, slaves) = g.split_vert_ratio(ratio);
+            let (master, slaves) = geom.split_vert_ratio(ratio);
             
             let mut ret = vec![SetMaster(id), Resize {id, geom: master}];
 
@@ -37,7 +36,8 @@ pub(super) fn gen_layout(
             //todo: account for border width
             let slave_geoms = slaves.split_horz_n(slave_count);
 
-            ws.clients().filter(|c| c.id() != id)
+            ws.clients()
+                .filter(|c| c.id() != id && c.is_tiled())
                 .enumerate()
                 .for_each(|(i, c)| ret.push(Resize {
                     id: c.id(),
@@ -47,10 +47,15 @@ pub(super) fn gen_layout(
             ret
         }
     } else {
-        if !ws.is_empty() {
-            for window in ws.clients() {
-                assert!(window.is_floating(), "No master but window is tiled");
-            }
+        if ws.tiled_count() == 1 {
+            debug!("Only master exists, tiling to full window");
+            let id = ws.windows.get(0).unwrap().id();
+            let new = Geometry::new(
+                0, 0,
+                geom.height - bwidth as i32,
+                geom.width - bwidth as i32,
+            );
+            return vec![SetMaster(id), Resize {id, geom: new}]
         }
         Vec::new()
     }
