@@ -205,11 +205,11 @@ impl<X: XConn> WindowManager<X> {
         kb: &Keybinds<X>
     ) -> Result<()> {
         let root_id = self.conn.get_root().id;
-        for (binding, _) in mb {
+        for binding in mb.keys() {
             self.conn.grab_button(binding, root_id, true)?;
         }
         
-        for (binding, _) in kb {
+        for binding in kb.keys() {
             self.conn.grab_key(*binding, root_id)?;
         }
 

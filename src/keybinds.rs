@@ -137,7 +137,7 @@ impl Keymap {
     pub fn parse_keybinding(&self, kb: &str) -> Result<Keybind> {
         let mut modifiers: Vec<u16> = Vec::new();
         let mut code = None;
-        for token in kb.split("-") {
+        for token in kb.split('-') {
             match token {
                 "C" => {modifiers.push(ModKey::Ctrl.into());}
                 "S" => {modifiers.push(ModKey::Shift.into());}
@@ -218,5 +218,3 @@ mod tests {
         assert_eq!(modshift_a, kb(MOD|SHIFT, 38));
     }
 }
-
-//todo: Add mouse events

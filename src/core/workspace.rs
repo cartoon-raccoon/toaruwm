@@ -268,16 +268,14 @@ impl Workspace {
             if self.tiled_count() == 1 {
                 let master = self.master.unwrap();
                 window_stack_and_focus(self, conn, master);        
+            } else if !self.is_empty() {
+                assert!(self.tiled_count() > 1);
+                //todo: add last focused so we can focus to that
+                // placeholder code to focus to master by default
+                let master = self.master.unwrap();
+                window_stack_and_focus(self, conn, master);
             } else {
-                if !self.is_empty() {
-                    assert!(self.tiled_count() > 1);
-                    //todo: add last focused so we can focus to that
-                    // placeholder code to focus to master by default
-                    let master = self.master.unwrap();
-                    window_stack_and_focus(self, conn, master);
-                } else {
-                    self.windows.unset_focused();
-                }
+                self.windows.unset_focused();
             }
         }
 
@@ -410,9 +408,9 @@ impl Workspace {
         if let Some(win) = self.windows.focused_mut() {
             // set a stack variable to avoid overlapping lifetimes
             let win_id = win.id();
+            debug!("Toggling window state");
+            win.toggle_state();
             if win.is_floating() { //toggling to tiled
-                debug!("Toggling window state");
-                win.toggle_state();
                 // if we have no master
                 if master.is_none() {
                     debug!("No master, setting master");
@@ -420,10 +418,6 @@ impl Workspace {
                 }
                 // keep floating windows on top
             } else { //toggling to floating
-                debug!("Toggling window state");
-
-                // toggle state and stack above
-                win.toggle_state();
                 win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
 
                 if self.tiled_count() == 0 && self.master.is_some() {

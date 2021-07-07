@@ -5,6 +5,8 @@
 //! 
 //! The rest of the comments are a tour through the behind-the-scenes 
 //! of how ToaruWM is configured.
+//! 
+#![allow(clippy::type_complexity)]
 
 use std::error::Error;
 
