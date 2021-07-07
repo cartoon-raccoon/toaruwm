@@ -70,7 +70,7 @@ impl Desktop {
             workspaces: {
                 let mut workspaces = Ring::with_capacity(wksps.len());
 
-                for name in wksps {
+                for name in wksps.into_iter().rev() {
                     workspaces.push(Workspace::with_layout(layout.clone(), lfn, &name));
                 }
 
@@ -217,6 +217,8 @@ impl Desktop {
 
     /// Switch to a given workspace by its name.
     pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
+        debug!("Going to workspace with name '{}'", name);
+
         let new_idx = self.workspaces.index(Selector::Condition(&|ws| ws.name == name));
         if new_idx.is_none() {
             error!("No workspace {} found", name);
@@ -224,12 +226,14 @@ impl Desktop {
         }
         let new_idx = new_idx.unwrap();
         if self.current_idx() == new_idx {
+            //todo: go to last workspace if same
             return
         }
-        debug!("Goto desktop {}", new_idx);
-
+        
         self.current_mut().deactivate(conn);
         self.set_current(new_idx);
+        
+        debug!("Goto workspace idx {}", new_idx);
 
         if let Some(ws) = self.get_mut(self.current_idx()) {
             ws.activate(conn, scr);
