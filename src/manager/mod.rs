@@ -3,6 +3,8 @@ use std::process::{Command, Stdio};
 use std::iter::FromIterator;
 use std::fmt;
 
+use tracing::instrument;
+
 use crate::{
     Result, ToaruError, ErrorHandler,
 };
@@ -140,7 +142,7 @@ impl<X: XConn> WindowManager<X> {
             conn,
             config,
             desktop: Desktop::new(
-                LayoutType::Floating, None, 
+                LayoutType::DTiled, None, 
                 workspaces
             ),
             screens,
@@ -277,6 +279,7 @@ impl<X: XConn> WindowManager<X> {
     }
     
     /// Goes to the specified workspace.
+    #[instrument(level = "debug")]
     pub fn goto_workspace(&mut self, name: &str) {
         self.desktop.goto(name, &self.conn, self.screens.focused().unwrap());
     }
@@ -432,6 +435,7 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug")]
     fn update_focus(&mut self, id: XWindowID) -> Result<()> {
         fn_ends!("update_focus for window {}", id);
         // get target id
@@ -454,11 +458,13 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug")]
     fn focused_client_id(&self) -> Option<XWindowID> {
         self.desktop.current_client().map(|c| c.id())
     }
 
     /// Unfocuses a client
+    #[instrument(level = "debug")]
     fn client_unfocus(&mut self, id: XWindowID) -> Result<()> {
         fn_ends!("lost focus for window {}", id);
 
@@ -467,6 +473,7 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn set_focused_screen(&mut self, ptr: Option<Point>) -> Result<()> {
         // get pointer position
         // if ptr is None, query the pointer directly
@@ -483,7 +490,7 @@ impl<X: XConn> WindowManager<X> {
         }));
 
         if let Some(idx) = to_focus {
-            self.screens.set_focused(idx);
+            self.focus_screen(idx);
         } else {
             return Err(ToaruError::InvalidPoint(ptr.x, ptr.y))
         }
@@ -492,6 +499,7 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Query _NET_WM_NAME or WM_NAME and change it accordingly
+    #[instrument(level = "debug", skip(self))]
     fn client_name_change(&mut self, id: XWindowID) -> Result<()> {
 
         //todo
@@ -501,6 +509,7 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn map_tracked_client(&mut self, id: XWindowID) -> Result<()> {
         fn_ends!("Wm::map_tracked_client({})", id);
 
@@ -518,10 +527,12 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn map_untracked_client(&self, id: XWindowID) -> Result<()> {
         Ok(self.conn.map_window(id)?)
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
         fn_ends!("Wm::unmap_tracked_client({})", id);
 
@@ -588,7 +599,7 @@ impl<X: XConn> WindowManager<X> {
     }
 
     fn focus_screen(&mut self, idx: usize) {
-        
+        self.screens.set_focused(idx);
     }
 
     fn handle_error(&mut self, err: XError, _evt: XEvent) {
