@@ -43,3 +43,7 @@ Heavily inspired by [penrose](https://docs.rs/penrose/0.2.0/penrose/index.html) 
 - Available as a library for users to build custom WMs
   - Can be compiled without some features (cargo features)
 - Recreation of layouts from serialized data (JSON most likely)
+
+## Testing
+
+See the [testing](TESTING.md) for details.
