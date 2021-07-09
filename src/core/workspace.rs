@@ -324,6 +324,12 @@ impl Workspace {
         conn: &X, 
         layouts: Vec<LayoutAction>
     ) {
+        for floater in self.clients_mut().filter(|c| c.is_floating()) {
+            floater.configure(
+                conn, &[ClientConfig::StackingMode(StackMode::Above)]
+            )
+        }
+
         for rsaction in layouts {
             match rsaction {
                 LayoutAction::SetMaster(id) => {
@@ -453,17 +459,17 @@ impl Workspace {
         }
     }
 
-    /// Sets the focused window to tiled and re-applies the layout.
+    /// Sets the given window to tiled and re-applies the layout.
     /// 
     /// Is a no-op if the workspace is in a floating layout.
-    pub fn set_focused_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+    pub fn set_tiled<X: XConn>(&mut self, conn: &X, id: XWindowID, scr: &Screen) {
         debug!("Setting focused to tiled");
 
         if self.is_floating() {return}
 
         let master = self.master;
 
-        if let Some(win) = self.windows.focused_mut() {
+        if let Some(win) = self.windows.lookup_mut(id) {
             if win.is_tiled() {return}
 
             let win_id = win.id();
@@ -481,17 +487,20 @@ impl Workspace {
     }
 
     /// Sets the focused window to floating and re-applies the layout.
-    pub fn set_focused_floating<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+    pub fn set_floating<X: XConn>(&mut self, conn: &X, id: XWindowID, scr: &Screen) {
         debug!("Setting focused to floating");
         let master = self.master;
 
-        if let Some(win) = self.windows.focused_mut() {
+        if let Some(win) = self.windows.lookup_mut(id) {
             if win.is_floating() {return}
 
             let win_id = win.id();
 
             win.set_floating();
             win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
+            let i = win.initial_geom();
+            win.set_size(conn, i.height, i.width);
+
 
             if self.tiled_count() == 0 && master.is_some() {
                 debug!("All windows are floating, unsetting master");
@@ -500,8 +509,12 @@ impl Workspace {
                 if master.unwrap() == win_id {
                     debug!("Window to set floating is master, setting new master");
 
-                    let new_master = self.windows.get(1).expect("No window of idx 1").id();
-                    self.set_master(new_master);
+                    let new = self.windows.get(1).expect("No window of idx 1");
+                    if new.is_floating() {
+                        warn!("New master of id {} name {} is floating", new.id(), new.name());
+                    }
+                    let new_id = new.id();
+                    self.set_master(new_id);
                 }
             } else {
                 assert!(master.is_none());
