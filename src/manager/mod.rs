@@ -322,7 +322,15 @@ impl<X: XConn> WindowManager<X> {
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         if let Some(win) = self.selected {
-            if let Some(win) = self.desktop.current_mut().windows.lookup_mut(win) {
+            self.desktop.current_mut().set_floating(
+                &self.conn, win, self.screens.focused().unwrap()
+            );
+        }
+
+        let current = self.desktop.current_mut();
+
+        if let Some(win) = self.selected {
+            if let Some(win) = current.windows.lookup_mut(win) {
                 win.do_move(&self.conn, dx, dy);
             } else {
                 error!("Tried to move untracked window {}", win)
@@ -343,10 +351,16 @@ impl<X: XConn> WindowManager<X> {
 
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
-        self.toggle_focused_state();
+        if let Some(win) = self.selected {
+            self.desktop.current_mut().set_floating(
+                &self.conn, win, self.screens.focused().unwrap()
+            );
+        }
+        
+        let current = self.desktop.current_mut();
 
         if let Some(win) = self.selected {
-            if let Some(win) = self.desktop.current_mut().windows.lookup_mut(win) {
+            if let Some(win) = current.windows.lookup_mut(win) {
                 win.do_resize(&self.conn, dx as i32, dy as i32);
             } else {
                 error!("Tried to move untracked window {}", win)
@@ -360,7 +374,17 @@ impl<X: XConn> WindowManager<X> {
 
     /// Warps the window in the direction passed to it.
     pub fn warp_window(&mut self, dist: i32, dir: Cardinal) {
+
+        //todo: this still affects master window
+        if let Some(id) = self.focused_client_id() {
+            self.desktop.current_mut().set_floating(
+                &self.conn, id,
+                self.screens.focused().unwrap()
+            );
+        }
+
         let current = self.desktop.current_mut();
+
         if let Some(win) = current.focused_client_mut() {
             match dir {
                 Cardinal::Up    => win.do_move(&self.conn, 0, -dist),
@@ -419,7 +443,7 @@ impl<X: XConn> WindowManager<X> {
                 ClientNameChange(id) => {self.client_name_change(id)?},
                 ScreenReconfigure => {self.screen_reconfigure()?},
                 SetFocusedScreen(pt) => {self.set_focused_screen(pt)?},
-                DestroyClient(id) => {},
+                DestroyClient(_) => {},
                 MapTrackedClient(id) => {self.map_tracked_client(id)?},
                 MapUntrackedClient(id) => {self.map_untracked_client(id)?},
                 UnmapClient(id) => {self.unmap_client(id)?},
