@@ -41,7 +41,7 @@ impl XConn for XCBConn {
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
         self.conn.flush();
 
-        if let Some(event) = self.conn.poll_for_event() {
+        if let Some(event) = self.conn.wait_for_event() {
             Ok(Some(self.process_raw_event(event)?))
         } else {
             Ok(self.conn.has_error().map(|_| None)?)

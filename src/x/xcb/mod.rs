@@ -293,7 +293,7 @@ impl XCBConn {
             xcb::CONFIGURE_NOTIFY => {
                 let event = cast!(xcb::ConfigureNotifyEvent, event);
                 if event.event() == self.root.id {
-                    debug!("Top level window configuration")
+                    debug!("Top level window configuration");
                 }
                 Ok(ConfigureNotify(ConfigureEvent {
                     id: event.window(),
