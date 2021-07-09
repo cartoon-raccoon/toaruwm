@@ -26,6 +26,9 @@ use crate::layouts::{
 };
 use crate::x::{XConn, XWindowID, core::StackMode};
 
+/// A grouped collection of windows arranged according to a Layout.
+/// 
+/// Workspaces are managed as a group by a Desktop.
 #[derive(Clone)]
 pub struct Workspace {
     pub(crate) name: String,
@@ -45,7 +48,6 @@ impl fmt::Debug for Workspace {
     }
 }
 
-#[allow(unused_variables)]
 impl Workspace {
     /// Creates a new workspace with a specific layout.
     pub fn with_layout(layout: LayoutType, lfn: Option<LayoutFn>, name: &str) -> Self {
@@ -74,10 +76,12 @@ impl Workspace {
         self.windows.contains(id)
     }
 
+    /// Returns a reference to the currently focused client.
     pub fn focused_client(&self) -> Option<&Client> {
         self.windows.focused()
     }
 
+    /// Returns a mutable reference to the currently focused client.`
     pub fn focused_client_mut(&mut self) -> Option<&mut Client> {
         self.windows.focused_mut()
     }
@@ -145,6 +149,7 @@ impl Workspace {
         }
     }
 
+    /// Deletes the window from the workspaces and returns it.
     pub fn del_window<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Result<Client> {
@@ -158,14 +163,14 @@ impl Workspace {
         Err(ToaruError::UnknownClient(id))
     }
 
-    pub fn add_window_floating<X: XConn>(&mut self, 
+    pub(crate) fn add_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
         fn_ends!("add_window_floating");
         self._add_window(conn, scr, Client::floating(id, conn));
     }
 
-    pub fn add_window_tiled<X: XConn>(&mut self, 
+    pub(crate) fn add_window_tiled<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
         fn_ends!("add_window_tiled");
@@ -308,6 +313,7 @@ impl Workspace {
         fn_ends!("[end] workspace::push_window");
     }
 
+    /// Calls the layout function and applies it to the workspace.
     pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         let layouts = self.layoutter.gen_layout(&self, scr);
         self.apply_layout(conn, layouts);
@@ -334,6 +340,7 @@ impl Workspace {
         }
     }
 
+    /// Sets the focused window to the given window ID.
     pub fn focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         if let Some(idx) = self.windows.get_idx(window) {
             debug!("Found window {}", window);
@@ -345,18 +352,23 @@ impl Workspace {
             
             // tell x to focus
             window_stack_and_focus(self, conn, window);
+        } else {
+            warn!("No window {} found in workspace", window);
         }
     }
 
+    /// Unfocuses the given window ID.
     pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         // remove focus if window to unfocus is currently focused
-        if let Some(win) = self.windows.lookup(window) {
+        if let Some(_) = self.windows.lookup(window) {
             conn.change_window_attributes(window, &[
                 ClientAttrs::BorderColour(BorderStyle::Unfocused)
             ]).unwrap_or_else(|e| error!("{}", e));
         }
     }
 
+    /// Cycles the focus to the next window in the workspace.
+    #[allow(mutable_borrow_reservation_conflict)]
     pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
         use BorderStyle::*;
 
@@ -369,13 +381,12 @@ impl Workspace {
         self.windows.cycle_focus(dir);
 
         // change focus colours
-        if self.windows.focused().is_some() {
-            let focused = self.windows.focused().unwrap().id();
-
-            window_stack_and_focus(self, conn, focused);
+        if let Some(win) = self.windows.focused() {
+            self.focus_window(conn, win.id());
         }
     }
 
+    /// Cycles the master to the next window in the workspace.
     pub fn cycle_master<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, dir: Direction
     ) {
@@ -388,6 +399,7 @@ impl Workspace {
         }
     }
 
+    /// Deletes the focused window in the workspace and returns it.
     pub fn take_focused_window<X: XConn>(&mut self,
         conn: &X, screen: &Screen,
     ) -> Option<Client> {
@@ -401,6 +413,7 @@ impl Workspace {
         }
     }
 
+    /// Toggles the state of the currently focused window between floating and tiled.
     pub fn toggle_focused_state<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         debug!("Toggling state of focused window {:#?}", self.windows.focused());
         let master = self.master;
@@ -440,10 +453,12 @@ impl Workspace {
         }
     }
 
+    /// Sets the focused window to tiled and re-applies the layout.
     pub fn set_focused_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-
+        
     }
 
+    /// Sets the focused window to floating and re-applies the layout.
     pub fn set_focused_floating<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         debug!("Setting focused to floating");
         let master = self.master;
@@ -473,6 +488,7 @@ impl Workspace {
         }
     }
 
+    /// Sets the master window of the workspace.
     pub fn set_master(&mut self, master_id: XWindowID) {
         if !self.windows.contains(master_id) {
             error!("set_master: No such window {}", master_id);
@@ -483,6 +499,7 @@ impl Workspace {
         self.windows.move_front(idx);
     }
 
+    /// Unsets the master window of the workspace.
     pub fn unset_master(&mut self) {
         if self.tiled_count() > 0 {
             error!("unset_master: Workspace still has tiled windows");
@@ -490,6 +507,7 @@ impl Workspace {
         self.master = None;
     }
 
+    ///  Tests whether `id` is the master window.
     #[inline(always)]
     pub fn is_master(&mut self, id: XWindowID) -> bool {
         if let Some(win) = self.master {
@@ -498,49 +516,65 @@ impl Workspace {
         false
     }
 
+    /// Returns the name of the workspace.
     #[inline(always)]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Returns the id of the master window.
     #[inline(always)]
     pub fn master(&self) -> Option<XWindowID> {
         self.master
     }
 
+    /// Returns an iterator over all the clients in the workspace.
     #[inline]
     pub fn clients(&self) -> impl Iterator<Item = &Client> {
         self.windows.iter()
     }
 
+    /// Returns a mutable iterator over all the clients in the workspace.
     #[inline]
     pub fn clients_mut(&mut self) -> impl Iterator<Item = &mut Client> {
         self.windows.iter_mut()
     }
 
+    /// Returns the number of tiled windows in the workspace.
+    /// 
+    /// Since a workspace can contain both floating and tiled windows,
+    /// this returns the number of tiled windows only.
     pub fn tiled_count(&self) -> usize {
         self.windows.iter().filter(|win| win.is_tiled()).count()
     }
 
+    /// Returns the number of floating windows in the workspace.
+    /// 
+    /// Since a workspace can contain both floating and tiled windows,
+    /// this returns the number of floating windows only.
     pub fn floating_count(&self) -> usize {
         self.windows.iter().filter(|win| win.is_floating()).count()
     }
 
+    /// Tests whether the workspace is empty.`
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.windows.is_empty()
     }
 
+    /// Tests whether the workspace is tiled.
     #[inline(always)]
     pub fn is_tiling(&self) -> bool {
         !self.is_floating()
     }
     
+    /// Tests whether the workspace is floating.
     #[inline(always)]
     pub fn is_floating(&self) -> bool {
         matches!(self.layoutter.layout(), LayoutType::Floating)
     }
 
+    /// Returns the layout type of the workspace.
     #[inline]
     pub fn layout(&self) -> &LayoutType {
         self.layoutter.layout()
