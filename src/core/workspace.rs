@@ -440,6 +440,39 @@ impl Workspace {
         }
     }
 
+    pub fn set_focused_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+
+    }
+
+    pub fn set_focused_floating<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+        debug!("Setting focused to floating");
+        let master = self.master;
+
+        if let Some(win) = self.windows.focused_mut() {
+            if win.is_floating() {return}
+
+            let win_id = win.id();
+
+            win.set_floating();
+            win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
+
+            if self.tiled_count() == 0 && master.is_some() {
+                debug!("All windows are floating, unsetting master");
+                self.unset_master();
+            } else if self.tiled_count() > 0 && master.is_some() {
+                if master.unwrap() == win_id {
+                    debug!("Window to set floating is master, setting new master");
+
+                    let new_master = self.windows.get(1).expect("No window of idx 1").id();
+                    self.set_master(new_master);
+                }
+            } else {
+                assert!(master.is_none());
+            }
+            self.relayout(conn, scr);
+        }
+    }
+
     pub fn set_master(&mut self, master_id: XWindowID) {
         if !self.windows.contains(master_id) {
             error!("set_master: No such window {}", master_id);
