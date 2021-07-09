@@ -454,8 +454,30 @@ impl Workspace {
     }
 
     /// Sets the focused window to tiled and re-applies the layout.
+    /// 
+    /// Is a no-op if the workspace is in a floating layout.
     pub fn set_focused_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        
+        debug!("Setting focused to tiled");
+
+        if self.is_floating() {return}
+
+        let master = self.master;
+
+        if let Some(win) = self.windows.focused_mut() {
+            if win.is_tiled() {return}
+
+            let win_id = win.id();
+
+            win.set_tiled();
+            
+            // assuming 
+            if self.tiled_count() == 0 && master.is_none() {
+                debug!("All windows are floating, setting master");
+                self.set_master(win_id);
+            } 
+
+            self.relayout(conn, scr);
+        }
     }
 
     /// Sets the focused window to floating and re-applies the layout.
