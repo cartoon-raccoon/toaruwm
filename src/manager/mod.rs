@@ -16,6 +16,7 @@ use crate::x::{
     XWindow,
     XWindowID,
     Atom,
+    event::ConfigureRequestData,
 };
 use crate::types::{
     Cardinal,
@@ -447,7 +448,7 @@ impl<X: XConn> WindowManager<X> {
                 MapTrackedClient(id) => {self.map_tracked_client(id)?},
                 MapUntrackedClient(id) => {self.map_untracked_client(id)?},
                 UnmapClient(id) => {self.unmap_client(id)?},
-                ConfigureClient(id, geom) => {},
+                ConfigureClient(data) => {self.configure_client(data)?},
                 RunKeybind(kb, id) => {self.run_keybind(kb, keybinds, id)},
                 RunMousebind(mb, id, pt) => {self.run_mousebind(mb, mousebinds, id, pt)},
                 ToggleClientFullscreen(id, thing) => {},
@@ -565,6 +566,11 @@ impl<X: XConn> WindowManager<X> {
             &self.screens.focused().unwrap(),
             id,
         )?;
+        Ok(())
+    }
+
+    fn configure_client(&mut self, data: ConfigureRequestData) -> Result<()> {
+        //todo
         Ok(())
     }
 

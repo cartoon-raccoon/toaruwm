@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::x::{
     XEvent, XWindowID, 
     XConn, XError,
@@ -9,7 +7,6 @@ use crate::x::{
         PropertyEvent,
         PointerEvent,
     },
-    atom::Atom,
 };
 use crate::core::types::{Geometry, Point};
 use crate::keybinds::{Keybind, Mousebind};
@@ -41,7 +38,7 @@ pub enum EventAction {
     /// Unmap the specified client.
     UnmapClient(XWindowID),
     /// Configure the specified client with the given geometry.
-    ConfigureClient(XWindowID, Geometry),
+    ConfigureClient(ConfigureRequestData),
     /// Run the specified keybind.
     RunKeybind(Keybind, XWindowID),
     /// Run the specified mousebind.
@@ -71,8 +68,8 @@ impl EventAction {
                 }
             }
             ConfigureRequest(event) => {
-                debug!("Configure request");
-                process_config_request(event, state)
+                debug!("Configure request for window {}", event.id);
+                vec![ConfigureClient(event)]
             },
             MapRequest(id, override_redirect) => {
                 debug!("Map request for window {}", id);
@@ -160,13 +157,6 @@ fn process_map_request<X: XConn>(
     }
 
     vec![MapTrackedClient(id)]
-}
-
-fn process_config_request<X: XConn>(
-    event: ConfigureRequestData, state: WMState<'_, X>
-) -> Vec<EventAction> {
-    //todo
-    vec![]
 }
 
 fn process_enter_notify<X: XConn>(
