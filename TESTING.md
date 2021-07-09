@@ -4,7 +4,7 @@ ToaruWM is designed for use as a crate in your own projects, but
 it can also be compiled and run as an executable. Currently, the
 main entry point for the testing executable is located
 [here](src/bin/main.rs), and you can use it as a basic example as
-to how it should be used as library.
+to how it should be used as a library.
 
 You can test this repository on your own system via Xephyr, which
 is a program that allows you to run a separate instance of the X server
