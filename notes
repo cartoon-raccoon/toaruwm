@@ -4,17 +4,17 @@ todo:
 convert layout engine into a trait? use trait object to generate layout?
 (this would allow users to define their own special layouts, but would probably cause lifetime issues)
 
-Implement mapping windows and mapping policy
+make XConn::poll_for_event blocking? (preserves processing power)
+
 Implement config and use it
-Figure out logic and control flow for window operations
 finalise cursor methods
+Fullscreen toggling (EWMH and manual)
 integrate logging API
-implement api-agnostic pointer/button event mask for XConn
 implement Debug properly for user-facing types
-make Layout more user-friendly (see penrose)
 add hooks to allow users to modfify a client before it is mapped
 figure out restarting in-place
 hooks on startup, grabbing and managing existing windows
+make master a region of windows, instead of one window?
 
 tests:
 - map window, unmap window
@@ -28,6 +28,7 @@ cool stuff to add:
 - Reading window layout from serialized data
 - script or build hook to auto-generate desktop file
 - desktop notifications via dbus
+- wm transient for, firefox video in picture
 
 
 (refer to rcwm todo for additional stuff lol)
