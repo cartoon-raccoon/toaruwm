@@ -31,6 +31,9 @@ pub enum Atom {
     /// MANAGER
     #[strum(serialize = "MANAGER")]
     Manager,
+    /// STRING
+    #[strum(serialize = "STRING")]
+    String,
     /// UTF8_STRING
     #[strum(serialize = "UTF8_STRING")]
     UTF8String,
@@ -177,8 +180,6 @@ pub enum Atom {
 #[error("Could not get known atom from given atom {0}")]
 pub struct TryFromAtomError(XAtom);
 
-
-
 /// Clients with one of these window types will be auto floated
 pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeCombo,
@@ -190,7 +191,7 @@ pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypePopupMenu,
     Atom::NetWindowTypeToolbar,
     Atom::NetWindowTypeUtility,
-    ];
+];
     
 /// Windows with a type in this array will not be managed
 pub const UNMANAGED_WINDOW_TYPES: &[Atom] = &[

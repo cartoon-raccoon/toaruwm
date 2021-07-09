@@ -83,7 +83,7 @@ fn test_ewmh_atoms_values() {
 
 #[test]
 fn test_property_retrieval() {
-    let err = |xid: u32| -> String {
+    let err = |xid: u32| -> std::string::String {
         format!("failed to get prop for window {}", xid)
     };
 
