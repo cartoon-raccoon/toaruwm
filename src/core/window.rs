@@ -138,7 +138,9 @@ impl Client {
                 let (class1, class2) = properties.wm_class();
                 (class1.into(), class2.into())
             },
-            initial_geom: Geometry::default(),
+            initial_geom: if let Ok(geom) = conn.get_geometry(from) {
+                geom
+            } else {Geometry::default()},
             transient_for: conn.get_wm_transient_for(from),
             urgent: false,
             mapped_state: WindowState::Normal,
@@ -182,6 +184,11 @@ impl Client {
     #[inline(always)]
     pub fn geometry(&self) -> Geometry {
         self.xwindow.geom
+    }
+
+    #[inline(always)]
+    pub fn initial_geom(&self) -> Geometry {
+        self.initial_geom
     }
 
     /// Returns the value of WM_NAME.
