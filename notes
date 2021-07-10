@@ -6,6 +6,8 @@ convert layout engine into a trait? use trait object to generate layout?
 
 make XConn::poll_for_event blocking? (preserves processing power)
 
+create an elegant way to handle borders
+    (can be integrated with handling window gaps)
 Implement config and use it
 finalise cursor methods
 Fullscreen toggling (EWMH and manual)
@@ -29,6 +31,18 @@ cool stuff to add:
 - script or build hook to auto-generate desktop file
 - desktop notifications via dbus
 - wm transient for, firefox video in picture
+- dbus support (for what? idfk lol)
 
+conventions and rules
+- pass windows around by their id
+use the id to lookup windows, and instead pass references
+to their storage structures
+(allows you to mutably borrow windows within a single scope)
 
-(refer to rcwm todo for additional stuff lol)
+Dynamic tiling:
+- Adding windows
+    if no windows exist, make new window master
+    follow master-slave example
+- Removing windows
+    remove window, then select new master from windows
+    reconfigure window layout
