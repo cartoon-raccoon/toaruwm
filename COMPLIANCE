@@ -26,14 +26,24 @@ ICCCM and EWMH compliance
 ==== EWMH Compliance =====
 //Root Window Properties//
 + _NET_SUPPORTED
++ _NET_NUMBER_OF_DESKTOPS
++ _NET_CURRENT_DESKTOP
+- _NET_WORKAREA (todo)
 - _NET_CLIENT_LIST (todo)
-- _NET_NUMBER_OF_DESKTOPS (todo)
 - _NET_DESKTOP_GEOMETRY (todo)
-- _NET_DESKTOP_VIEWPORT
 - _NET_CURRENT_DESKTOP (todo)
 - _NET_DESKTOP_NAMES (maybe)
 - _NET_ACTIVE_WINDOW (todo)
+- _NET_DESKTOP_VIEWPORT
 
 //Application Window Properties//
++ _NET_WM_NAME
++ _NET_WM_ICON_NAME
+- _NET_WM_DESKTOP (maybe)
+/ _NET_WM_WINDOW_TYPE (todo)
+/ _NET_WM_STATE (todo)
+- _NET_WM_ALLOWED_ACTIONS (todo)
+- _NET_WM_STRUT{_PARTIAL} (todo)
+- _NET_WM_ICON_GEOMETRY
 
 ==========================
