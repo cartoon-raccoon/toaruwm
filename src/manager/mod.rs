@@ -16,6 +16,7 @@ use crate::x::{
     XWindow,
     XWindowID,
     Atom,
+    Property,
     event::ConfigureRequestData,
 };
 use crate::types::{
@@ -160,7 +161,8 @@ impl<X: XConn> WindowManager<X> {
     //* Public Methods
 
     /// Registers the executable as a window manager
-    /// with the X server.
+    /// with the X server, as well as setting properties
+    /// required by ICCCM or EWMH.
     /// 
     /// Selects for subtructure redirect and notify,
     /// grabs required keys for keybinds,
@@ -178,12 +180,32 @@ impl<X: XConn> WindowManager<X> {
             std::process::exit(1)
         });
 
+        // set supported protocols
         self.conn.set_supported(&[
             Atom::WmProtocols,
             Atom::WmTakeFocus,
             Atom::WmState,
             Atom::WmDeleteWindow,
         ]).unwrap_or_else(|e| {
+            error!("{}", e);
+            std::process::exit(1)
+        });
+
+        // set _NET_NUMBER_OF_DESKTOPS
+        self.conn.set_property(
+            root.id, 
+            Atom::NetNumberOfDesktops.as_ref(), 
+            Property::Cardinal(self.config.workspaces.len() as u32)
+        ).unwrap_or_else(|e| {
+            error!("{}", e);
+        });
+
+        // set _NET_CURRENT_DESKTOP
+        self.conn.set_property(
+            root.id,
+            Atom::NetCurrentDesktop.as_ref(),
+            Property::Cardinal(0),
+        ).unwrap_or_else(|e| {
             error!("{}", e);
             std::process::exit(1)
         });

@@ -8,7 +8,7 @@
 //! It encapsulates monitor resolution and is used by the tiling
 //! algorithms to resize windows.
 
-use crate::x::{XConn, XWindowID};
+use crate::x::{XConn, XWindowID, Atom, Property};
 use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::{Workspace, Client};
 use crate::layouts::{LayoutType, LayoutFn};
@@ -229,6 +229,14 @@ impl Desktop {
             //todo: go to last workspace if same
             return
         }
+
+        conn.set_property(
+            conn.get_root().id,
+            Atom::NetCurrentDesktop.as_ref(),
+            Property::Cardinal(new_idx as u32)
+        ).unwrap_or_else(|e| {
+            error!("{}", e)
+        });
         
         self.current_mut().deactivate(conn);
         self.set_current(new_idx);
