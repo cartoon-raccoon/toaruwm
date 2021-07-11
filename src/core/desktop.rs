@@ -250,18 +250,26 @@ impl Desktop {
         }
     }
 
-    /// Send a window to a given workspace.
-    pub fn send_window_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
+    pub fn send_focused_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
         debug!("Attempting to send window to workspace {}", name);
         if let Some(window) = self.current_mut().take_focused_window(conn, scr) {
-            debug!("Sending window {} to workspace {}", window.id(), name);
-            if let Some(ws) = self.find_mut(name) {
-                ws.push_window(window);
-            } else {
-                error!("Cannot find workspace named {}", name);
-            }
+            self.send_window_to(window.id(), name, conn, scr);
         } else {
-            info!("No focused window for workspace {}", name);
+            error!("No focused window in workspace {}", name);
+        }
+    }
+
+    /// Send a window to a given workspace.
+    pub fn send_window_to<X: XConn>(&mut self, id: XWindowID, name: &str, conn: &X, scr: &Screen) {
+        debug!("Attempting to send window to workspace {}", name);
+        let window = if let Ok(window) = self.current_mut().del_window(conn, scr, id) {
+            window
+        } else {return};
+        debug!("Sending window {} to workspace {}", window.id(), name);
+        if let Some(ws) = self.find_mut(name) {
+            ws.push_window(window);
+        } else {
+            error!("Cannot find workspace named {}", name);
         }
         self.current_mut().relayout(conn, scr);
     }

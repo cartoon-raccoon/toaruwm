@@ -1,12 +1,16 @@
+use std::str::FromStr;
+
 use crate::x::{
     XEvent, XWindowID, 
     XConn, XError,
     event::{
         ConfigureRequestData,
         ClientMessageEvent,
+        ClientMessageData,
         PropertyEvent,
         PointerEvent,
     },
+    Atom,
 };
 use crate::core::types::{Geometry, Point};
 use crate::keybinds::{Keybind, Mousebind};
@@ -39,6 +43,8 @@ pub enum EventAction {
     UnmapClient(XWindowID),
     /// Configure the specified client with the given geometry.
     ConfigureClient(ConfigureRequestData),
+    /// Send the client to the specified workspace.
+    ClientToWorkspace(XWindowID, usize),
     /// Run the specified keybind.
     RunKeybind(Keybind, XWindowID),
     /// Run the specified mousebind.
@@ -185,8 +191,39 @@ fn process_property_notify<X: XConn>(
 fn process_client_message<X: XConn>(
     event: ClientMessageEvent, state: WMState<'_, X>
 ) -> Vec<EventAction> {
-    //todo: this is used extensively in EWMH
-    //but is not important to basic operations
-    //so we can ignore this for now
-    vec![]
+    use EventAction::*;
+
+    let is_fullscreen = |data: &[u32]| {
+        data.iter()
+            .map(|&a| state.conn.lookup_atom(a))
+            .flatten()
+            .any(|s| s == Atom::NetWmStateFullscreen.as_ref())
+    };
+
+    let atom = match state.conn.lookup_atom(event.type_) {
+        Ok(atom) => atom,
+        Err(_) => return vec![],
+    };
+
+    if let ClientMessageData::U32(data) = event.data {
+        
+        match Atom::from_str(&atom) {
+            Ok(Atom::NetActiveWindow) => {vec![]} //todo
+            Ok(Atom::NetWmDesktop) => vec![ClientToWorkspace(
+                event.window, data[0] as usize
+            )],
+            Ok(Atom::NetWmState) if is_fullscreen(&data[1..3]) => {
+                let should_fullscreen = [1, 2].contains(&data[0]);
+
+                vec![ToggleClientFullscreen(event.window, should_fullscreen)]
+            }
+            _ => {
+                debug!("Got client message of type {}, data {:?}", atom, data);
+                vec![]
+            }
+        }
+    } else {
+        debug!("Got client message of type {}, data {:?}", atom, event.data);
+        vec![]
+    }
 }

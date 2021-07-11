@@ -312,14 +312,14 @@ impl<X: XConn> WindowManager<X> {
         self.desktop.cycle_workspace(&self.conn, self.screens.focused().unwrap(), direction);
     }
 
-    /// Sends a window to the specified workspace.
+    /// Sends the focused window to the specified workspace.
     pub fn send_window_to(&mut self, name: &str) {
-        self.desktop.send_window_to(name, &self.conn, self.screens.focused().unwrap());
+        self.desktop.send_focused_to(name, &self.conn, self.screens.focused().unwrap());
     }
     
-    /// Sends a window to the specified workspace and then switches to it.
+    /// Sends the focused window to the specified workspace and then switches to it.
     pub fn send_window_and_switch(&mut self, name: &str) {
-        self.desktop.send_window_to(name, &self.conn, self.screens.focused().unwrap());
+        self.desktop.send_focused_to(name, &self.conn, self.screens.focused().unwrap());
         self.desktop.goto(name, &self.conn, self.screens.focused().unwrap());
     }
 
@@ -471,6 +471,7 @@ impl<X: XConn> WindowManager<X> {
                 MapUntrackedClient(id) => {self.map_untracked_client(id)?},
                 UnmapClient(id) => {self.unmap_client(id)?},
                 ConfigureClient(data) => {self.configure_client(data)?},
+                ClientToWorkspace(id, idx) => {self.client_to_workspace(id, idx)?},
                 RunKeybind(kb, id) => {self.run_keybind(kb, keybinds, id)},
                 RunMousebind(mb, id, pt) => {self.run_mousebind(mb, mousebinds, id, pt)},
                 ToggleClientFullscreen(id, thing) => {},
@@ -593,6 +594,19 @@ impl<X: XConn> WindowManager<X> {
 
     fn configure_client(&mut self, data: ConfigureRequestData) -> Result<()> {
         //todo
+        Ok(())
+    }
+
+    fn client_to_workspace(&mut self, id: XWindowID, idx: usize) -> Result<()> {
+        let name = match self.desktop.get(idx) {
+            Some(ws) => ws.name.to_string(),
+            None => return Ok(())
+        };
+
+        self.desktop.send_window_to(
+            id, &name, &self.conn, 
+            &self.screens.focused().unwrap()
+        );
         Ok(())
     }
 
