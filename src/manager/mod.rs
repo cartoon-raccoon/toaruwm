@@ -45,6 +45,14 @@ pub use event::EventAction;
 
 use config::Config;
 
+macro_rules! handle_err {
+    ($call:expr, $_self:expr) => {
+        if let Err(e) = $call {
+            ($_self.ehandler)(e.into());
+        }
+    }
+}
+
 /// Some arbitrary code that can run on a certain event.
 /// 
 /// Accepts a `&mut WindowManager<X>` as a parameter, so it can
@@ -259,9 +267,7 @@ impl<X: XConn> WindowManager<X> {
             if let Some(actions) = event {
                 // if event handling returned an error, do not return
                 // instead, handle it internally and continue
-                if let Err(e) = self.handle_event(actions, &mut mb, &mut kb) {
-                    (self.ehandler)(e);
-                }
+                handle_err!(self.handle_event(actions, &mut mb, &mut kb), self);
             }
 
             //* update window properties
@@ -304,23 +310,29 @@ impl<X: XConn> WindowManager<X> {
     /// Goes to the specified workspace.
     #[instrument(level = "debug")]
     pub fn goto_workspace(&mut self, name: &str) {
-        self.desktop.goto(name, &self.conn, self.screens.focused().unwrap());
+        handle_err!(self.desktop.goto(
+            name, &self.conn, self.screens.focused().unwrap()
+        ), self);
     }
     
     /// Cycles the focused workspace.
     pub fn cycle_workspace(&mut self, direction: Direction) {
-        self.desktop.cycle_workspace(&self.conn, self.screens.focused().unwrap(), direction);
+        handle_err!(self.desktop.cycle_workspace(
+            &self.conn, self.screens.focused().unwrap(), direction
+        ), self);
     }
 
     /// Sends the focused window to the specified workspace.
     pub fn send_window_to(&mut self, name: &str) {
-        self.desktop.send_focused_to(name, &self.conn, self.screens.focused().unwrap());
+        handle_err!(self.desktop.send_focused_to(
+            name, &self.conn, self.screens.focused().unwrap()
+        ), self);
     }
     
     /// Sends the focused window to the specified workspace and then switches to it.
     pub fn send_window_and_switch(&mut self, name: &str) {
-        self.desktop.send_focused_to(name, &self.conn, self.screens.focused().unwrap());
-        self.desktop.goto(name, &self.conn, self.screens.focused().unwrap());
+        handle_err!(self.desktop.send_focused_to(name, &self.conn, self.screens.focused().unwrap()), self);
+        handle_err!(self.desktop.goto(name, &self.conn, self.screens.focused().unwrap()), self);
     }
 
     /// Cycles the focused window.
@@ -421,9 +433,7 @@ impl<X: XConn> WindowManager<X> {
     /// Closes the focused window
     pub fn close_focused_window(&mut self) {
         if let Some(window) = self.desktop.current_mut().windows.focused() {
-            if let Err(e) = self.conn.destroy_window(window.id()) {
-                (self.ehandler)(e.into())
-            }
+            handle_err!(self.conn.destroy_window(window.id()), self);
         }
     }
 
@@ -606,8 +616,7 @@ impl<X: XConn> WindowManager<X> {
         self.desktop.send_window_to(
             id, &name, &self.conn, 
             &self.screens.focused().unwrap()
-        );
-        Ok(())
+        )
     }
 
     fn run_keybind(&mut self, 

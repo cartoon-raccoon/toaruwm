@@ -65,8 +65,17 @@ pub enum ToaruError {
     #[error("Unknown client {0}")]
     UnknownClient(XWindowID),
 
-    #[error("Invalid Point ({0}, {1})")]
+    /// An request to switch to a workspace unknown to ToaruWM.
+    #[error("Unknown workspace {0}")]
+    UnknownWorkspace(String),
+
+    /// An invalid point on the root window.
+    #[error("Invalid point ({0}, {1})")]
     InvalidPoint(i32, i32),
+
+    /// An error not covered by ToaruWM.
+    #[error("Error: {0}")]
+    OtherError(String),
 }
 
 impl From<XError> for ToaruError {

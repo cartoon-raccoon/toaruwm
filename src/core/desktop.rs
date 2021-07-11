@@ -12,6 +12,7 @@ use crate::x::{XConn, XWindowID, Atom, Property};
 use crate::types::{Ring, Geometry, Direction, Selector};
 use crate::core::{Workspace, Client};
 use crate::layouts::{LayoutType, LayoutFn};
+use crate::{Result, ToaruError::*};
 
 /// Represents a physical monitor.
 #[derive(Clone, Copy, Debug)]
@@ -200,7 +201,7 @@ impl Desktop {
         conn: &X, 
         scr: &Screen, 
         direction: Direction
-    ) {
+    ) -> Result<()> {
         debug!("Cycling workspaces in direction {:?}", direction);
         self.workspaces.cycle_focus(direction);
 
@@ -209,34 +210,30 @@ impl Desktop {
         if let Some(ws) = self.workspaces.focused() {
             name = ws.name().into();
         } else {
-            error!("Focused should be Some");
-            return
+            return Err(OtherError("Focused should be Some".into()))
         }
-        self.goto(&name, conn, scr);
+        self.goto(&name, conn, scr)
     }
 
     /// Switch to a given workspace by its name.
-    pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
+    pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Going to workspace with name '{}'", name);
 
         let new_idx = self.workspaces.index(Selector::Condition(&|ws| ws.name == name));
         if new_idx.is_none() {
-            error!("No workspace {} found", name);
-            return
+            return Err(UnknownWorkspace(name.into()))
         }
         let new_idx = new_idx.unwrap();
         if self.current_idx() == new_idx {
             //todo: go to last workspace if same
-            return
+            return Ok(())
         }
 
         conn.set_property(
             conn.get_root().id,
             Atom::NetCurrentDesktop.as_ref(),
             Property::Cardinal(new_idx as u32)
-        ).unwrap_or_else(|e| {
-            error!("{}", e)
-        });
+        )?;
         
         self.current_mut().deactivate(conn);
         self.set_current(new_idx);
@@ -246,31 +243,33 @@ impl Desktop {
         if let Some(ws) = self.get_mut(self.current_idx()) {
             ws.activate(conn, scr);
         } else {
-            error!("No workspace found for index {}", new_idx);
+            return Err(UnknownWorkspace(name.into()))
         }
+        
+        Ok(())
     }
 
-    pub fn send_focused_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) {
+    pub fn send_focused_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
         if let Some(window) = self.current_mut().take_focused_window(conn, scr) {
-            self.send_window_to(window.id(), name, conn, scr);
+            self.send_window_to(window.id(), name, conn, scr)
         } else {
-            error!("No focused window in workspace {}", name);
+            debug!("No focused window in workspace {}", name);
+            Ok(())
         }
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<X: XConn>(&mut self, id: XWindowID, name: &str, conn: &X, scr: &Screen) {
+    pub fn send_window_to<X: XConn>(&mut self, id: XWindowID, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
-        let window = if let Ok(window) = self.current_mut().del_window(conn, scr, id) {
-            window
-        } else {return};
+        let window = self.current_mut().del_window(conn, scr, id)?;
         debug!("Sending window {} to workspace {}", window.id(), name);
         if let Some(ws) = self.find_mut(name) {
             ws.push_window(window);
         } else {
-            error!("Cannot find workspace named {}", name);
+            return Err(UnknownWorkspace(name.into()))
         }
         self.current_mut().relayout(conn, scr);
+        Ok(())
     }
 }
