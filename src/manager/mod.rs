@@ -323,7 +323,7 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Sends the focused window to the specified workspace.
-    pub fn send_window_to(&mut self, name: &str) {
+    pub fn send_focused_to(&mut self, name: &str) {
         handle_err!(self.desktop.send_focused_to(
             name, &self.conn, self.screens.focused().unwrap()
         ), self);
@@ -343,6 +343,11 @@ impl<X: XConn> WindowManager<X> {
     /// Toggles the state of the focused window to floating or vice versa.
     pub fn toggle_focused_state(&mut self) {
         self.desktop.current_mut().toggle_focused_state(&self.conn, self.screens.focused().unwrap());
+    }
+
+    /// Toggles the focused window to fullscreen.
+    pub fn toggle_focused_fullscreen(&mut self) {
+
     }
 
     /// Cycles the layouts used by the `WindowManager`.
@@ -667,6 +672,10 @@ impl<X: XConn> WindowManager<X> {
         } else {
             warn!("Binding not found for mouse event");
         }
+    }
+
+    fn set_fullscreen(&mut self, id: XWindowID, should_fullscreen: bool) -> Result<()> {
+        todo!()
     }
 
     fn screen_reconfigure(&mut self) -> Result<()> {
