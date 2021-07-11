@@ -42,6 +42,10 @@ const KEYBINDS: &[(&str, fn(Wm))] = &[
     ("M-S-Right",|wm| wm.warp_window(5, Right)),
     ("M-1",      |wm| wm.goto_workspace("1")),
     ("M-2",      |wm| wm.goto_workspace("2")),
+    ("M-3",      |wm| wm.goto_workspace("3")),
+    ("M-S-1",    |wm| wm.send_focused_to("1")),
+    ("M-S-2",    |wm| wm.send_focused_to("2")),
+    ("M-S-3",    |wm| wm.send_focused_to("3")),
 ];
 
 pub fn main() -> Result<(), Box<dyn Error>> {
