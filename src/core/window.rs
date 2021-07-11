@@ -103,6 +103,7 @@ pub struct Client {
 
     initial_geom: Geometry,
     urgent: bool,
+    fullscreen: bool,
     transient_for: Option<XWindowID>,
     mapped_state: WindowState,
     net_states: NetWindowStates,
@@ -143,6 +144,7 @@ impl Client {
             } else {Geometry::default()},
             transient_for: conn.get_wm_transient_for(from),
             urgent: false,
+            fullscreen: false,
             mapped_state: WindowState::Normal,
             net_states: NetWindowStates::new(),
             layout_state: layout,
@@ -225,6 +227,11 @@ impl Client {
     #[inline(always)]
     pub fn is_urgent(&self) -> bool {
         self.urgent
+    }
+
+    #[inline(always)]
+    pub fn is_fullscreen(&self) -> bool {
+        self.fullscreen
     }
 
     /// Sets the client's state to tiled.
