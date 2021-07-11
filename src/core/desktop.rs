@@ -251,12 +251,13 @@ impl Desktop {
 
     pub fn send_focused_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
-        if let Some(window) = self.current_mut().take_focused_window(conn, scr) {
-            self.send_window_to(window.id(), name, conn, scr)
+        let winid = if let Some(window) = self.current().focused_client() {
+            window.id()
         } else {
             debug!("No focused window in workspace {}", name);
-            Ok(())
-        }
+            return Ok(())
+        };
+        self.send_window_to(winid, name, conn, scr)
     }
 
     /// Send a window to a given workspace.
