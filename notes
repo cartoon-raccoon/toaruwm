@@ -8,6 +8,8 @@ make XConn::poll_for_event blocking? (preserves processing power)
 
 create an elegant way to handle borders
     (can be integrated with handling window gaps)
+workspace methods to return error?
+multi-screen support (set focused screen, assign workspace to screen, etc)
 Implement config and use it
 finalise cursor methods
 Fullscreen toggling (EWMH and manual)
