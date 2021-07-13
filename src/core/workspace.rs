@@ -374,9 +374,16 @@ impl Workspace {
     }
 
     /// Cycles the focus to the next window in the workspace.
-    #[allow(mutable_borrow_reservation_conflict)]
     pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
         use BorderStyle::*;
+
+        // change focus colours
+        let win = if let Some(win) = self.windows.focused() {
+            win.id()
+        } else {
+            error!("cycle_focus for ws {}: nothing focused", self.name);
+            return
+        };
 
         //change currently focused border colour to unfocused
         if let Some(win) = self.windows.focused_mut() {
@@ -386,10 +393,7 @@ impl Workspace {
         //internally, cycle focus
         self.windows.cycle_focus(dir);
 
-        // change focus colours
-        if let Some(win) = self.windows.focused() {
-            self.focus_window(conn, win.id());
-        }
+        self.focus_window(conn, win);
     }
 
     /// Cycles the master to the next window in the workspace.
