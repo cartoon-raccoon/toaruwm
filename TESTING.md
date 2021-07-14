@@ -8,7 +8,11 @@ to how it should be used as a library.
 
 You can test this repository on your own system via Xephyr, which
 is a program that allows you to run a separate instance of the X server
-within an X session in a separate window.
+within a pre-existing X session in a separate window.
+
+To run this repository, you need to have Rust installed on your system.
+You can install Cargo from your distro's repos, or from the official
+Rust [website](https://www.rust-lang.org/tools/install).
 
 To check out this repository, clone it, change into it and run the following commands:
 
@@ -17,6 +21,9 @@ Xephyr -br -ac -noreset -screen <resolution> :1 &
 
 DISPLAY=:1 cargo run
 ```
+
+where `<resolution>` is the resolution you want for the window,
+e.g. 1500x600.
 
 By default, three workspaces are provided, creatively named 1, 2, and 3.
 
