@@ -1,6 +1,6 @@
 use super::{WindowManager};
 
-use crate::core::{Ring, Workspace, Desktop};
+use crate::core::{Ring, Workspace, Desktop, Client};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// Provides a view into the state of the window manager.
@@ -25,5 +25,11 @@ impl<X: XConn> WindowManager<X> {
             selected: self.selected,
             focused: self.focused,
         }
+    }
+}
+
+impl <'a, X: XConn> WMState<'a, X> {
+    pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
+        self.desktop.current().windows.lookup(id)
     }
 }

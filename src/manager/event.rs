@@ -11,8 +11,9 @@ use crate::x::{
         PointerEvent,
     },
     Atom,
+    Property, WmHintsFlags,
 };
-use crate::core::types::{Geometry, Point};
+use crate::core::types::Point;
 use crate::keybinds::{Keybind, Mousebind};
 use crate::manager::WMState;
 
@@ -173,8 +174,15 @@ fn process_enter_notify<X: XConn>(
     let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
 
     if let Some(focused) = state.focused {
+        // unfocus previous client
         if focused != pt.id {
             actions.insert(0, ClientUnfocus(focused))
+        }
+        // if next client is set to urgent, unset its urgent flag
+        if let Some(c) = state.lookup_client(pt.id) {
+            if c.is_urgent() {
+                actions.push(ToggleUrgency(pt.id));
+            }
         }
     }
 
@@ -184,7 +192,25 @@ fn process_enter_notify<X: XConn>(
 fn process_property_notify<X: XConn>(
     event: PropertyEvent, state: WMState<'_, X>
 ) -> Vec<EventAction> {
-    //todo
+    use EventAction::*;
+
+    let atom = if let Ok(atom) = state.conn.lookup_atom(event.atom) {
+        atom
+    } else {return vec![]};
+
+    let hints = Atom::WmHints.as_ref();
+
+    if !event.deleted && atom == hints {
+        let wmhints = if let Ok(Some(h)) = state.conn.get_prop(hints, event.id) {
+            h
+        } else {return vec![]};
+
+        if let Property::WMHints(wmhints) = wmhints {
+            if wmhints.is_set(WmHintsFlags::URGENCY_HINT) {
+                return vec![ToggleUrgency(event.id)]
+            }
+        }
+    }
     vec![]
 }
 
