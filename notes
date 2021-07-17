@@ -41,6 +41,15 @@ use the id to lookup windows, and instead pass references
 to their storage structures
 (allows you to mutably borrow windows within a single scope)
 
+multi-screen policy:
+    when goto_ws is invoked, if workspace is on different screen,
+    the cursor is warped to the workspace
+    if the workspace is on the same screen, the current workspace
+    is deactivated and the new one takes its place
+    
+    when fullscreen is toggled, the window takes up the entire screen
+    but does not intrude into other workspaces
+
 Dynamic tiling:
 - Adding windows
     if no windows exist, make new window master
