@@ -18,7 +18,7 @@ impl Default for Config {
             float_classes: Vec::new(),
             unfocused: 0x555555,
             focused: 0xdddddd,
-            urgent: 0xee00000,
+            urgent: 0xee0000,
         }
     }
 }
