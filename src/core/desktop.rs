@@ -9,36 +9,47 @@
 //! algorithms to resize windows.
 
 use crate::x::{XConn, XWindowID, Atom, Property};
-use crate::types::{Ring, Geometry, Direction, Selector};
+use crate::types::{
+    Ring, Geometry, 
+    Direction, Selector,
+    Cardinal,
+};
 use crate::core::{Workspace, Client};
 use crate::layouts::{LayoutType, LayoutFn};
 use crate::{Result, ToaruError::*};
 
 /// Represents a physical monitor.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Screen {
     pub(crate) root_id: XWindowID,
     pub(crate) effective_geom: Geometry,
     pub(crate) true_geom: Geometry,
     pub(crate) idx: i32,
+    pub(crate) wix: Vec<String>,
 }
 
 impl Screen {
     pub fn new(
         screen_idx: i32, 
         geom: Geometry, 
-        root_id: XWindowID
+        root_id: XWindowID,
+        wix: Vec<String>,
     ) -> Self {
         Self {
             root_id,
             effective_geom: geom,
             true_geom: geom,
             idx: screen_idx,
+            wix,
         }
     }
 
-    pub fn update_effective(&mut self,) {
+    pub fn add_workspace<S: Into<String>>(&mut self, wsname: S) {
+        self.wix.push(wsname.into());
+    }
 
+    pub fn update_effective(&mut self, dir: Cardinal, trim: i32) {
+        self.true_geom = self.true_geom.trim(trim, dir);
     }
 
     pub fn true_geom(&self) -> Geometry {

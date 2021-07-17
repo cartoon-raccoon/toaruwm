@@ -1,6 +1,8 @@
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub workspaces: Vec<String>,
+    /// The workspaces and the screen it should be sent to.
+    /// (Name, Screen)
+    pub workspaces: Vec<(String, usize)>,
     pub gap_px: u32,
     pub main_ratio_inc: f32,
     pub float_classes: Vec<String>,
@@ -12,7 +14,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            workspaces: vec!["1".into(), "2".into(), "3".into()],
+            workspaces: vec![("1".into(), 0), ("2".into(), 0), ("3".into(), 0)],
             gap_px: 0,
             main_ratio_inc: 0.05,
             float_classes: Vec::new(),

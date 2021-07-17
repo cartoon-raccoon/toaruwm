@@ -116,7 +116,7 @@ impl XConn for XCBConn {
                     r.height() as i32,
                     r.width() as i32,
                 );
-                Screen::new(i as i32, geom, info.root())
+                Screen::new(i as i32, geom, info.root(), vec![])
             })
             .filter(|s| s.true_geom().width > 0).collect();
 

@@ -226,6 +226,7 @@ impl Geometry {
     ///     Geometry::new(0, 50, 50, 200),
     /// ]);
     /// ```
+    #[must_use]
     pub fn split_horz_n(&self, n: usize) -> Vec<Geometry> {
         let new_height = self.height / n as i32;
 
@@ -262,6 +263,7 @@ impl Geometry {
     ///     Geometry::new(100, 0, 100, 100),
     /// ]);
     /// ```
+    #[must_use]
     pub fn split_vert_n(&self, n: usize) -> Vec<Geometry> {
         let new_width = self.width / n as i32;
 
@@ -303,6 +305,7 @@ impl Geometry {
     /// assert_eq!(top, Geometry::new(0, 0, 75, 200));
     /// assert_eq!(bottom, Geometry::new(0, 75, 25, 200));
     /// ```
+    #[must_use]
     pub fn split_horz_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
         let ratio = ratio.clamp(0.0, 1.0);
 
@@ -355,6 +358,7 @@ impl Geometry {
     /// assert_eq!(top, Geometry::new(0, 0, 100, 150));
     /// assert_eq!(bottom, Geometry::new(150, 0, 100, 50));
     /// ```
+    #[must_use]
     pub fn split_vert_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
         let ratio = ratio.clamp(0.0, 1.0);
 
@@ -400,6 +404,7 @@ impl Geometry {
     /// assert_eq!(top, Geometry::new(0, 0, 40, 200));
     /// assert_eq!(bottom, Geometry::new(0, 60, 60, 200));
     /// ```
+    #[must_use]
     pub fn split_at_height(&self, height: i32) -> (Geometry, Geometry) {
         (
             // Top
@@ -436,6 +441,7 @@ impl Geometry {
     /// assert_eq!(left, Geometry::new(0, 0, 100, 120));
     /// assert_eq!(right, Geometry::new(120, 0, 100, 80));
     /// ```
+    #[must_use]
     pub fn split_at_width(&self, width: i32) -> (Geometry, Geometry) {
         (
             // Left
@@ -453,6 +459,28 @@ impl Geometry {
                 width: self.width - width,
             }
         )
+    }
+
+    /// Trim off an area from a Geometry.
+    /// 
+    /// This returns a new geometry.
+    #[must_use]
+    pub fn trim(&self, trim: i32, dir: Cardinal) -> Geometry {
+        use Cardinal::*;
+        match dir {
+            Up => Geometry::new(
+                self.x - trim, self.y, self.width, self.height - trim
+            ),
+            Down => Geometry::new(
+                self.x, self.y, self.width, self.height - trim
+            ),
+            Left => Geometry::new(
+                self.x, self.y + trim, self.width - trim, self.height
+            ),
+            Right => Geometry::new(
+                self.x, self.y, self.width - trim, self.height
+            )
+        }
     }
 }
 

@@ -142,8 +142,20 @@ impl<X: XConn> WindowManager<X> {
         let mut screens = Ring::from_iter(conn.all_outputs().unwrap_or_else(
             |e| fatal!("Could not get screens: {}", e)
         ));
+        //todo: this should be passed in
         let config = Config::default();
-        let workspaces = config.workspaces.clone();
+        let workspaces = config.workspaces
+            .iter()
+            .map(|(ws, _)| ws.clone())
+            .collect();
+
+        for (ws_name, idx) in &config.workspaces {
+            if let Some(scr) = screens.get_mut(*idx) {
+                scr.add_workspace(ws_name);
+            } else {
+                error!("No screen with index {}", idx);
+            }
+        }
 
         debug!("Got screens: {:?}", screens);
         screens.set_focused(0);
@@ -489,8 +501,8 @@ impl<X: XConn> WindowManager<X> {
                 ClientToWorkspace(id, idx) => {self.client_to_workspace(id, idx)?},
                 RunKeybind(kb, id) => {self.run_keybind(kb, keybinds, id)},
                 RunMousebind(mb, id, pt) => {self.run_mousebind(mb, mousebinds, id, pt)},
-                ToggleClientFullscreen(id, thing) => {},
-                ToggleUrgency(id) => {},
+                ToggleClientFullscreen(id, should_fs) => {self.set_fullscreen(id, should_fs)?},
+                ToggleUrgency(id) => {self.toggle_urgency(id)?},
                 HandleError(err, evt) => {self.handle_error(err, evt)},
             }
         }
@@ -676,6 +688,11 @@ impl<X: XConn> WindowManager<X> {
 
     fn set_fullscreen(&mut self, id: XWindowID, should_fullscreen: bool) -> Result<()> {
         todo!()
+    }
+
+    fn toggle_urgency(&mut self, id: XWindowID) -> Result<()> {
+        //todo
+        Ok(())
     }
 
     fn screen_reconfigure(&mut self) -> Result<()> {
