@@ -143,8 +143,11 @@ pub struct MouseEvent {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClientMessageEvent {
+    /// The window the event originated from.
     pub window: XWindowID,
+    /// Client message data.
     pub data: ClientMessageData,
+    /// The type that the data is to be interpreted as.
     pub type_: XAtom,
 }
 

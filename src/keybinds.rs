@@ -53,6 +53,7 @@ pub enum MouseEventKind {
 pub type KeyMask = u16;
 pub type KeyCode = u8;
 
+/// Representation of a Keybind that can be run by ToaruWM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Keybind {
     pub modmask: KeyMask,
@@ -71,6 +72,7 @@ pub const fn mb(modmask: Vec<ModKey>, button: ButtonIndex, kind: MouseEventKind)
     }
 }
 
+/// Representation of a mouse binding that can be run by ToaruWM.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Mousebind {
     pub modmask: Vec<ModKey>,
