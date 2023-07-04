@@ -7,6 +7,9 @@
 
 use std::fmt;
 
+use tracing::instrument;
+use tracing::{trace, debug, error};
+
 use crate::{Result, ToaruError};
 use crate::core::{
     window::{Client, ClientRing},
@@ -87,6 +90,7 @@ impl Workspace {
     }
 
     /// Maps all the windows in the workspace.
+    #[instrument(level="debug", skip(self, conn))]
     pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         if self.windows.is_empty() {
             return
@@ -125,6 +129,7 @@ impl Workspace {
     }
 
     /// Unmaps all the windows in the workspace.
+    #[instrument(level="debug", skip(self, conn))]
     pub fn deactivate<X: XConn>(&mut self, conn: &X) {
         for window in self.windows.iter() {
             conn.change_window_attributes(window.id(), &[ClientAttrs::DisableClientEvents])
@@ -150,6 +155,7 @@ impl Workspace {
     }
 
     /// Deletes the window from the workspaces and returns it.
+    #[instrument(level="debug", skip(self, conn))]
     pub fn del_window<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Result<Client> {
@@ -166,23 +172,23 @@ impl Workspace {
     pub(crate) fn add_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
-        fn_ends!("add_window_floating");
         self._add_window(conn, scr, Client::floating(id, conn));
     }
 
     pub(crate) fn add_window_tiled<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) {
-        fn_ends!("add_window_tiled");
         if self.master.is_none() {
             self.set_master(id);
         }
         self._add_window(conn, scr, Client::tiled(id, conn));
     }
 
+    #[instrument(level="debug", skip(self, conn, scr, window))]
     fn _add_window<X: XConn>(&mut self,
         conn: &X, scr: &Screen, mut window: Client
     ) {
+        trace!("adding window {:#?}", window);
         window.set_supported(conn);
         window.map(conn);
         window.configure(conn, &[
@@ -211,7 +217,6 @@ impl Workspace {
         self.relayout(conn, scr);
     }
 
-    #[allow(mutable_borrow_reservation_conflict)]
     fn del_window_floating<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Client {
@@ -238,7 +243,6 @@ impl Workspace {
     fn del_window_tiled<X: XConn>(&mut self, 
         conn: &X, scr: &Screen, id: XWindowID
     ) -> Client {
-        fn_ends!("[start] dtiled::del_window");
 
         // internally remove window from tracking
         let window = self.windows.remove_by_id(id)
@@ -287,13 +291,11 @@ impl Workspace {
         // recalculate layouts
         self.relayout(conn, scr);
 
-        fn_ends!("[end] dtiled::del_window");
         window
     }
 
     /// Pushes a window directly.
     pub(crate) fn push_window(&mut self, window: Client) {
-        fn_ends!("[start] workspace::push_window");
         if let LayoutType::Floating = self.layout() {
             self.windows.push(window);
         } else if self.master.is_none() {
@@ -310,7 +312,6 @@ impl Workspace {
         } else {
             self.windows.append(window);
         }
-        fn_ends!("[end] workspace::push_window");
     }
 
     /// Calls the layout function and applies it to the workspace.
@@ -529,8 +530,14 @@ impl Workspace {
 
     /// Sets the master window of the workspace.
     pub fn set_master(&mut self, master_id: XWindowID) {
+        // either we have no tiled windows
+        // or we're adding a window that we're not supposed to
         if !self.windows.contains(master_id) {
-            error!("set_master: No such window {}", master_id);
+            if self.tiled_count() == 0 {
+                self.master = Some(master_id);
+            } else {
+                error!("set_master: No such window {}", master_id);
+            }
             return
         }
         self.master = Some(master_id);
@@ -549,10 +556,8 @@ impl Workspace {
     ///  Tests whether `id` is the master window.
     #[inline(always)]
     pub fn is_master(&mut self, id: XWindowID) -> bool {
-        if let Some(win) = self.master {
-            return win == id
-        }
-        false
+        let Some(win) = self.master else {return false};
+        win == id
     }
 
     /// Returns the name of the workspace.

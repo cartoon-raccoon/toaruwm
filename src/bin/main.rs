@@ -10,6 +10,13 @@
 
 use std::error::Error;
 
+// use flexi_logger::{
+//     Logger, 
+//     LogSpecification,
+// };
+use tracing::Level;
+use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
+
 use toaruwm::xcb_backed_wm;
 use toaruwm::keybinds::{
     ModKey,
@@ -48,7 +55,23 @@ const KEYBINDS: &[(&str, fn(Wm))] = &[
     ("M-S-3",    |wm| wm.send_focused_to("3")),
 ];
 
-pub fn main() -> Result<(), Box<dyn Error>> {
+pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    logger::fmt()
+        // use the pretty builder
+        //.pretty()
+        // only log enter and exit
+        .with_span_events(FmtSpan::ACTIVE)
+        // log all events up to TRACE
+        .with_max_level(Level::TRACE)
+        // don't use timestamps
+        .without_time()
+        // don't show source filename
+        .with_file(false)
+        // don't show source code line
+        .with_line_number(false)
+        // register as global
+        .try_init()?;
+
     //* 1: Setup X Connection and allocate new WM object
     let mut wm = xcb_backed_wm()?;
 

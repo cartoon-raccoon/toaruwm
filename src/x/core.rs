@@ -6,6 +6,7 @@
 use std::str::FromStr;
 
 use thiserror::Error;
+use tracing::{debug, error};
 
 use crate::keybinds::{Keybind, Mousebind};
 
@@ -126,7 +127,7 @@ impl XWindow {
         match conn.get_geometry(self.id) {
             Ok(geom) => {
                 debug!(
-                    "Updating geometry (conn):\nx: {}, y: {}, h: {}, w: {}", 
+                    "Updating geometry (conn): x: {}, y: {}, h: {}, w: {}", 
                     geom.x, geom.y, geom.height, geom.width
                 );
                 self.geom = geom;

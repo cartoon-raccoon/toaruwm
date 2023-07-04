@@ -7,6 +7,9 @@
 //! `Screen` represents a physical monitor that X is connected to.
 //! It encapsulates monitor resolution and is used by the tiling
 //! algorithms to resize windows.
+//! 
+
+use tracing::{debug};
 
 use crate::x::{XConn, XWindowID, Atom, Property};
 use crate::types::{

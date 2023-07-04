@@ -4,6 +4,16 @@ use super::{
 };
 use crate::x::Atom::*;
 
+#[cfg(debug_assertions)]
+macro_rules! debug {
+    ($fmt:expr) => {
+        (println!(concat!("[debug] ", $fmt)));
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        (println!(concat!("[debug] ", $fmt), $($arg)*));
+    };
+}
+
 #[test]
 fn test_ewmh_atoms_values() {
     let mut conn = XCBConn::connect().expect("connection failed");

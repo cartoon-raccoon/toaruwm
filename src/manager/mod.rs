@@ -4,6 +4,7 @@ use std::iter::FromIterator;
 use std::fmt;
 
 use tracing::instrument;
+use tracing::{debug, trace, info, error};
 
 use crate::{
     Result, ToaruError, ErrorHandler,
@@ -136,7 +137,6 @@ impl<X: XConn> WindowManager<X> {
 
     /// Constructs a new WindowManager object.
     pub fn new(conn: X) -> WindowManager<X> {
-        fn_ends!("WindowManager::new");
 
         let root = conn.get_root();
         let mut screens = Ring::from_iter(conn.all_outputs().unwrap_or_else(
@@ -188,11 +188,11 @@ impl<X: XConn> WindowManager<X> {
     /// grabs required keys for keybinds,
     /// and runs any registered startup hooks.
     pub fn register(&mut self, hooks: Vec<Hook<X>>) {
-        fn_ends!("WindowManager::init");
+        info!("Registering window manager");
 
         let root = self.conn.get_root();
 
-        debug!("Got root window data: {:?}", root);
+        debug!("Got root window data: {:#?}", root);
 
         self.conn.change_window_attributes(root.id, &[ClientAttrs::RootEventMask])
         .unwrap_or_else(|_| {
@@ -201,6 +201,7 @@ impl<X: XConn> WindowManager<X> {
         });
 
         // set supported protocols
+        debug!("Setting supported protocols");
         self.conn.set_supported(&[
             Atom::WmProtocols,
             Atom::WmTakeFocus,
@@ -212,6 +213,7 @@ impl<X: XConn> WindowManager<X> {
         });
 
         // set _NET_NUMBER_OF_DESKTOPS
+        debug!("Setting _NET_NUMBER_OF_DESKTOPS");
         self.conn.set_property(
             root.id, 
             Atom::NetNumberOfDesktops.as_ref(), 
@@ -247,11 +249,14 @@ impl<X: XConn> WindowManager<X> {
         mb: &Mousebinds<X>, 
         kb: &Keybinds<X>
     ) -> Result<()> {
+
+        info!("Grabbing mouse bindings");
         let root_id = self.conn.get_root().id;
         for binding in mb.keys() {
             self.conn.grab_button(binding, root_id, true)?;
         }
         
+        info!("Grabbing key bindings");
         for binding in kb.keys() {
             self.conn.grab_key(*binding, root_id)?;
         }
@@ -265,7 +270,7 @@ impl<X: XConn> WindowManager<X> {
         mut mb: Mousebinds<X>,
         mut kb: Keybinds<X>
     ) -> Result<()> {
-        fn_ends!("WindowManager::run");
+        info!("Beginning event loop");
 
         loop {
             let event = self.process_next_event().or_else(|e|{
@@ -276,6 +281,7 @@ impl<X: XConn> WindowManager<X> {
                     e => {(self.ehandler)(e); Ok(None)}
                 }
             })?;
+            trace!("received events {:#?}", event);
             if let Some(actions) = event {
                 // if event handling returned an error, do not return
                 // instead, handle it internally and continue
@@ -296,6 +302,7 @@ impl<X: XConn> WindowManager<X> {
 
     /// Run an external command.
     pub fn run_external<S: Into<String>>(&mut self, cmd: S, args: &[&str]) {
+        
         let cmd = cmd.into();
         debug!("Running command [{}] with args {:?}", cmd, args);
         let result = Command::new(cmd)
@@ -368,8 +375,8 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
+    #[instrument(level = "debug", skip(self))]
     pub fn move_window_ptr(&mut self, pt: Point) {
-        fn_ends!("move_window_ptr");
 
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
@@ -399,7 +406,6 @@ impl<X: XConn> WindowManager<X> {
     /// If the window is tiled, its state is toggled to floating
     /// and the entire desktop is re-laid out.
     pub fn resize_window_ptr(&mut self, pt: Point) {
-        fn_ends!("resize_window_ptr");
 
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
@@ -471,13 +477,16 @@ impl<X: XConn> WindowManager<X> {
 
     //* Private methods
     fn process_next_event(&mut self) -> Result<Option<Vec<EventAction>>> {
-        if let Some(event) = self.conn.poll_next_event()? {
-            Ok(Some(EventAction::from_xevent(event, self.state())))
-        } else {
+        let Some(event) = self.conn.poll_next_event()? else {return Ok(None)};
+        let actions = EventAction::from_xevent(event, self.state());
+        if actions.is_empty() {
             Ok(None)
+        } else {
+            Ok(Some(actions))
         }
     }
 
+    #[instrument(level="debug", skip(self, actions, mousebinds, keybinds))]
     fn handle_event(
         &mut self, 
         actions: Vec<EventAction>,
@@ -510,9 +519,8 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
-    #[instrument(level = "debug")]
+    #[instrument(level = "debug", skip(self))]
     fn update_focus(&mut self, id: XWindowID) -> Result<()> {
-        fn_ends!("update_focus for window {}", id);
         // get target id
         // set input focus to main window
         // send clientmessage to focus if not focused
@@ -533,16 +541,14 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
-    #[instrument(level = "debug")]
+    #[instrument(level = "debug", skip(self))]
     fn focused_client_id(&self) -> Option<XWindowID> {
         self.desktop.current_client().map(|c| c.id())
     }
 
     /// Unfocuses a client
-    #[instrument(level = "debug")]
+    #[instrument(level = "debug", skip(self))]
     fn client_unfocus(&mut self, id: XWindowID) -> Result<()> {
-        fn_ends!("lost focus for window {}", id);
-
         self.desktop.current_mut().unfocus_window(&self.conn, id);
         self.focused = self.desktop.current_client().map(|c| c.id());
         Ok(())
@@ -586,7 +592,6 @@ impl<X: XConn> WindowManager<X> {
 
     #[instrument(level = "debug", skip(self))]
     fn map_tracked_client(&mut self, id: XWindowID) -> Result<()> {
-        fn_ends!("Wm::map_tracked_client({})", id);
 
         let current = self.desktop.current_mut();
         if self.conn.should_float(id, &self.config.float_classes) ||
@@ -609,7 +614,6 @@ impl<X: XConn> WindowManager<X> {
 
     #[instrument(level = "debug", skip(self))]
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
-        fn_ends!("Wm::unmap_tracked_client({})", id);
 
         self.desktop.current_mut().del_window(
             &self.conn,
@@ -619,11 +623,12 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn configure_client(&mut self, data: ConfigureRequestData) -> Result<()> {
-        //todo
         Ok(())
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn client_to_workspace(&mut self, id: XWindowID, idx: usize) -> Result<()> {
         let name = match self.desktop.get(idx) {
             Some(ws) => ws.name.to_string(),
@@ -636,10 +641,10 @@ impl<X: XConn> WindowManager<X> {
         )
     }
 
+    #[instrument(level = "debug", skip(self, bdgs))]
     fn run_keybind(&mut self, 
         kb: Keybind, bdgs: &mut Keybinds<X>, id: XWindowID
     ) {
-        fn_ends!("run_keybind for window {}", id);
 
         if let Some(focused) = self.focused {
             if focused != id {
@@ -653,10 +658,10 @@ impl<X: XConn> WindowManager<X> {
         }
     }
 
+    #[instrument(level = "debug", skip(self, bdgs))]
     fn run_mousebind(&mut self, 
         mb: Mousebind, bdgs: &mut Mousebinds<X>, id: XWindowID, pt: Point,
     ) {
-        fn_ends!("run_mousebind for window {}", id);
 
         match mb.kind {
             MouseEventKind::Press => {

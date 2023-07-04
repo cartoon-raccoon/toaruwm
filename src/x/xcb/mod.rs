@@ -1,8 +1,11 @@
 use std::convert::{TryFrom, TryInto};
 use std::cell::{Cell, RefCell};
+use std::fmt;
 
 use xcb_util::{ewmh, cursor};
 use xcb::randr;
+
+use tracing::{trace, instrument};
 
 use strum::*;
 
@@ -106,11 +109,10 @@ impl XCBConn {
 
     /// Connect to the X server and allocate a new Connection.
     pub fn connect() -> Result<Self> {
-        fn_ends!("XCBConn::connect");
 
         // initialize xcb connection
         let (x, idx) = xcb::Connection::connect(None)?;
-        debug!("Connected to x server, got preferred screen {}", idx);
+        trace!("Connected to x server, got preferred screen {}", idx);
         // wrap it in an ewmh connection just for fun
         let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
@@ -140,7 +142,6 @@ impl XCBConn {
     /// 
     /// [1]: crate::x::Atom;
     pub fn init(&mut self) -> Result<()> {
-        fn_ends!("XCBConn::init");
 
         // validate randr version
         let res = randr::query_version(&self.conn, RANDR_MAJ, RANDR_MIN)
@@ -148,7 +149,7 @@ impl XCBConn {
 
         let (maj, min) = (res.major_version(), res.minor_version());
 
-        debug!("Got randr version {}.{}", maj, min);
+        trace!("Got randr version {}.{}", maj, min);
 
         if maj != RANDR_MAJ || min < RANDR_MIN {
             return Err(XError::RandrError(
@@ -167,14 +168,14 @@ impl XCBConn {
             },
             None => return Err(XError::NoScreens),
         };
-        debug!("Got root: {:?}", self.root);
+        trace!("Got root: {:?}", self.root);
 
         // initialize randr and get its event mask
         self.randr_base = self.conn.get_extension_data(&mut randr::id())
             .ok_or_else(|| XError::RandrError("could not load randr".into()))?
             .first_event();
 
-        debug!("Got randr_base {}", self.randr_base);
+        trace!("Got randr_base {}", self.randr_base);
 
         let atomcount = Atom::iter().count();
         let mut atomvec = Vec::with_capacity(atomcount);
@@ -229,14 +230,14 @@ impl XCBConn {
 
     //todo: make this better
     pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
-        debug!("Creating cursor");
+        trace!("Creating cursor");
         let cursor_id = cursor::create_font_cursor_checked(&self.conn, glyph)?;
         self.cursor = cursor_id;
         Ok(())
     }
 
     pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
-        debug!("Setting cursor for {}", window);
+        trace!("Setting cursor for {}", window);
         Ok(xcb::change_window_attributes_checked(
             &self.conn,
             window, 
@@ -278,6 +279,7 @@ impl XCBConn {
             .ok_or(XError::RequestError("get visual type"))
     }
 
+    #[instrument(target="xcbconn", level="trace", skip(self, event))]
     fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
         use XEvent::*;
 
@@ -293,7 +295,7 @@ impl XCBConn {
             xcb::CONFIGURE_NOTIFY => {
                 let event = cast!(xcb::ConfigureNotifyEvent, event);
                 if event.event() == self.root.id {
-                    debug!("Top level window configuration");
+                    trace!("Top level window configuration");
                 }
                 Ok(ConfigureNotify(ConfigureEvent {
                     id: event.window(),
@@ -320,7 +322,7 @@ impl XCBConn {
                 let event = cast!(xcb::ConfigureRequestEvent, event);
                 let is_root = event.window() == self.root.id;
                 if event.parent() == self.root.id {
-                    debug!("Top level window configuration request");
+                    trace!("Top level window configuration request");
                 }
                 let vmask = event.value_mask();
 
@@ -449,7 +451,7 @@ impl XCBConn {
             xcb::CLIENT_MESSAGE => {
                 let event = cast!(xcb::ClientMessageEvent, event);
 
-                Ok(ClientMessage(ClientMessageEvent {
+                Ok(ClientMessage(ClientMessageEvent{
                     window: event.window(),
                     data: ClientMessageData::try_from(event)?,
                     type_: event.type_(),
@@ -475,12 +477,12 @@ impl XCBConn {
         ).get_reply()?;
 
         if r.type_() == xcb::NONE {
-            debug!("prop type is none");
+            trace!("prop type is none");
             return Ok(None)
         }
 
         let prop_type = self.lookup_atom(r.type_())?;
-        debug!("got prop_type {}", prop_type);
+        trace!("got prop_type {}", prop_type);
 
         Ok(match prop_type.as_str() {
             "ATOM" => Some(Property::Atom(
@@ -513,7 +515,7 @@ impl XCBConn {
             )),
             n => {
                 if n == "WM_STATE" {
-                    debug!("Type is WM_STATE");
+                    trace!("Type is WM_STATE");
                 }
                 match r.format() {
                     8 => Some(Property::U8List(
@@ -538,6 +540,19 @@ impl XCBConn {
                 }
             }
         })
+    }
+}
+
+impl fmt::Debug for XCBConn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("XCBConn")
+            .field("root", &self.root)
+            .field("idx", &self.idx)
+            .field("randr", &self.randr_base)
+            //.field("atoms", &self.atoms)
+            .field("cursor", &self.cursor)
+            .field("mousemode", &self.mousemode)
+            .finish()
     }
 }
 

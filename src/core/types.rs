@@ -1,5 +1,7 @@
 use std::ops::Deref;
 
+use tracing::error;
+
 use crate::layouts::LayoutType;
 
 pub use crate::core::{Ring, Selector};

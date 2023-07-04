@@ -3,6 +3,9 @@
 
 use std::collections::HashSet;
 
+use tracing::instrument;
+use tracing::{trace, debug, error};
+
 use super::{Ring, Selector};
 
 use crate::x::{
@@ -263,8 +266,8 @@ impl Client {
     }
 
     /// Updates all the internal properties of the client.
+    #[instrument(level = "debug", skip(conn))]
     pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
-        fn_ends!("Client::update_all_properties");
 
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
@@ -352,7 +355,6 @@ impl Client {
 
     /// Maps the client.
     pub fn map<X: XConn>(&mut self, conn: &X) {
-        fn_ends!("Client::map");
         //self.update_all_properties(conn);
         self.update_geometry(conn);
         conn.change_window_attributes(
@@ -364,8 +366,6 @@ impl Client {
 
     /// Unmaps the client.
     pub fn unmap<X: XConn>(&mut self, conn: &X) {
-        fn_ends!("Client::unmap");
-        
         self.mapped_state = WindowState::Iconic;
         conn.unmap_window(self.id()).unwrap_or_else(|e| error!("{}", e));
     }
@@ -392,13 +392,15 @@ impl Client {
     /// Use `Client::set_geometry` and `Client::update_geometry`
     /// to change client geometry instead of this method.
     pub fn configure<X: XConn>(&self, conn: &X, attrs: &[ClientConfig]) {
-        conn.configure_window(self.id(), attrs).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        trace!("configuring window {} with attributes {:?}", self.xwindow.id, attrs);
+        conn.configure_window(self.id(), attrs).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
     }
 
     /// Change client attributes.
     pub fn change_attributes<X: XConn>(&self, conn: &X, attrs: &[ClientAttrs]) {
+        trace!("changing window {} attributes with {:?}", self.xwindow.id, attrs);
         conn.change_window_attributes(self.id(), attrs).unwrap_or_else(|e| {
             error!("{}", e)
         })
@@ -413,8 +415,8 @@ impl Client {
 
         conn.configure_window(self.xwindow.id,
             &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
 
         // debug!(
@@ -432,8 +434,8 @@ impl Client {
 
         conn.configure_window(self.xwindow.id, 
             &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
 
         // debug!(
@@ -448,8 +450,8 @@ impl Client {
 
         conn.configure_window(self.xwindow.id, 
             &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
     }
 
@@ -459,8 +461,8 @@ impl Client {
 
         conn.configure_window(self.xwindow.id, 
             &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
     }
 
@@ -475,14 +477,14 @@ impl Client {
     pub fn update_geometry<X: XConn>(&self, conn: &X) {
         conn.configure_window(self.xwindow.id,
             &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
 
         conn.configure_window(self.xwindow.id, 
             &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|_|
-            warn!("Could not configure window {}", self.id())
+        ).unwrap_or_else(|e|
+            warn!("Could not configure window {} with error {}", self.id(), e)
         );
     }
 

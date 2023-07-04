@@ -5,6 +5,9 @@ use xcb::{
     randr,
 };
 
+use tracing::instrument;
+use tracing::{trace, error};
+
 use crate::x::{
     core::{
         XWindow, XWindowID,
@@ -38,6 +41,7 @@ const MODIFIERS: &[u16] = &[0, xcb::MOD_MASK_2 as u16];
 
 impl XConn for XCBConn {
     // General X server operations
+    #[instrument(target="xconn", level="trace", skip(self))]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
         self.conn.flush();
 
@@ -53,7 +57,7 @@ impl XConn for XCBConn {
     }
 
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry> {
-        debug!("Getting geometry for window {}", window);
+        trace!("Getting geometry for window {}", window);
         Ok(xcb::get_geometry(&self.conn, window).get_reply()
             .map(|ok| Geometry {
                     x: ok.x() as i32, 
@@ -66,7 +70,7 @@ impl XConn for XCBConn {
     }
 
     fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>> {
-        debug!("Querying tree");
+        trace!("Querying tree");
 
         Ok(xcb::query_tree(&self.conn, window).get_reply()
         .map(|ok| ok.children().to_owned())?)
@@ -87,6 +91,7 @@ impl XConn for XCBConn {
         })
     }
 
+    #[instrument(target="xconn", level="trace", skip(self))]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
         let check_id = self.check_win()?;
         self.conn.flush();
@@ -129,34 +134,35 @@ impl XConn for XCBConn {
         if let Some(known) = self.atoms().retrieve(atom) {
             return Ok(known)
         }
-        debug!("Interning atom {}", atom);
+        trace!("Interning atom {}", atom);
         let x = xcb::intern_atom(&self.conn, false, atom).get_reply()?;
-        debug!("Atom name: {}, atom: {}", atom, x.atom());
+        trace!("Atom name: {}, atom: {}", atom, x.atom());
         Ok(x.atom())
     }
 
     fn lookup_atom(&self, atom: XAtom) -> Result<String> {
-        debug!("Looking up atom {}", atom);
+        trace!("Looking up atom {}", atom);
         if let Some(name) = self.atoms().retrieve_by_value(atom) {
+            trace!("Got name {}", name);
             return Ok(name)
         }
-        debug!("Name not known, looking up via X connection");
+        trace!("Name not known, looking up via X connection");
         let name = xcb::get_atom_name(&self.conn, atom).get_reply()?.name().to_string();
 
         if let Ok(mut atoms) = self.atoms.try_borrow_mut() {
             atoms.insert(&name, atom);
         }
-
+        trace!("Got name {}", name);
         Ok(name)
     }
 
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
-        debug!("Looking up interned atom name {}", name);
+        trace!("Looking up interned atom name {}", name);
         self.atoms().retrieve(&name.to_string())
     }
 
     fn grab_keyboard(&self) -> Result<()> {
-        debug!("Grabbing keyboard");
+        trace!("Grabbing keyboard");
         let _ = xcb::grab_keyboard(
             &self.conn,
             false,
@@ -173,7 +179,7 @@ impl XConn for XCBConn {
     }
 
     fn ungrab_keyboard(&self) -> Result<()> {
-        debug!("Ungrabbing kayboard");
+        trace!("Ungrabbing kayboard");
         let _ = xcb::ungrab_keyboard(&self.conn, xcb::CURRENT_TIME)
         .request_check()
         .map_err(|_| XError::ServerError("Unable to ungrab keyboard".into()))?;
@@ -182,7 +188,7 @@ impl XConn for XCBConn {
     }
 
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()> {
-        debug!("Grabbing key {} for window {}", kb.code, window);
+        trace!("Grabbing key {} for window {}", kb.code, window);
 
         for m in MODIFIERS.iter() {
             xcb::grab_key(
@@ -222,7 +228,7 @@ impl XConn for XCBConn {
     }
 
     fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()> {
-        debug!("Grab button {:?} for window: {}", mb.button, window);
+        trace!("Grab button {:?} for window: {}", mb.button, window);
 
         for m in MODIFIERS.iter() {
             xcb::grab_button(
@@ -248,7 +254,7 @@ impl XConn for XCBConn {
     }
 
     fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()> {
-        debug!("Ungrabbing button {:?} for window {}", mb.button, window);
+        trace!("Ungrabbing button {:?} for window {}", mb.button, window);
 
         xcb::ungrab_button(
             &self.conn,
@@ -265,7 +271,7 @@ impl XConn for XCBConn {
     }
 
     fn grab_pointer(&self, winid: XWindowID, _mask: u32) -> Result<()> {
-        debug!("Grabbing pointer for window: {:?}", winid);
+        trace!("Grabbing pointer for window: {:?}", winid);
 
         xcb::grab_pointer(
             &self.conn,
@@ -283,13 +289,14 @@ impl XConn for XCBConn {
     }
 
     fn ungrab_pointer(&self) -> Result<()> {
-        debug!("Ungrabbing pointer");
+        trace!("Ungrabbing pointer");
 
         xcb::ungrab_pointer(&self.conn, xcb::CURRENT_TIME).request_check()?;
 
         Ok(())
     }
 
+    #[instrument(target="xconn", level="trace", skip(self))]
     fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID> {
         let (ty, bwidth, class, mut data, depth, visualid) = match ty {
             WindowClass::CheckWin => (
@@ -378,7 +385,7 @@ impl XConn for XCBConn {
 
     // Window-related operations
     fn map_window(&self, window: XWindowID) -> Result<()> {
-        debug!("Mapping window {}", window);
+        trace!("Mapping window {}", window);
 
         let cookie = xcb::map_window(&self.conn, window);
         if let Err(e) = cookie.request_check() {
@@ -390,7 +397,7 @@ impl XConn for XCBConn {
     }
 
     fn unmap_window(&self, window: XWindowID) -> Result<()> {
-        debug!("Unmapping window {}", window);
+        trace!("Unmapping window {}", window);
 
         let cookie = xcb::unmap_window(&self.conn, window);
         if let Err(e) = cookie.request_check() {
@@ -405,7 +412,7 @@ impl XConn for XCBConn {
         let atom = Atom::WmDeleteWindow.as_ref();
         let atomval = self.atom(atom)?;
         if self.win_supports(atom, window) {
-            debug!("Destroying via ICCCM WM_DELETE_WINDOW");
+            trace!("Destroying via ICCCM WM_DELETE_WINDOW");
             let event = ClientMessageEvent {
                 window,
                 data: ClientMessageData::U32([atomval, 0, 0, 0, 0]),
@@ -413,7 +420,7 @@ impl XConn for XCBConn {
             };
             return self.send_client_message(window, event)
         } else {
-            debug!("Destroying via xcb::destroy_window");
+            trace!("Destroying via xcb::destroy_window");
             xcb::destroy_window(&self.conn, window).request_check()?;
         }
         Ok(())
@@ -422,7 +429,7 @@ impl XConn for XCBConn {
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()> {
         use ClientMessageData::*;
 
-        debug!("Sending client message to window {}", window);
+        trace!("Sending client message to window {}", window);
 
         let (to_send, format) = match data.data {
             U8(bytes) => (XCBClientMsgData::from_data8(bytes), 8),
@@ -444,7 +451,7 @@ impl XConn for XCBConn {
     }
 
     fn set_input_focus(&self, window: XWindowID) {
-        debug!("Setting focus for window {}", window);
+        trace!("Setting focus for window {}", window);
         xcb::set_input_focus(&self.conn, 
             xcb::INPUT_FOCUS_POINTER_ROOT as u8, 
             window, xcb::CURRENT_TIME
@@ -524,7 +531,7 @@ impl XConn for XCBConn {
     }
 
     fn change_window_attributes(&self, window: XWindowID, attrs: &[ClientAttrs]) -> Result<()> {
-        debug!("Changing window attributes");
+        trace!("Changing window attributes");
         for attr in attrs {
             let attr2: Vec<_> = attr.into();
             xcb::change_window_attributes_checked(&self.conn, window, &attr2).request_check()?;
@@ -533,7 +540,7 @@ impl XConn for XCBConn {
     }
 
     fn configure_window(&self, window: XWindowID, attrs: &[ClientConfig]) -> Result<()> {
-        debug!("Configuring window {}", window);
+        trace!("Configuring window {} with attrs {:?}", window, attrs);
         for attr in attrs {
             let attr2: Vec<_> = attr.into();
             xcb::configure_window_checked(&self.conn, window, &attr2).request_check()?
@@ -542,7 +549,7 @@ impl XConn for XCBConn {
     }
 
     fn reparent_window(&self, window: XWindowID, parent: XWindowID) -> Result<()> {
-        debug!("Reparenting window {} under parent {}", window, parent);
+        trace!("Reparenting window {} under parent {}", window, parent);
 
         Ok(xcb::reparent_window(
             &self.conn,

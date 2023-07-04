@@ -225,7 +225,7 @@ pub const EWMH_SUPPORTED_ATOMS: &[Atom] = &[
 /// an X-defined atom.
 /// 
 /// This allows the user to manage known atoms conveniently.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Atoms {
     /// Known atoms that can be managed as their enum variants.
     known: HashMap<Atom, XAtom>,
