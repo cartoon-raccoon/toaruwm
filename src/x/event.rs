@@ -47,7 +47,7 @@ pub enum XEvent {
     /// Received a randr screen change notify event.
     ScreenChange,
     /// Unknown event type, used as a catchall for events not tracked by toaruwm.
-    Unknown(u8),
+    Unknown(String),
 }
 
 /// Data associated with a configure event.

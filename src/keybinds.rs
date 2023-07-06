@@ -200,9 +200,7 @@ pub fn new_mousebinds<X: XConn>() -> Mousebinds<X> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const MOD: u16 = xcb::MOD_MASK_4 as u16;
-    const SHIFT: u16 = xcb::MOD_MASK_SHIFT as u16;
+    use xcb::x::KeyButMask;
 
     #[test]
     fn test_construct_keymap() {
@@ -216,7 +214,10 @@ mod tests {
         let modshift_down = map.parse_keybinding("M-S-Down").unwrap();
         let modshift_a = map.parse_keybinding("M-S-a").unwrap();
 
-        assert_eq!(modshift_down, kb(MOD|SHIFT, 116));
-        assert_eq!(modshift_a, kb(MOD|SHIFT, 38));
+        let mod4 = KeyButMask::MOD4;
+        let shift = KeyButMask::SHIFT;
+
+        assert_eq!(modshift_down, kb((mod4|shift).bits() as u16, 116));
+        assert_eq!(modshift_a, kb((mod4|shift).bits() as u16, 38));
     }
 }

@@ -1,11 +1,12 @@
-use std::convert::{TryFrom, TryInto};
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
-use xcb_util::{ewmh, cursor};
 use xcb::randr;
+use xcb::x;
+use xcb::{Xid, XidNew};
 
-use tracing::{trace, instrument};
+use tracing::instrument;
+use tracing::{trace, debug,};
 
 use strum::*;
 
@@ -40,29 +41,60 @@ use crate::types::{
     Point, Geometry,
 };
 use crate::keybinds::ButtonIndex;
-use crate::util;
 
 mod xconn;
 mod convert;
+pub mod cursor;
 
 #[cfg(test)]
 mod tests;
 
-const X_EVENT_MASK: u8 = 0x7f;
-
 const MAX_LONG_LENGTH: u32 = 1024;
-
-const NUMLOCK: u16 = xcb::MOD_MASK_2 as u16;
 
 const RANDR_MAJ: u32 = 1;
 const RANDR_MIN: u32 = 4;
 
-// used for casting events and stuff
+/// A macro for creating `xcb::XidNew` objects from a `u32`.
 macro_rules! cast {
-    ($etype:ty, $event:expr) => {
-        unsafe {xcb::cast_event::<$etype>(&$event)}
+    ($ctype:ty, $resid:expr) => {
+        unsafe {<$ctype as XidNew>::new($resid)}
     };
 }
+
+/// A macro for extracting id from objects implementing `x::Xid`.
+macro_rules! id {
+    ($e:expr) => {
+        $e.resource_id()
+    }
+}
+
+/// A macro for the common pattern off sending a request
+/// and then getting the reply from the cookie that gets returned.
+/// 
+/// Note that this completely disregards the asynchronous
+/// nature of the underlying XCB library.
+macro_rules! req_and_reply {
+    ($conn:expr, $req:expr) => {
+        $conn.wait_for_reply($conn.send_request($req))
+    }
+}
+
+/// A macro for the common pattern off sending a request
+/// and then getting a result from the cookie that gets returned.
+/// 
+/// Note that this completely disregards the asynchronous
+/// nature of the underlying XCB library.
+macro_rules! req_and_check {
+    ($conn:expr, $req:expr) => {
+        $conn.check_request($conn.send_request_checked($req))
+    }
+}
+
+pub(super) use {
+    cast, id, 
+    req_and_reply,
+    req_and_check,
+};
 
 /// A connection to an X server, backed by the XCB library.
 /// 
@@ -89,13 +121,13 @@ macro_rules! cast {
 /// [1]: crate::x::core::XConn
 /// [2]: crate::manager::WindowManager
 pub struct XCBConn {
-    conn: ewmh::Connection,
+    conn: xcb::Connection,
     root: XWindow,
     idx: i32,
     randr_base: u8,
-    atoms: RefCell<Atoms>,
-    cursor: u32,
-    mousemode: Cell<Option<ButtonIndex>>,
+    atoms: RefCell<Atoms>, // wrap in RefCell for interior mutability
+    cursor: x::Cursor,
+    mousemode: Cell<Option<ButtonIndex>>, // ditto
 }
 
 impl XCBConn {
@@ -111,13 +143,13 @@ impl XCBConn {
     pub fn connect() -> Result<Self> {
 
         // initialize xcb connection
-        let (x, idx) = xcb::Connection::connect(None)?;
+        let (conn, idx) = xcb::Connection::connect(None)?;
         trace!("Connected to x server, got preferred screen {}", idx);
         // wrap it in an ewmh connection just for fun
-        let conn = ewmh::Connection::connect(x).map_err(|(e, _)| e)?;
 
         // initialize our atom handler
         let atoms = RefCell::new(Atoms::new());
+        let cursor = conn.generate_id();
 
         Ok(Self {
             conn,
@@ -125,7 +157,7 @@ impl XCBConn {
             idx,
             randr_base: 0,
             atoms,
-            cursor: 0,
+            cursor,
             mousemode: Cell::new(None),
         })
     }
@@ -144,8 +176,9 @@ impl XCBConn {
     pub fn init(&mut self) -> Result<()> {
 
         // validate randr version
-        let res = randr::query_version(&self.conn, RANDR_MAJ, RANDR_MIN)
-            .get_reply()?;
+        let res = req_and_reply!(self.conn, &randr::QueryVersion {
+            major_version: RANDR_MAJ, minor_version: RANDR_MIN
+        })?;
 
         let (maj, min) = (res.major_version(), res.minor_version());
 
@@ -162,18 +195,19 @@ impl XCBConn {
 
         // get root window id
         self.root = match self.conn.get_setup().roots().nth(self.idx as usize) {
-            Some(root) => {
-                let geom = self.get_geometry(root.root())?;
-                XWindow::with_data(root.root(), geom)
+            Some(screen) => {
+                let id = id!(screen.root());
+                let geom = self.get_geometry(id)?;
+                XWindow::with_data(id, geom)
             },
             None => return Err(XError::NoScreens),
         };
         trace!("Got root: {:?}", self.root);
 
         // initialize randr and get its event mask
-        self.randr_base = self.conn.get_extension_data(&mut randr::id())
+        self.randr_base = randr::get_extension_data(&self.conn)
             .ok_or_else(|| XError::RandrError("could not load randr".into()))?
-            .first_event();
+            .first_event;
 
         trace!("Got randr_base {}", self.randr_base);
 
@@ -186,17 +220,20 @@ impl XCBConn {
         for atom in Atom::iter() {
             atomvec.push((
                 atom.to_string(),
-                xcb::intern_atom(&self.conn, false, atom.as_ref())
+                self.conn.send_request(&x::InternAtom {
+                    only_if_exists: false,
+                    name: atom.as_ref().as_bytes()
+                })
             ));
         }
 
         let atoms = self.atoms.get_mut();
 
         // then get replies
-        for (name, atom) in atomvec {
+        for (name, cookie) in atomvec {
             atoms.insert(
                 &name,
-                atom.get_reply()?.atom(),
+                id!(self.conn.wait_for_reply(cookie)?.atom())
             );
         }
 
@@ -218,35 +255,42 @@ impl XCBConn {
         unsafe {&*self.atoms.as_ptr()}
     }
 
-    /// Exposes its internal connection.
+    /// Exposes `XCBConn`'s internal connection.
     pub fn conn(&self) -> &xcb::Connection {
         &self.conn
     }
 
-    #[cfg(test)]
-    pub fn ewmh_conn(&self) -> &ewmh::Connection {
-        &self.conn
-    }
-
-    //todo: make this better
     pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
-        trace!("Creating cursor");
-        let cursor_id = cursor::create_font_cursor_checked(&self.conn, glyph)?;
-        self.cursor = cursor_id;
+        trace!("creating cursor");
+
+        let fid: x::Font = self.conn.generate_id();
+        req_and_check!(self.conn, &x::OpenFont{
+            fid, name: "cursor".as_bytes()
+        })?;
+
+        let cid: x::Cursor = self.conn.generate_id();
+        req_and_check!(self.conn, &x::CreateGlyphCursor{
+            cid,
+            source_font: fid, mask_font: fid,
+            source_char: glyph, mask_char: glyph + 1,
+            fore_red: 0, fore_green: 0, fore_blue: 0,
+            back_red: 0xffff, back_blue: 0xffff, back_green: 0xffff,
+
+        })?;
+
+        self.cursor = cid;
         Ok(())
     }
 
     pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
-        trace!("Setting cursor for {}", window);
-        Ok(xcb::change_window_attributes_checked(
-            &self.conn,
-            window, 
-            &util::cursor_attrs(self.cursor)
-        ).request_check()?)
-    }
+        trace!("setting cursor for {}", window);
 
-    pub(crate) fn get_setup(&self) -> xcb::Setup<'_> {
-        self.conn.get_setup()
+        req_and_check!(self.conn, &x::ChangeWindowAttributes{
+            window: cast!(x::Window, window), 
+            value_list: &[x::Cw::Cursor(self.cursor)]
+        })?;
+
+        Ok(())
     }
 
     pub(crate) fn check_win(&self) -> Result<XWindowID> {
@@ -257,8 +301,8 @@ impl XCBConn {
         )
     }
 
-    pub(crate) fn screen(&self, idx: usize) -> Result<xcb::Screen<'_>> {
-        let mut roots: Vec<_> = self.get_setup().roots().collect();
+    pub(crate) fn screen(&self, idx: usize) -> Result<&x::Screen>  {
+        let mut roots: Vec<_> = self.conn.get_setup().roots().collect();
 
         if idx >= roots.len() {
             Err(XError::InvalidScreen)
@@ -267,94 +311,101 @@ impl XCBConn {
         }
     }
 
-    pub(crate) fn depth<'a>(&self, screen: &'a xcb::Screen<'_>) -> Result<xcb::Depth<'a>> {
+    pub(crate) fn depth<'c>(&self, screen: &'c x::Screen) -> Result<&'c x::Depth> {
         screen.allowed_depths()
             .max_by(|x, y| x.depth().cmp(&y.depth()))
             .ok_or(XError::RequestError("get depth"))
     }
 
-    pub(crate) fn visual_type(&self, depth: &xcb::Depth<'_>) -> Result<xcb::Visualtype> {
-        depth.visuals()
-            .find(|v| v.class() == xcb::VISUAL_CLASS_TRUE_COLOR as u8)
+    pub(crate) fn visual_type<'c>(&self, depth: &'c x::Depth) -> Result<&'c x::Visualtype> {
+        depth.visuals().iter()
+            .find(|v| v.class() == x::VisualClass::TrueColor)
             .ok_or(XError::RequestError("get visual type"))
     }
 
-    #[instrument(target="xcbconn", level="trace", skip(self, event))]
-    fn process_raw_event(&self, event: xcb::GenericEvent) -> Result<XEvent> {
-        use XEvent::*;
-
-        let etype = event.response_type() & X_EVENT_MASK;
-
-        if etype == self.randr_base + randr::NOTIFY {
-            return Ok(XEvent::RandrNotify)
-        } else if etype == self.randr_base + randr::SCREEN_CHANGE_NOTIFY {
-            return Ok(XEvent::ScreenChange)
+    fn process_raw_event(&self, event: xcb::Event) -> Result<XEvent> {
+        use xcb::Event;
+        use randr::Event as REvent;
+        
+        match event {
+            Event::X(event) => self.process_x_event(event),
+            Event::RandR(event) => {
+                match event {
+                    //todo: account for the unused enum values
+                    REvent::Notify(_) => Ok(XEvent::RandrNotify),
+                    REvent::ScreenChangeNotify(_) => Ok(XEvent::ScreenChange),
+                }
+            }
+            unk => {
+                debug!("got unknown error {:?}", unk);
+                Ok(XEvent::Unknown(format!("{:?}", unk)))
+            }
         }
-
-        match etype {
-            xcb::CONFIGURE_NOTIFY => {
-                let event = cast!(xcb::ConfigureNotifyEvent, event);
-                if event.event() == self.root.id {
+    }
+    
+    #[instrument(target="xcbconn", level="trace", skip(self))]
+    fn process_x_event(&self, event: x::Event) -> Result<XEvent> {
+        use x::Event;
+        match event {
+            Event::ConfigureNotify(event) => {
+                if id!(event.event()) == self.root.id {
                     trace!("Top level window configuration");
                 }
-                Ok(ConfigureNotify(ConfigureEvent {
-                    id: event.window(),
+                Ok(XEvent::ConfigureNotify(ConfigureEvent {
+                    id: id!(event.window()),
                     geom: Geometry {
                         x: event.x() as i32,
                         y: event.y() as i32,
                         height: event.height() as i32,
                         width: event.width() as i32
                     },
-                    is_root: event.window() == self.root.id,
+                    is_root: id!(event.window()) == self.root.id,
                 }))
             }
-            xcb::CONFIGURE_REQUEST => {
+            Event::ConfigureRequest(req) => {
                 use StackMode::*;
-                use xcb::{
-                    CONFIG_WINDOW_X as CF_X,
-                    CONFIG_WINDOW_Y as CF_Y,
-                    CONFIG_WINDOW_HEIGHT as CF_H,
-                    CONFIG_WINDOW_WIDTH as CF_W,
-                    CONFIG_WINDOW_STACK_MODE as CF_SM,
-                    CONFIG_WINDOW_SIBLING as CF_SB,
+                use x::{
+                    StackMode as XStackMode,
+                    ConfigWindowMask as CWMask,
                 };
 
-                let event = cast!(xcb::ConfigureRequestEvent, event);
-                let is_root = event.window() == self.root.id;
-                if event.parent() == self.root.id {
+                // extract window ids
+                let id = id!(req.window());
+                let parent = id!(req.parent());
+                let is_root = id == self.root.id;
+                if parent == self.root.id {
                     trace!("Top level window configuration request");
                 }
-                let vmask = event.value_mask();
 
-                let parent = event.parent();
-                let x = if CF_X as u16 & vmask != 0 {
-                    Some(event.x() as i32)
+                // extract relevant values using the value mask
+                let vmask = req.value_mask();
+                let x = if vmask.contains(CWMask::X) {
+                    Some(req.x() as i32)
                 } else {None};
-                let y = if CF_Y as u16 & vmask != 0 {
-                    Some(event.y() as i32)
+                let y = if vmask.contains(CWMask::Y) {
+                    Some(req.y() as i32)
                 } else {None};
-                let height = if CF_H as u16 & vmask != 0 {
-                    Some(event.height() as u32)
+                let height = if vmask.contains(CWMask::HEIGHT) {
+                    Some(req.height() as u32)
                 } else {None};
-                let width = if CF_W as u16 & vmask != 0 {
-                    Some(event.width() as u32)
+                let width = if vmask.contains(CWMask::WIDTH) {
+                    Some(req.width() as u32)
                 } else {None};
-                let stack_mode = if CF_SM as u16 & vmask != 0 {
-                    match event.stack_mode() as u32 {
-                        xcb::STACK_MODE_ABOVE => Some(Above),
-                        xcb::STACK_MODE_BELOW => Some(Below),
-                        xcb::STACK_MODE_TOP_IF => Some(TopIf),
-                        xcb::STACK_MODE_BOTTOM_IF => Some(BottomIf),
-                        xcb::STACK_MODE_OPPOSITE => Some(Opposite),
-                        _ => None
+                let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
+                    match req.stack_mode() {
+                        XStackMode::Above => Some(Above),
+                        XStackMode::Below => Some(Below),
+                        XStackMode::TopIf => Some(TopIf),
+                        XStackMode::BottomIf => Some(BottomIf),
+                        XStackMode::Opposite => Some(Opposite),
                     }
                 } else {None};
-                let sibling = if CF_SB as u16 & vmask != 0 {
-                    Some(event.sibling())
+                let sibling = if vmask.contains(CWMask::SIBLING) {
+                    Some(id!(req.sibling()))
                 } else {None};
 
-                Ok(ConfigureRequest(ConfigureRequestData {
-                    id: event.window(),
+                Ok(XEvent::ConfigureRequest(ConfigureRequestData {
+                    id,
                     parent,
                     sibling,
                     x, y, height, width,
@@ -362,126 +413,112 @@ impl XCBConn {
                     is_root,
                 }))
             }
-            xcb::MAP_REQUEST => {
-                let event = cast!(xcb::MapRequestEvent, event);
+            Event::MapRequest(req) => {
+                let override_redirect = req_and_reply!(
+                    self.conn,
+                    &x::GetWindowAttributes{window: req.window()}
+                )?.override_redirect();
 
-                let override_redirect = if let Ok(reply) = xcb::get_window_attributes(
-                    &self.conn, event.window()
-                ).get_reply() {
-                    reply.override_redirect()
-                } else {false};
-
-                Ok(MapRequest(event.window(), override_redirect))
+                Ok(XEvent::MapRequest(id!(req.window()), override_redirect))
             }
-            xcb::MAP_NOTIFY => {
-                let event = cast!(xcb::MapNotifyEvent, event);
-
-                Ok(MapNotify(event.window()))
+            Event::MapNotify(event) => {
+                Ok(XEvent::MapNotify(id!(event.window())))
             }
-            xcb::UNMAP_NOTIFY => {
-                let event = cast!(xcb::UnmapNotifyEvent, event);
-
-                Ok(UnmapNotify(event.window()))
+            Event::UnmapNotify(event) => {
+                Ok(XEvent::UnmapNotify(id!(event.window())))
             }
-            xcb::DESTROY_NOTIFY => {
-                let event = cast!(xcb::DestroyNotifyEvent, event);
-
-                Ok(DestroyNotify(event.window()))
+            Event::DestroyNotify(event) => {
+                Ok(XEvent::DestroyNotify(id!(event.window())))
             }
-            xcb::ENTER_NOTIFY => {
-                let event = cast!(xcb::EnterNotifyEvent, event);
+            Event::EnterNotify(event) => {
+                let grab = event.mode() == x::NotifyMode::Grab;
 
-                let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
-
-                let id = event.event();
+                let id = id!(event.event());
                 let abs = Point::new(event.root_x() as i32, event.root_y() as i32);
                 let rel = Point::new(event.event_x() as i32, event.event_y() as i32);
 
                 let ptrev = PointerEvent {id, abs, rel};
 
-                Ok(EnterNotify(ptrev, grab))
+                Ok(XEvent::EnterNotify(ptrev, grab))
             }
-            xcb::LEAVE_NOTIFY => {
-                let event = cast!(xcb::LeaveNotifyEvent, event);
+            Event::LeaveNotify(event) => {
+                let grab = event.mode() == x::NotifyMode::Grab;
 
-                let grab = event.mode() as u32 == xcb::NOTIFY_MODE_GRAB;
-
-                let id = event.event();
+                let id = id!(event.event());
                 let abs = Point::new(event.root_x() as i32, event.root_y() as i32);
                 let rel = Point::new(event.event_x() as i32, event.event_y() as i32);
 
                 let ptrev = PointerEvent {id, abs, rel};
 
-                Ok(LeaveNotify(ptrev, grab))
+                Ok(XEvent::LeaveNotify(ptrev, grab))
             }
-            xcb::REPARENT_NOTIFY => {
-                let event = cast!(xcb::ReparentNotifyEvent, event);
-
-                Ok(ReparentNotify(ReparentEvent {
-                    event: event.event(),
-                    parent: event.parent(),
-                    child: event.window(),
+            Event::ReparentNotify(event) => {
+                Ok(XEvent::ReparentNotify(ReparentEvent {
+                    event: id!(event.event()),
+                    parent: id!(event.parent()),
+                    child: id!(event.window()),
                     over_red: event.override_redirect(),
                 }))
             }
-            xcb::PROPERTY_NOTIFY => {
-                let event = cast!(xcb::PropertyNotifyEvent, event);
-
-                Ok(PropertyNotify(PropertyEvent {
-                    id: event.window(),
-                    atom: event.atom(),
+            Event::PropertyNotify(event) => {
+                Ok(XEvent::PropertyNotify(PropertyEvent {
+                    id: id!(event.window()),
+                    atom: id!(event.atom()),
                     time: event.time(),
-                    deleted: event.state() == xcb::PROPERTY_DELETE as u8,
+                    deleted: event.state() == x::Property::Delete,
                 }))
             }
-            xcb::KEY_PRESS => {
-                let event = cast!(xcb::KeyPressEvent, event);
-
-                Ok(KeyPress(event.child(), KeypressEvent {
-                    mask: event.state() & !NUMLOCK,
+            Event::KeyPress(event) => {
+                let mut state = event.state();
+                state.remove(x::KeyButMask::MOD2);
+                Ok(XEvent::KeyPress(id!(event.child()), KeypressEvent {
+                    mask: state.bits() as u16,
                     keycode: event.detail(),
                 }))
             }
-            xcb::KEY_RELEASE => {
-                Ok(KeyRelease)
+            Event::KeyRelease(_) => {
+                Ok(XEvent::KeyRelease)
             }
-            xcb::BUTTON_PRESS | xcb::BUTTON_RELEASE | xcb::MOTION_NOTIFY => {
-                Ok(MouseEvent(self.mouse_event_from_generic(&event)?))
+            Event::ButtonPress(event) => {
+                Ok(XEvent::MouseEvent(self.do_mouse_press(event, false)?))
             }
-            xcb::CLIENT_MESSAGE => {
-                let event = cast!(xcb::ClientMessageEvent, event);
-
-                Ok(ClientMessage(ClientMessageEvent{
-                    window: event.window(),
-                    data: ClientMessageData::try_from(event)?,
-                    type_: event.type_(),
+            Event::ButtonRelease(event) => {
+                Ok(XEvent::MouseEvent(self.do_mouse_press(event, true)?))
+            }
+            Event::MotionNotify(event) => {
+                Ok(XEvent::MouseEvent(self.do_mouse_motion(event)?))
+            }
+            Event::ClientMessage(event) => {
+                Ok(XEvent::ClientMessage(ClientMessageEvent{
+                    window: id!(event.window()),
+                    data: ClientMessageData::from(&event),
+                    type_: id!(event.r#type()),
                 }))
             }
             n => {
-                Ok(Unknown(n))
+                Ok(XEvent::Unknown(format!("{:?}", n)))
             }
         }
     }
 
     fn get_prop_atom(&self, prop: XAtom, window: XWindowID) -> Result<Option<Property>> {
-        let r = xcb::get_property(
-            &self.conn,
-            false,
-            window,
-            prop,
-            xcb::ATOM_ANY,
+        let r = req_and_reply!(self.conn, &x::GetProperty {
+            delete: false,
+            window: cast!(x::Window, window),
+            property: cast!(x::Atom, prop),
+            r#type: x::ATOM_ANY,
             // start at offset 0
-            0, 
+            long_offset: 0, 
             // allow for up to 4 * MAX_LONG_LENGTH bytes of information
-            MAX_LONG_LENGTH,
-        ).get_reply()?;
+            long_length: MAX_LONG_LENGTH,
+        })?;
 
-        if r.type_() == xcb::NONE {
+        if r.r#type() == x::ATOM_NONE {
             trace!("prop type is none");
             return Ok(None)
         }
 
-        let prop_type = self.lookup_atom(r.type_())?;
+        let prop_type = self.lookup_atom(id!(r.r#type()))?;
         trace!("got prop_type {}", prop_type);
 
         Ok(match prop_type.as_str() {
@@ -572,9 +609,18 @@ impl From<xcb::ConnError> for XError {
     }
 }
 
-impl From<xcb::GenericError> for XError {
-    fn from(from: xcb::GenericError) -> XError {
-        XError::ServerError(from.to_string())
+impl From<xcb::ProtocolError> for XError {
+    fn from(e: xcb::ProtocolError) -> XError {
+        XError::Protocol(e.to_string())
+    }
+}
+
+impl From<xcb::Error> for XError {
+    fn from(e: xcb::Error) -> XError {
+        match e {
+            xcb::Error::Connection(e) => e.into(),
+            xcb::Error::Protocol(e) => e.into(),
+        }
     }
 }
 
@@ -586,25 +632,19 @@ impl From<TFSError> for XError {
     }
 }
 
-impl TryFrom<&xcb::xproto::ClientMessageEvent> for ClientMessageData {
-    type Error = XError;
-
-    fn try_from(event: &xcb::xproto::ClientMessageEvent) -> Result<Self> {
+impl From<&x::ClientMessageEvent> for ClientMessageData {
+    fn from(event: &x::ClientMessageEvent) -> Self {
         let data = event.data();
-        match event.format() {
-            8 => {
-                Ok(Self::U8(data.data8()[0..20]
-                .try_into()?))
+        match data {
+            x::ClientMessageData::Data8(dat) => {
+                Self::U8(dat)
             }
-            16 => {
-                Ok(Self::U16(data.data16()[0..10]
-                .try_into()?))
+            x::ClientMessageData::Data16(dat) => {
+                Self::U16(dat)
             }
-            32 => {
-                Ok(Self::U32(data.data32()[0..5]
-                .try_into()?))
+            x::ClientMessageData::Data32(dat) => {
+                Self::U32(dat)
             }
-            _ => {Err(XError::ConversionError)}
         }
     }
 }

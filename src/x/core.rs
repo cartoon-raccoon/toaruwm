@@ -42,7 +42,7 @@ pub type XAtom = u32;
 /// most of the items used by ToaruWM are specific to the
 /// X protocol, not the XCB library itself.
 pub mod xproto {
-    pub use xcb::xproto::*;
+    pub use xcb::x::*;
 }
 
 /// Window stacking modes defined by the X Protocol.
@@ -192,6 +192,9 @@ pub enum XError {
     /// An error when establishing a connection with the server.
     #[error("X connection error: {0}")]
     Connection(String),
+
+    #[error("protocol error: {0}")]
+    Protocol(String),
 
     #[error("Could not find screens from X server")]
     NoScreens,

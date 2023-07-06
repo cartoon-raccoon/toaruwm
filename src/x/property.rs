@@ -250,6 +250,7 @@ const WM_SIZE_HINTS_LEN: usize = 18;
 /// - ICON_MASK
 /// 
 /// These fields may be supported in the future.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WmHints {
     pub(crate) flags: WmHintsFlags,

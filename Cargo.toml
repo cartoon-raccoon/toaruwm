@@ -15,9 +15,8 @@ name = "toaruwm"
 path = "src/bin/main.rs"
 
 [dependencies]
-xcb = { version = "0.9.0", features = ["randr"] }
-xcb-util = { version = "0.3", features = ["keysyms", "cursor", "ewmh", "icccm"] }
-x11 = "2.18"
+xcb = { version = "1.2", features = ["randr", "xkb"] }
+x11 = "2.21"
 x11rb = { version = "0.12", features = ["cursor", "randr", "xkb"] }
 
 log = "0.4"

@@ -1,9 +1,13 @@
 //! Conversions between Toaru and xcb types.
 
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use strum::*;
 
+use xcb::x;
+use xcb::Xid;
+
+use super::id;
 use crate::keybinds::{
     ButtonMask,
     ButtonIndex,
@@ -20,21 +24,21 @@ use crate::types::{
 use crate::x::{
     core::{XError, Result},
     event::MouseEvent,
-    xcb::{X_EVENT_MASK, XCBConn},
+    xcb::XCBConn,
 };
 use crate::util;
 
 //* conversions for button masks
-impl From<ButtonMask> for xcb::ButtonMask {
-    fn from(from: ButtonMask) -> xcb::ButtonMask {
+impl From<ButtonMask> for x::ButtonMask {
+    fn from(from: ButtonMask) -> x::ButtonMask {
         use ButtonMask::*;
 
         match from {
-            Left    => xcb::BUTTON_MASK_1,
-            Middle  => xcb::BUTTON_MASK_2,
-            Right   => xcb::BUTTON_MASK_3,
-            Button4 => xcb::BUTTON_MASK_4,
-            Button5 => xcb::BUTTON_MASK_5,
+            Left    => x::ButtonMask::N1,
+            Middle  => x::ButtonMask::N2,
+            Right   => x::ButtonMask::N3,
+            Button4 => x::ButtonMask::N4,
+            Button5 => x::ButtonMask::N5,
         }
     }
 }
@@ -44,205 +48,245 @@ impl From<ButtonIndex> for u8 {
         use ButtonIndex::*;
 
         match from {
-            Left    => xcb::BUTTON_INDEX_1 as u8,
-            Middle  => xcb::BUTTON_INDEX_2 as u8,
-            Right   => xcb::BUTTON_INDEX_3 as u8,
-            Button4 => xcb::BUTTON_INDEX_4 as u8,
-            Button5 => xcb::BUTTON_INDEX_5 as u8,
+            Left    => x::ButtonIndex::N1 as u8,
+            Middle  => x::ButtonIndex::N2 as u8,
+            Right   => x::ButtonIndex::N3 as u8,
+            Button4 => x::ButtonIndex::N4 as u8,
+            Button5 => x::ButtonIndex::N5 as u8,
+        }
+    }
+}
+
+impl TryFrom<u8> for ButtonIndex {
+    type Error = XError;
+
+    fn try_from(from: u8) -> Result<ButtonIndex> {
+        match from {
+            1 => Ok(ButtonIndex::Left),
+            2 => Ok(ButtonIndex::Middle),
+            3 => Ok(ButtonIndex::Right),
+            4 => Ok(ButtonIndex::Button4),
+            5 => Ok(ButtonIndex::Button5),
+            _ => Err(XError::ConversionError),
         }
     }
 }
 
 //* modifier key conversions
-impl From<ModKey> for u16 {
-    fn from(from: ModKey) -> u16 {
+impl From<ModKey> for x::ModMask {
+    fn from(from: ModKey) -> x::ModMask {
         use ModKey::*;
 
         match from {
-            Ctrl  => xcb::MOD_MASK_CONTROL as u16,
-            Alt   => xcb::MOD_MASK_1 as u16,
-            Shift => xcb::MOD_MASK_SHIFT as u16,
-            Meta  => xcb::MOD_MASK_4 as u16,
+            Ctrl  => x::ModMask::CONTROL,
+            Alt   => x::ModMask::N1,
+            Shift => x::ModMask::SHIFT,
+            Meta  => x::ModMask::N4,
         }
+    }
+}
+
+impl From<ModKey> for u16 {
+    fn from(from: ModKey) -> u16 {
+        x::ModMask::from(from).bits() as u16
     }
 }
 
 impl Mousebind {
     /// Express the modifier mask as an xcb-friendly type.
-    pub(super) fn modmask(&self) -> u16 {
+    pub(super) fn modmask(&self) -> x::ModMask {
         self.modmask.iter()
-            .map(|u| u16::from(*u))
-            .fold(0, |acc, u| acc | u)
+            .map(|u| x::ModMask::from(*u))
+            .fold(x::ModMask::empty(), |acc, u| acc | u)
     }
 }
 
 impl ModKey {
-    fn was_held(&self, state: u16) -> bool {
-        state & u16::from(*self) > 0
+    /// Tests if a
+    pub(super) fn was_held(&self, state: x::KeyButMask) -> bool {
+        match *self {
+            Self::Ctrl  => state.contains(x::KeyButMask::CONTROL),
+            Self::Alt   => state.contains(x::KeyButMask::MOD1),
+            Self::Shift => state.contains(x::KeyButMask::SHIFT),
+            Self::Meta  => state.contains(x::KeyButMask::MOD4)
+        }
     }
 }
 
 impl XCBConn {
     /// Converts generic events into mouse events.
-    pub(super) fn mouse_event_from_generic(&self, ev: &xcb::GenericEvent) -> Result<MouseEvent> {
-        match ev.response_type() & X_EVENT_MASK {
-            xcb::BUTTON_PRESS => {
-                let ev = unsafe {xcb::cast_event::<xcb::ButtonPressEvent>(ev)};
+    pub(super) fn do_mouse_press(
+        &self, ev: x::ButtonPressEvent, rel: bool
+    ) -> Result<MouseEvent> {
 
-                let button: ButtonIndex = (ev.detail() as u32).try_into()?;
-                self.mousemode.set(Some(button));
+        let button = ButtonIndex::try_from(ev.detail())?;
+        let modmask = ModKey::iter()
+            .filter(|m| m.was_held(ev.state()))
+            .collect();
 
-                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
+        let kind = if !rel {
+            self.mousemode.set(Some(button));
+            MouseEventKind::Press
+        } else {
+            self.mousemode.set(None);
+            MouseEventKind::Release
+        };
 
-                Ok(MouseEvent {
-                    id: ev.child(),
-                    location: Point {
-                        x: ev.root_x() as i32,
-                        y: ev.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button,
-                        modmask,
-                        kind: MouseEventKind::Press,
-                    }
-                })
+        Ok(MouseEvent {
+            id: id!(ev.child()),
+            location: Point {
+                x: ev.root_x() as i32,
+                y: ev.root_y() as i32,
+            },
+            state: Mousebind {
+                button,
+                modmask,
+                kind,
             }
-            xcb::BUTTON_RELEASE => {
-                let ev = unsafe {xcb::cast_event::<xcb::ButtonReleaseEvent>(ev)};
+        })
+    }
 
-                self.mousemode.set(None);
+    pub(super) fn do_mouse_motion(
+        &self, ev: x::MotionNotifyEvent
+    ) -> Result<MouseEvent> {
 
-                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
+        let Some(button) = self.mousemode.get() else {
+            //? fixme (account for this instead of returning Err)
+            return Err(XError::ConversionError)
+        };
+        let modmask = ModKey::iter().filter(
+            |m| m.was_held(ev.state())
+        ).collect();
 
-                Ok(MouseEvent {
-                    id: ev.child(),
-                    location: Point {
-                        x: ev.root_x() as i32,
-                        y: ev.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button: (ev.detail() as u32).try_into()?,
-                        modmask,
-                        kind: MouseEventKind::Release,
-                    }
-                })
+        Ok(MouseEvent {
+            id: id!(ev.child()),
+            location: Point {
+                x: ev.root_x() as i32,
+                y: ev.root_y() as i32,
+            },
+            state: Mousebind {
+                button,
+                modmask,
+                kind: MouseEventKind::Motion,
             }
-            xcb::MOTION_NOTIFY => {
-                let ev = unsafe {xcb::cast_event::<xcb::MotionNotifyEvent>(ev)};
-
-                //* should be safe to unwrap here since
-                //* we only get motion events if a button is pressed
-                //? fixme?
-                let button = self.mousemode.get().unwrap();
-                let modmask = ModKey::iter().filter(|m| m.was_held(ev.state() as u16)).collect();
-
-                Ok(MouseEvent {
-                    id: ev.child(),
-                    location: Point {
-                        x: ev.root_x() as i32,
-                        y: ev.root_y() as i32,
-                    },
-                    state: Mousebind {
-                        button,
-                        modmask,
-                        kind: MouseEventKind::Motion,
-                    }
-                })
-            }
-            _ => {
-                Err(XError::ConversionError)
-            }
-        }
+        })
     }
 }
 
-impl TryFrom<u32> for ButtonIndex {
+impl TryFrom<x::ButtonIndex> for ButtonIndex {
     type Error = XError;
 
-    fn try_from(from: u32) -> Result<ButtonIndex> {
-        match from {
-            xcb::BUTTON_INDEX_1 => Ok(ButtonIndex::Left),
-            xcb::BUTTON_INDEX_2 => Ok(ButtonIndex::Middle),
-            xcb::BUTTON_INDEX_3 => Ok(ButtonIndex::Right),
-            xcb::BUTTON_INDEX_4 => Ok(ButtonIndex::Button4),
-            xcb::BUTTON_INDEX_5 => Ok(ButtonIndex::Button5),
+    fn try_from(from: x::ButtonIndex) -> Result<ButtonIndex> {
+        match from as u8 {
+            1 => Ok(ButtonIndex::Left),
+            2 => Ok(ButtonIndex::Middle),
+            3 => Ok(ButtonIndex::Right),
+            4 => Ok(ButtonIndex::Button4),
+            5 => Ok(ButtonIndex::Button5),
             n => Err(XError::OtherError(format!("Unknown mouse button {}", n))),
         }
     }
 }
 
+impl From<ButtonIndex> for x::ButtonIndex {
+    fn from(from: ButtonIndex) -> x::ButtonIndex {
+        match from {
+            ButtonIndex::Left    => x::ButtonIndex::N1,
+            ButtonIndex::Middle  => x::ButtonIndex::N2,
+            ButtonIndex::Right   => x::ButtonIndex::N3,
+            ButtonIndex::Button4 => x::ButtonIndex::N4,
+            ButtonIndex::Button5 => x::ButtonIndex::N5,
+        }
+    }
+}
+
 // converting ClientConfigs to (u16, u32) slices for xcb
-impl From<&ClientConfig> for Vec<(u16, u32)> {
-    fn from(from: &ClientConfig) -> Vec<(u16, u32)> {
+impl From<&ClientConfig> for Vec<x::ConfigWindow> {
+    fn from(from: &ClientConfig) -> Vec<x::ConfigWindow> {
         use ClientConfig::*;
         use super::StackMode::*;
 
         match from {
-            BorderWidth(px) => vec![(xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, *px)],
-            Position(geom) => {
-                vec![
-                    (xcb::CONFIG_WINDOW_X as u16, geom.x as u32),
-                    (xcb::CONFIG_WINDOW_Y as u16, geom.y as u32),
-                    (xcb::CONFIG_WINDOW_HEIGHT as u16, geom.height as u32),
-                    (xcb::CONFIG_WINDOW_WIDTH as u16, geom.width as u32),
-                ]
-            }
+            BorderWidth(px) => vec![x::ConfigWindow::BorderWidth(*px)],
+            Position(geom) => vec![
+                    x::ConfigWindow::X(geom.x),
+                    x::ConfigWindow::Y(geom.y),
+                    x::ConfigWindow::Height(geom.height as u32),
+                    x::ConfigWindow::Width(geom.width as u32),
+            ],
             Resize {h, w} => vec![
-                (xcb::CONFIG_WINDOW_HEIGHT as u16, *h as u32),
-                (xcb::CONFIG_WINDOW_WIDTH as u16, *w as u32),
+                x::ConfigWindow::Height(*h as u32),
+                x::ConfigWindow::Width(*w as u32),
             ],
             Move {x, y} => vec![
-                (xcb::CONFIG_WINDOW_X as u16, *x as u32),
-                (xcb::CONFIG_WINDOW_Y as u16, *y as u32),
+                x::ConfigWindow::X(*x),
+                x::ConfigWindow::Y(*y),
             ],
             StackingMode(sm) => {
-                let stackmode = xcb::CONFIG_WINDOW_STACK_MODE as u16;
                 match sm {
-                    Above    => vec![(stackmode, xcb::STACK_MODE_ABOVE)],
-                    Below    => vec![(stackmode, xcb::STACK_MODE_BELOW)],
-                    TopIf    => vec![(stackmode, xcb::STACK_MODE_TOP_IF)],
-                    BottomIf => vec![(stackmode, xcb::STACK_MODE_BOTTOM_IF)],
-                    Opposite => vec![(stackmode, xcb::STACK_MODE_OPPOSITE)],
+                    Above    => vec![
+                        x::ConfigWindow::StackMode(x::StackMode::Above)
+                    ],
+                    Below    => vec![
+                        x::ConfigWindow::StackMode(x::StackMode::Below)
+                    ],
+                    TopIf    => vec![
+                        x::ConfigWindow::StackMode(x::StackMode::TopIf)
+                    ],
+                    BottomIf => vec![
+                        x::ConfigWindow::StackMode(x::StackMode::BottomIf)
+                    ],
+                    Opposite => vec![
+                        x::ConfigWindow::StackMode(x::StackMode::Opposite)
+                    ],
                 }
             }
         }
     }
 }
 
-impl From<&ClientAttrs> for Vec<(u32, u32)> {
-    fn from(from: &ClientAttrs) -> Vec<(u32, u32)> {
+use x::{Cw, EventMask};
+
+/// Event mask for enabling client events.
+pub const ENABLE_CLIENT_EVENTS: EventMask =
+    EventMask::ENTER_WINDOW
+    .union(EventMask::LEAVE_WINDOW)
+    .union(EventMask::PROPERTY_CHANGE)
+    .union(EventMask::STRUCTURE_NOTIFY);
+
+/// Event mask for disabling client events.
+pub const DISABLE_CLIENT_EVENTS: EventMask =
+    EventMask::NO_EVENT;
+
+/// Event mask for selecting events on the root window.
+pub const ROOT_EVENT_MASK: EventMask =
+    EventMask::PROPERTY_CHANGE
+    .union(EventMask::SUBSTRUCTURE_REDIRECT)
+    .union(EventMask::SUBSTRUCTURE_NOTIFY)
+    .union(EventMask::BUTTON_MOTION);
+
+
+impl From<&ClientAttrs> for Vec<Cw> {
+    fn from(from: &ClientAttrs) -> Vec<Cw> {
         use ClientAttrs::*;
         use BorderStyle::*;
 
         match from {
             BorderColour(bs) => {
-                let bcolour = xcb::CW_BORDER_PIXEL;
                 match bs {
-                    Focused   => vec![(bcolour, util::FOCUSED_COL)],
-                    Unfocused => vec![(bcolour, util::UNFOCUSED_COL)],
-                    Urgent    => vec![(bcolour, util::URGENT_COL)],
+                    Focused   => vec![Cw::BorderPixel(util::FOCUSED_COL)],
+                    Unfocused => vec![Cw::BorderPixel(util::UNFOCUSED_COL)],
+                    Urgent    => vec![Cw::BorderPixel(util::URGENT_COL)],
                 }
             },
             EnableClientEvents => {
-                let clienteventmask = xcb::EVENT_MASK_ENTER_WINDOW
-                    | xcb::EVENT_MASK_LEAVE_WINDOW
-                    | xcb::EVENT_MASK_PROPERTY_CHANGE
-                    | xcb::EVENT_MASK_STRUCTURE_NOTIFY;
-                
-                vec![(xcb::CW_EVENT_MASK, clienteventmask)]
+                vec![Cw::EventMask(ENABLE_CLIENT_EVENTS)]
             }
             DisableClientEvents => {
-                let clienteventmask = xcb::EVENT_MASK_NO_EVENT;
-
-                vec![(xcb::CW_EVENT_MASK, clienteventmask)]
+                vec![Cw::EventMask(DISABLE_CLIENT_EVENTS)]
             }
             RootEventMask => {
-                let rooteventmask = xcb::EVENT_MASK_PROPERTY_CHANGE
-                    | xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT
-                    | xcb::EVENT_MASK_SUBSTRUCTURE_NOTIFY
-                    | xcb::EVENT_MASK_BUTTON_MOTION;
-                
-                vec![(xcb::CW_EVENT_MASK, rooteventmask)]
+                vec![Cw::EventMask(ROOT_EVENT_MASK)]
             }
         }
     }
