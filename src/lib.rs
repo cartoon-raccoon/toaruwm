@@ -15,7 +15,10 @@ pub(crate) mod util;
 pub use crate::core::types;
 pub use crate::x::core::Result as XResult;
 pub use crate::x::core::XConn;
-pub use crate::x::xcb::XCBConn;
+pub use crate::x::{
+    xcb::XCBConn,
+    x11rb::X11RBConn,
+};
 pub use crate::manager::WindowManager;
 
 use std::ops::FnMut;
@@ -24,10 +27,20 @@ use std::num::ParseIntError;
 
 /// Convenience function for creating a XCB-backed WindowManager.
 pub fn xcb_backed_wm() -> XResult<WindowManager<XCBConn>> {
-    let mut xcbconn = XCBConn::connect()?;
-    xcbconn.init()?;
+    let mut conn = XCBConn::connect()?;
+    conn.init()?;
 
-    let wm = WindowManager::new(xcbconn);
+    let wm = WindowManager::new(conn);
+
+    Ok(wm)
+}
+
+/// Convenience function for creating a XCB-backed WindowManager.
+pub fn x11rb_backed_wm() -> XResult<WindowManager<X11RBConn>> {
+    let mut conn = X11RBConn::connect()?;
+    conn.init()?;
+
+    let wm = WindowManager::new(conn);
 
     Ok(wm)
 }

@@ -4,6 +4,7 @@
 //! crate for directly interacting with the X server.
 
 use std::str::FromStr;
+use std::ops::{BitAnd, BitOr};
 
 use thiserror::Error;
 use tracing::{debug, error};
@@ -24,8 +25,11 @@ use super::{
         Atom,
         UNMANAGED_WINDOW_TYPES,
         AUTO_FLOAT_WINDOW_TYPES,
-    }
+    },
+    input::KeyButMask,
 };
+
+//* ========== X WINDOW THINGS ========== *//
 
 /// An X server ID for a given window.
 pub type XWindowID = u32;
@@ -33,17 +37,13 @@ pub type XWindowID = u32;
 /// An X Atom, an unsigned 32-bit integer.
 pub type XAtom = u32;
 
-/// Contains the basic atoms and other constants used by 
-/// the X specification protocol.
-/// 
-/// Re-exported from xcb-rs.
-/// 
-/// It does re-export some xcb-specific functions, but
-/// most of the items used by ToaruWM are specific to the
-/// X protocol, not the XCB library itself.
-pub mod xproto {
-    pub use xcb::x::*;
-}
+/// A trait for allowing certain types to be treated as bitmasks.
+pub trait BitMask: BitAnd + BitOr + Sized {}
+
+impl BitMask for u8 {}
+impl BitMask for u16 {}
+impl BitMask for u32 {}
+impl BitMask for u64 {}
 
 /// Window stacking modes defined by the X Protocol.
 #[derive(Clone, Copy, Debug)]
@@ -64,7 +64,7 @@ pub struct PointerQueryReply {
     pub root_y: i32,
     pub win_x: i32,
     pub win_y: i32,
-    pub mask: u16,
+    pub mask: KeyButMask,
 }
 
 /// Representation of an X window with additional data (geometry).
@@ -123,6 +123,10 @@ pub enum WindowClass {
 
 impl XWindow {
     /// Sets the geometry using an XConn object.
+    /// 
+    /// This method requests the X server directly for the
+    /// geometry of the window and updates its internal fields
+    /// accordingly.
     pub fn set_geometry_conn<X: XConn>(&mut self, conn: &X) {
         match conn.get_geometry(self.id) {
             Ok(geom) => {
@@ -140,6 +144,10 @@ impl XWindow {
     }
 
     /// Sets the geometry using a provided Geometry.
+    /// 
+    /// Note that this does not update the geometry as tracked by
+    /// the X server, and so a request should be made to the server
+    /// to update the geometry there as well.
     pub fn set_geometry(&mut self, geom: Geometry) {
         debug!(
             "Updating geometry for window {}:\nx: {}, y: {}, h: {}, w: {}", 
@@ -168,19 +176,19 @@ impl XWindow {
         self.geom.y = y;
     }
 
-    /// Updates the width by a given difference.
+    /// Updates the width by a given delta.
     pub fn update_width(&mut self, dx: i32) {
         self.geom.width += dx;
     }
-    /// Updates the height by given difference.
+    /// Updates the height by given delta.
     pub fn update_height(&mut self, dy: i32) {
         self.geom.height += dy;
     }
-    /// Updates the x coordinate of the window by a given difference.
+    /// Updates the x coordinate of the window by a given delta.
     pub fn update_pos_x(&mut self, dx: i32) {
         self.geom.x += dx;
     }
-    /// Updates the y coordinate of the window by a given difference.
+    /// Updates the y coordinate of the window by a given delta.
     pub fn update_pos_y(&mut self, dy: i32) {
         self.geom.y += dy;
     }
@@ -237,6 +245,7 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// An XConn implementation should also provide a way to manage X atoms.
 /// Its `atom()` method should intern an Atom if not known, and
 /// the implementation should store this in its internal state in some way.
+/// While this functionality is not required, it is heavily encouraged.
 /// 
 /// An implementation of `XConn` is required for using a [WindowManager][1].
 /// The backend library used does not directly appear inside `WindowManager`.
@@ -245,7 +254,8 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// any display server implementing the X protocol, given a proper
 /// implementor of `XConn`.
 /// 
-/// This crate provides an XCB-backed implementation of `XConn` - [XCBConn][2].
+/// This crate provides two implementations of XConn: [XCBConn][2] and
+/// X11RBConn.
 /// 
 /// [1]: crate::manager::WindowManager
 /// [2]: crate::x::xcb::XCBConn
@@ -663,4 +673,9 @@ pub trait XConn {
 
         AUTO_FLOAT_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
     }
+}
+
+/// Abstracts over methods that all XConn implementations use internally.
+pub(crate) trait XConnInner: XConn {
+
 }

@@ -1,4 +1,8 @@
-use super::{XWindowID, core::{XAtom, StackMode}};
+use super::{
+    XWindowID, 
+    core::{XAtom, StackMode},
+    input::{KeyCode, ModMask},
+};
 use crate::types::{
     Geometry, Point,
 };
@@ -125,13 +129,13 @@ pub struct PropertyEvent {
 #[derive(Debug, Clone, Copy)]
 pub struct KeypressEvent {
     /// The state of modifier keys was active at the time.
-    pub mask: u16,
+    pub mask: ModMask,
     /// The keycode of the key pressed.
-    pub keycode: u8,
+    pub keycode: KeyCode,
 }
 
 /// Data associated with a button press event.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MouseEvent {
     /// The window the pointer was on when the button was pressed.
     pub id: XWindowID,
@@ -139,6 +143,12 @@ pub struct MouseEvent {
     pub location: Point,
     /// The state of the buttons and the movement type
     pub state: Mousebind,
+}
+
+
+/// A trait for converting backend types to a MouseEvent type.
+pub(crate) trait ButtonEvent {
+    
 }
 
 #[derive(Debug, Clone, Copy)]

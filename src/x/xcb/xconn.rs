@@ -2,7 +2,6 @@
 
 use xcb::randr;
 use xcb::{Xid, XidNew};
-use xcb::x::ModMask;
 use xcb::x;
 
 use tracing::instrument;
@@ -12,6 +11,7 @@ use super::{
     id, cast, 
     req_and_check, 
     req_and_reply,
+    util,
 };
 use crate::x::{
     core::{
@@ -26,6 +26,7 @@ use crate::x::{
         ClientMessageEvent,
     },
     property::*,
+    input::MODIFIERS,
     Atom,
 };
 use crate::core::Screen;
@@ -36,13 +37,9 @@ use crate::types::{
     ClientConfig,
 };
 use crate::keybinds::{Keybind, Mousebind};
-use crate::util;
+use crate::util as coreutil;
 
 use super::XCBConn;
-
-// Grab numlock separately and filter it out when receiving events
-// Taken from https://github.com/sminez/penrose/blob/develop/src/xcb/api.rs.
-const MODIFIERS: &[u16] = &[0, ModMask::N2.bits() as u16];
 
 impl XConn for XCBConn {
     // General X server operations
@@ -107,7 +104,7 @@ impl XConn for XCBConn {
             root_y: reply.root_x() as i32,
             win_x: reply.win_x() as i32,
             win_y: reply.win_y() as i32,
-            mask: reply.mask().bits() as u16,
+            mask: reply.mask().into(),
         })
     }
 
@@ -243,8 +240,7 @@ impl XConn for XCBConn {
                 &x::GrabKey{
                     owner_events: false,
                     grab_window: cast!(x::Window, window),
-                    modifiers: 
-                        x::ModMask::from_bits_truncate((kb.modmask | m) as u32),
+                    modifiers: (kb.modmask | *m).into(),
                     key: kb.code,
                     pointer_mode: x::GrabMode::Async,
                     keyboard_mode: x::GrabMode::Async,
@@ -268,7 +264,7 @@ impl XConn for XCBConn {
                 key: kb.code,
                 grab_window: cast!(x::Window, window),
                 modifiers:
-                    x::ModMask::from_bits_truncate(kb.modmask as u32),
+                    x::ModMask::from(kb.modmask),
             }
         ).map_err(|_|
             XError::ServerError(
@@ -297,7 +293,7 @@ impl XConn for XCBConn {
                     } else { x::Window::none() },
                     cursor: x::Cursor::none(),
                     button: mb.button.into(),
-                    modifiers: mb.modmask() | x::ModMask::from_bits_truncate(*m as u32),
+                    modifiers: (mb.modmask | *m).into(),
                 }
             ).map_err(|_|
                 XError::ServerError(
@@ -402,7 +398,7 @@ impl XConn for XCBConn {
                     BORDER_WIDTH,
                     x::WindowClass::InputOutput,
                     vec![
-                        x::Cw::BorderPixel(util::FOCUSED_COL),
+                        x::Cw::BorderPixel(coreutil::FOCUSED_COL),
                         x::Cw::Colormap(mid),
                         x::Cw::EventMask(x::EventMask::EXPOSURE|x::EventMask::KEY_PRESS)
                     ],
@@ -623,16 +619,16 @@ impl XConn for XCBConn {
 
     fn change_window_attributes(&self, window: XWindowID, attrs: &[ClientAttrs]) -> Result<()> {
         trace!("Changing window attributes");
-        for attr in attrs {
-            let attr2: Vec<_> = attr.into();
-            req_and_check!(
-                self.conn, 
-                &x::ChangeWindowAttributes{
-                    window: cast!(x::Window, window),
-                    value_list: &attr2
-                }
-            )?;
-        }
+        let attrs: Vec<x::Cw> =  attrs.iter()
+            .map(|i| i.into()).collect();
+
+        req_and_check!(
+            self.conn, 
+            &x::ChangeWindowAttributes{
+                window: cast!(x::Window, window),
+                value_list: &attrs
+            }
+        )?;
         Ok(())
     }
 

@@ -7,13 +7,11 @@ use strum::*;
 use xcb::x;
 use xcb::Xid;
 
-use super::id;
+use super::{XCBConn, id};
 use crate::keybinds::{
-    ButtonMask,
     ButtonIndex,
     ModKey,
     Mousebind,
-    MouseEventKind,
 };
 use crate::types::{
     Point,
@@ -22,52 +20,38 @@ use crate::types::{
     ClientAttrs,
 };
 use crate::x::{
-    core::{XError, Result},
+    core::{XError, Result, BitMask},
     event::MouseEvent,
-    xcb::XCBConn,
+    input::{
+        ModMask, 
+        ButtonMask, 
+        KeyButMask,
+        MouseEventKind
+    },
 };
 use crate::util;
 
-//* conversions for button masks
+impl BitMask for x::ModMask {}
+impl BitMask for x::ButtonMask {}
+impl BitMask for x::KeyButMask {}
+
+//* mouse button and button index conversions
 impl From<ButtonMask> for x::ButtonMask {
     fn from(from: ButtonMask) -> x::ButtonMask {
-        use ButtonMask::*;
-
-        match from {
-            Left    => x::ButtonMask::N1,
-            Middle  => x::ButtonMask::N2,
-            Right   => x::ButtonMask::N3,
-            Button4 => x::ButtonMask::N4,
-            Button5 => x::ButtonMask::N5,
-        }
+        x::ButtonMask::from_bits_truncate(from.bits() as u32)
     }
 }
 
-impl From<ButtonIndex> for u8 {
-    fn from(from: ButtonIndex) -> u8 {
+impl From<ButtonIndex> for x::ButtonIndex {
+    fn from(from: ButtonIndex) -> x::ButtonIndex {
         use ButtonIndex::*;
 
         match from {
-            Left    => x::ButtonIndex::N1 as u8,
-            Middle  => x::ButtonIndex::N2 as u8,
-            Right   => x::ButtonIndex::N3 as u8,
-            Button4 => x::ButtonIndex::N4 as u8,
-            Button5 => x::ButtonIndex::N5 as u8,
-        }
-    }
-}
-
-impl TryFrom<u8> for ButtonIndex {
-    type Error = XError;
-
-    fn try_from(from: u8) -> Result<ButtonIndex> {
-        match from {
-            1 => Ok(ButtonIndex::Left),
-            2 => Ok(ButtonIndex::Middle),
-            3 => Ok(ButtonIndex::Right),
-            4 => Ok(ButtonIndex::Button4),
-            5 => Ok(ButtonIndex::Button5),
-            _ => Err(XError::ConversionError),
+            Left    => x::ButtonIndex::N1,
+            Middle  => x::ButtonIndex::N2,
+            Right   => x::ButtonIndex::N3,
+            Button4 => x::ButtonIndex::N4,
+            Button5 => x::ButtonIndex::N5,
         }
     }
 }
@@ -86,30 +70,33 @@ impl From<ModKey> for x::ModMask {
     }
 }
 
-impl From<ModKey> for u16 {
-    fn from(from: ModKey) -> u16 {
-        x::ModMask::from(from).bits() as u16
+impl From<ModMask> for x::ModMask {
+    fn from(from: ModMask) -> x::ModMask {
+        x::ModMask::from_bits_truncate(from.bits() as u32)
     }
 }
 
-impl Mousebind {
-    /// Express the modifier mask as an xcb-friendly type.
-    pub(super) fn modmask(&self) -> x::ModMask {
-        self.modmask.iter()
-            .map(|u| x::ModMask::from(*u))
-            .fold(x::ModMask::empty(), |acc, u| acc | u)
+impl From<x::ModMask> for ModMask {
+    fn from(from: x::ModMask) -> ModMask {
+        ModMask::from_bits_truncate(from.bits() as u16)
     }
 }
 
-impl ModKey {
-    /// Tests if a
-    pub(super) fn was_held(&self, state: x::KeyButMask) -> bool {
-        match *self {
-            Self::Ctrl  => state.contains(x::KeyButMask::CONTROL),
-            Self::Alt   => state.contains(x::KeyButMask::MOD1),
-            Self::Shift => state.contains(x::KeyButMask::SHIFT),
-            Self::Meta  => state.contains(x::KeyButMask::MOD4)
-        }
+impl From<KeyButMask> for x::KeyButMask {
+    fn from(from: KeyButMask) -> x::KeyButMask {
+        x::KeyButMask::from_bits_truncate(from.bits() as u32)
+    }
+}
+
+impl From<x::KeyButMask> for KeyButMask {
+    fn from(from: x::KeyButMask) -> KeyButMask {
+        KeyButMask::from_bits_truncate(from.bits() as u16)
+    }
+}
+
+impl From<x::KeyButMask> for ModMask {
+    fn from(from: x::KeyButMask) -> ModMask {
+        KeyButMask::from(from).modmask()
     }
 }
 
@@ -121,8 +108,10 @@ impl XCBConn {
 
         let button = ButtonIndex::try_from(ev.detail())?;
         let modmask = ModKey::iter()
-            .filter(|m| m.was_held(ev.state()))
-            .collect();
+            .filter(|m| m.was_held(ev.state())
+        ).fold(ModMask::empty(), |acc, n| {
+            acc | <ModKey as Into<ModMask>>::into(n)
+        });
 
         let kind = if !rel {
             self.mousemode.set(Some(button));
@@ -156,7 +145,9 @@ impl XCBConn {
         };
         let modmask = ModKey::iter().filter(
             |m| m.was_held(ev.state())
-        ).collect();
+        ).fold(ModMask::empty(), |acc, n| {
+            acc | <ModKey as Into<ModMask>>::into(n)
+        });
 
         Ok(MouseEvent {
             id: id!(ev.child()),
@@ -170,33 +161,6 @@ impl XCBConn {
                 kind: MouseEventKind::Motion,
             }
         })
-    }
-}
-
-impl TryFrom<x::ButtonIndex> for ButtonIndex {
-    type Error = XError;
-
-    fn try_from(from: x::ButtonIndex) -> Result<ButtonIndex> {
-        match from as u8 {
-            1 => Ok(ButtonIndex::Left),
-            2 => Ok(ButtonIndex::Middle),
-            3 => Ok(ButtonIndex::Right),
-            4 => Ok(ButtonIndex::Button4),
-            5 => Ok(ButtonIndex::Button5),
-            n => Err(XError::OtherError(format!("Unknown mouse button {}", n))),
-        }
-    }
-}
-
-impl From<ButtonIndex> for x::ButtonIndex {
-    fn from(from: ButtonIndex) -> x::ButtonIndex {
-        match from {
-            ButtonIndex::Left    => x::ButtonIndex::N1,
-            ButtonIndex::Middle  => x::ButtonIndex::N2,
-            ButtonIndex::Right   => x::ButtonIndex::N3,
-            ButtonIndex::Button4 => x::ButtonIndex::N4,
-            ButtonIndex::Button5 => x::ButtonIndex::N5,
-        }
     }
 }
 
@@ -266,27 +230,27 @@ pub const ROOT_EVENT_MASK: EventMask =
     .union(EventMask::BUTTON_MOTION);
 
 
-impl From<&ClientAttrs> for Vec<Cw> {
-    fn from(from: &ClientAttrs) -> Vec<Cw> {
+impl From<&ClientAttrs> for Cw {
+    fn from(from: &ClientAttrs) -> Cw {
         use ClientAttrs::*;
         use BorderStyle::*;
 
         match from {
             BorderColour(bs) => {
                 match bs {
-                    Focused   => vec![Cw::BorderPixel(util::FOCUSED_COL)],
-                    Unfocused => vec![Cw::BorderPixel(util::UNFOCUSED_COL)],
-                    Urgent    => vec![Cw::BorderPixel(util::URGENT_COL)],
+                    Focused   => Cw::BorderPixel(util::FOCUSED_COL),
+                    Unfocused => Cw::BorderPixel(util::UNFOCUSED_COL),
+                    Urgent    => Cw::BorderPixel(util::URGENT_COL),
                 }
             },
             EnableClientEvents => {
-                vec![Cw::EventMask(ENABLE_CLIENT_EVENTS)]
+                Cw::EventMask(ENABLE_CLIENT_EVENTS)
             }
             DisableClientEvents => {
-                vec![Cw::EventMask(DISABLE_CLIENT_EVENTS)]
+                Cw::EventMask(DISABLE_CLIENT_EVENTS)
             }
             RootEventMask => {
-                vec![Cw::EventMask(ROOT_EVENT_MASK)]
+                Cw::EventMask(ROOT_EVENT_MASK)
             }
         }
     }

@@ -54,19 +54,22 @@ pub enum Property {
 }
 
 impl Property {
-    /// If the property is `Self::Atoms(_), return its internal
+    /// If the property is `Self::Atoms(_)`, return its internal
     /// representation as a Vec of Atoms instead of Strings.
+    /// `conn` is required to contact the X server to get each atom's
+    /// corresponding integer value, or to intern the atom on the
+    /// server if the atom doesn't currently exist.
+    /// 
+    /// Any errors encountered when fetching values are silently discarded.
     /// 
     /// If the property is not `Self::Atoms`, None is returned.
     pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<XAtom>> {
         if let Self::Atom(strings) = self {
-            Some({
-                let mut atoms = Vec::new();
-                for s in strings {
-                    atoms.push(conn.atom(s).ok()?)
-                }
-                atoms
-            })
+            Some(
+                strings.into_iter()
+                    .flat_map(|s| conn.atom(s))
+                    .collect()
+            )
         } else {
             None
         }
@@ -183,54 +186,54 @@ impl Default for WindowState {
 }
 
 bitflags! {
-    /// The flags used inside WmHints.
-    #[derive(Default)]
-    pub struct WmHintsFlags: u32 {
-        /// The input hint is set
-        const INPUT_HINT            = 0b0000000001;
-        /// The state hint is set
-        const STATE_HINT            = 0b0000000010;
-        /// The icon pixmap hint is set
-        const ICON_PIXMAP_HINT      = 0b0000000100;
-        /// The icon window hint is set
-        const ICON_WINDOW_HINT      = 0b0000001000;
-        /// The icon position hint is set
-        const ICON_POSITION_HINT    = 0b0000010000;
-        /// The icon mask hint is set
-        const ICON_MASK_HINT        = 0b0000100000;
-        /// The window group hint is set
-        const WINDOW_GROUP_HINT     = 0b0001000000;
-        //const UNUSED                = 0b0010000000;
-        /// The urgency hint is set
-        const URGENCY_HINT          = 0b0100000000;
-    }
+
+/// The flags used inside WmHints.
+#[derive(Default)]
+pub struct WmHintsFlags: u32 {
+    /// The input hint is set
+    const INPUT_HINT            = 0b0000000001;
+    /// The state hint is set
+    const STATE_HINT            = 0b0000000010;
+    /// The icon pixmap hint is set
+    const ICON_PIXMAP_HINT      = 0b0000000100;
+    /// The icon window hint is set
+    const ICON_WINDOW_HINT      = 0b0000001000;
+    /// The icon position hint is set
+    const ICON_POSITION_HINT    = 0b0000010000;
+    /// The icon mask hint is set
+    const ICON_MASK_HINT        = 0b0000100000;
+    /// The window group hint is set
+    const WINDOW_GROUP_HINT     = 0b0001000000;
+    //const UNUSED                = 0b0010000000;
+    /// The urgency hint is set
+    const URGENCY_HINT          = 0b0100000000;
 }
 
-bitflags! {
-    /// The flags used inside WmSizeHints.
-    #[derive(Default)]
-    pub struct WmSizeHintsFlags: u32 {
-        /// User-specified x and y
-        const US_POSITION   = 0b0000000001;
-        /// User-specified window size
-        const US_SIZE       = 0b0000000010;
-        /// Program-specified position
-        const P_POSITION    = 0b0000000100;
-        /// Program-specified size
-        const P_SIZE        = 0b0000001000;
-        /// Program-specified minimum size
-        const P_MIN_SIZE    = 0b0000010000;
-        /// Program specified maximum size
-        const P_MAX_SIZE    = 0b0000100000;
-        /// Program specified resize increments
-        const P_RESIZE_INC  = 0b0001000000;
-        /// Program specified aspect ratios
-        const P_ASPECT      = 0b0010000000;
-        /// Program specified base size
-        const P_BASE_SIZE   = 0b0100000000;
-        /// Program specified window gravity
-        const P_WIN_GRAVITY = 0b1000000000;
-    }
+/// The flags used inside WmSizeHints.
+#[derive(Default)]
+pub struct WmSizeHintsFlags: u32 {
+    /// User-specified x and y
+    const US_POSITION   = 0b0000000001;
+    /// User-specified window size
+    const US_SIZE       = 0b0000000010;
+    /// Program-specified position
+    const P_POSITION    = 0b0000000100;
+    /// Program-specified size
+    const P_SIZE        = 0b0000001000;
+    /// Program-specified minimum size
+    const P_MIN_SIZE    = 0b0000010000;
+    /// Program specified maximum size
+    const P_MAX_SIZE    = 0b0000100000;
+    /// Program specified resize increments
+    const P_RESIZE_INC  = 0b0001000000;
+    /// Program specified aspect ratios
+    const P_ASPECT      = 0b0010000000;
+    /// Program specified base size
+    const P_BASE_SIZE   = 0b0100000000;
+    /// Program specified window gravity
+    const P_WIN_GRAVITY = 0b1000000000;
+}
+
 }
 
 /// The length of the data for WM_HINTS.

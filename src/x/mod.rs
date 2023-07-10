@@ -1,26 +1,65 @@
 //! This module provides ToaruWM's main interface to the X server.
-//! It exposes a connection trait and provides the basic methods for 
-//! retrieving data from and setting data on the X server, that are 
-//! called by other modules within ToaruWM.
+//! The core of this module is the `XConn` trait, which defines the
+//! interface by which the window manager retrives data from and 
+//! sets data on the X server, using ToaruWM types for abstraction.
 //! 
-//! This module also exposes extension traits that fulfill ICCCM and EWMH
-//! functionality, built on top of the base X Connection. Where such
-//! functionality is required, these extension traits are used as bounds
-//! instead of the base connection trait.
-//! 
-//! For concrete implementation of the traits exported here, a basic
-//! connection object built on top of the XCB library is provided, and
-//! can be found inside the `xcb` module.
+//! For concrete implementation of the traits exported here, this module
+//! offers two submodules which each contain implementations using the XCB
+//! and X11RB backing libraries respectively.
 
 pub mod core;
 pub mod event;
-pub mod xcb;
 pub mod atom;
 pub mod property;
+pub mod cursor;
+pub mod input;
+
+pub mod xcb;
+pub mod x11rb;
 
 pub use self::core::{
-    XConn, XWindow, XWindowID, XAtom, XError, xproto
+    XConn, XWindow, XWindowID, XAtom, XError
 };
 pub use event::XEvent;
 pub use atom::{Atom, Atoms};
 pub use property::*;
+
+// various backend-agnostic conversion implementations
+
+use std::string::FromUtf8Error;
+
+impl From<FromUtf8Error> for XError {
+    fn from(e: FromUtf8Error) -> XError {
+        XError::InvalidPropertyData(
+            format!("Invalid UTF8 data: {}", e)
+        )
+    }
+}
+
+use std::array::TryFromSliceError as TFSError;
+
+impl From<TFSError> for XError {
+    fn from(_: TFSError) -> Self {
+        XError::ConversionError
+    }
+}
+
+use std::convert::TryFrom;
+
+use crate::x::core::Result;
+use crate::keybinds::ButtonIndex;
+
+impl TryFrom<u8> for ButtonIndex {
+    type Error = XError;
+
+    fn try_from(from: u8) -> Result<ButtonIndex> {
+        match from {
+            1 => Ok(ButtonIndex::Left),
+            2 => Ok(ButtonIndex::Middle),
+            3 => Ok(ButtonIndex::Right),
+            4 => Ok(ButtonIndex::Button4),
+            5 => Ok(ButtonIndex::Button5),
+            _ => Err(XError::ConversionError),
+        }
+    }
+}

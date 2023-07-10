@@ -7,33 +7,41 @@ use crate::manager::WindowManager;
 use crate::x::{
     core::XConn,
     event::KeypressEvent,
+    input::{
+        ModMask,
+        KeyCode,
+    }
 };
 use crate::types::Point;
 use crate::{ToaruError, Result};
 
-//* Re-exports
-pub mod keysym {
-    pub type KeySym = u32;
-    pub use x11::keysym::*;
-}
+pub use crate::x::input::MouseEventKind;
 
+
+/// A type representing a modifier key tied to a certain keybind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ModKey {
-    Ctrl,
-    Alt,
-    Shift,
-    Meta,
+    Ctrl  = ModMask::CONTROL.bits() as isize,
+    Alt   = ModMask::MOD1.bits() as isize,
+    Shift = ModMask::SHIFT.bits() as isize,
+    Meta  = ModMask::MOD4.bits() as isize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Hash, EnumIter)]
-pub enum ButtonMask {
-    Left,
-    Middle,
-    Right,
-    Button4,
-    Button5,
+impl From<Vec<ModKey>> for ModMask {
+    fn from(from: Vec<ModKey>) -> ModMask {
+        from.into_iter()
+            .fold(ModMask::empty(), |acc, n| {
+                match n {
+                    ModKey::Ctrl  => acc | ModMask::CONTROL,
+                    ModKey::Alt   => acc | ModMask::MOD1,
+                    ModKey::Shift => acc | ModMask::SHIFT,
+                    ModKey::Meta  => acc | ModMask::MOD4,
+                }
+            })
+    }
 }
 
+/// A type representing a mouse button tied to a certain mousebind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ButtonIndex {
     Left,
@@ -43,41 +51,52 @@ pub enum ButtonIndex {
     Button5,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MouseEventKind {
-    Motion,
-    Press,
-    Release,
-}
-
-pub type KeyMask = u16;
-pub type KeyCode = u8;
-
 /// Representation of a Keybind that can be run by ToaruWM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Keybind {
-    pub modmask: KeyMask,
-    pub code: KeyCode,
+    pub(crate) modmask: ModMask,
+    pub(crate) code: KeyCode,
 }
 
-pub const fn kb(modmask: u16, code: u8) -> Keybind {
-    Keybind {
-        modmask, code
-    }
-}
-
-pub const fn mb(modmask: Vec<ModKey>, button: ButtonIndex, kind: MouseEventKind) -> Mousebind {
-    Mousebind {
-        modmask, button, kind
+impl Keybind {
+    pub fn new<M: Into<ModMask>>(modifiers: M, code: KeyCode) -> Self {
+        Self {
+            modmask: modifiers.into(),
+            code
+        }
     }
 }
 
 /// Representation of a mouse binding that can be run by ToaruWM.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Mousebind {
-    pub modmask: Vec<ModKey>,
-    pub button: ButtonIndex,
-    pub kind: MouseEventKind,
+    pub(crate) modmask: ModMask,
+    pub(crate) button: ButtonIndex,
+    pub(crate) kind: MouseEventKind,
+}
+
+impl Mousebind {
+    pub fn new<M: Into<ModMask>>(
+        modifiers: M, button: ButtonIndex, kind: MouseEventKind
+    ) -> Self {
+        Self {
+            modmask: modifiers.into(),
+            button,
+            kind
+        }
+    }
+}
+
+pub fn kb(modmask: Vec<ModKey>, code: u8) -> Keybind {
+    Keybind {
+        modmask: modmask.into(), code
+    }
+}
+
+pub fn mb(modmask: Vec<ModKey>, button: ButtonIndex, kind: MouseEventKind) -> Mousebind {
+    Mousebind {
+        modmask: modmask.into(), button, kind
+    }
 }
 
 impl From<KeypressEvent> for Keybind {
@@ -137,23 +156,20 @@ impl Keymap {
     /// Alt = A,
     /// Meta = M,
     pub fn parse_keybinding(&self, kb: &str) -> Result<Keybind> {
-        let mut modifiers: Vec<u16> = Vec::new();
+        let mut modifiers: Vec<ModKey> = Vec::new();
         let mut code = None;
         for token in kb.split('-') {
             match token {
-                "C" => {modifiers.push(ModKey::Ctrl.into());}
-                "S" => {modifiers.push(ModKey::Shift.into());}
-                "A" => {modifiers.push(ModKey::Alt.into());}
-                "M" => {modifiers.push(ModKey::Meta.into());}
+                "C" => {modifiers.push(ModKey::Ctrl);}
+                "S" => {modifiers.push(ModKey::Shift);}
+                "A" => {modifiers.push(ModKey::Alt);}
+                "M" => {modifiers.push(ModKey::Meta);}
                 n => {code = self.lookup_key(n);}
             }
         }
 
-        let modmask = modifiers.into_iter()
-            .fold(0, |acc, n| acc | n);
-
         if let Some(code) = code {
-            Ok(Keybind {modmask, code})
+            Ok(Keybind {modmask: modifiers.into(), code})
         } else {
             Err(ToaruError::ParseKeybind(kb.into()))
         }
@@ -200,7 +216,6 @@ pub fn new_mousebinds<X: XConn>() -> Mousebinds<X> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xcb::x::KeyButMask;
 
     #[test]
     fn test_construct_keymap() {
@@ -214,10 +229,10 @@ mod tests {
         let modshift_down = map.parse_keybinding("M-S-Down").unwrap();
         let modshift_a = map.parse_keybinding("M-S-a").unwrap();
 
-        let mod4 = KeyButMask::MOD4;
-        let shift = KeyButMask::SHIFT;
+        let mod4 = ModKey::Meta;
+        let shift = ModKey::Shift;
 
-        assert_eq!(modshift_down, kb((mod4|shift).bits() as u16, 116));
-        assert_eq!(modshift_a, kb((mod4|shift).bits() as u16, 38));
+        assert_eq!(modshift_down, kb(vec![mod4, shift], 116));
+        assert_eq!(modshift_a, kb(vec![mod4, shift], 38));
     }
 }

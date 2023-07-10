@@ -19,6 +19,7 @@ use crate::x::{
     Atom,
     Property,
     event::ConfigureRequestData,
+    input::MouseEventKind,
 };
 use crate::types::{
     Cardinal,
@@ -30,7 +31,6 @@ use crate::types::{
 use crate::keybinds::{
     Mousebinds,
     Mousebind,
-    MouseEventKind,
     Keybinds, 
     Keybind,
 };

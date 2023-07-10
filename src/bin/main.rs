@@ -17,7 +17,7 @@ use std::error::Error;
 use tracing::Level;
 use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
 
-use toaruwm::xcb_backed_wm;
+use toaruwm::x11rb_backed_wm;
 use toaruwm::keybinds::{
     ModKey,
     Keymap,
@@ -28,13 +28,13 @@ use toaruwm::keybinds::{
     ButtonIndex as Idx,
 };
 use toaruwm::types::Cardinal::*;
-use toaruwm::x::xcb::XCBConn;
+use toaruwm::x::x11rb::X11RBConn;
 use toaruwm::WindowManager;
 
 use std::collections::HashMap;
 
 // convenience typedef
-type Wm<'a> = &'a mut WindowManager<XCBConn>;
+type Wm<'a> = &'a mut WindowManager<X11RBConn>;
 
 //* defining keybinds and associated WM actions
 const KEYBINDS: &[(&str, fn(Wm))] = &[
@@ -73,7 +73,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .try_init()?;
 
     //* 1: Setup X Connection and allocate new WM object
-    let mut wm = xcb_backed_wm()?;
+    let mut wm = x11rb_backed_wm()?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here
@@ -82,13 +82,13 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let keymap = Keymap::new()?;
 
     // adding keybinds
-    let mut keybinds: Keybinds<XCBConn> = HashMap::new();
+    let mut keybinds: Keybinds<X11RBConn> = HashMap::new();
     for (kb, cb) in KEYBINDS {
         keybinds.insert(keymap.parse_keybinding(kb)?, Box::new(cb));
     }
 
     // adding mousebinds
-    let mut mousebinds: Mousebinds<XCBConn> = HashMap::new();
+    let mut mousebinds: Mousebinds<X11RBConn> = HashMap::new();
     mousebinds.insert(
         mb(vec![ModKey::Meta], Idx::Left, Motion), Box::new(|wm: Wm, pt| wm.move_window_ptr(pt))
     );
