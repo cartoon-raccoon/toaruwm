@@ -60,9 +60,6 @@ mod util;
 
 use util::{cast, id, req_and_check, req_and_reply};
 
-#[cfg(test)]
-mod tests;
-
 const MAX_LONG_LENGTH: u32 = 1024;
 
 const RANDR_MAJ: u32 = 1;

@@ -24,6 +24,9 @@ pub use event::XEvent;
 pub use atom::{Atom, Atoms};
 pub use property::*;
 
+#[cfg(test)]
+mod tests;
+
 // various backend-agnostic conversion implementations
 
 use std::string::FromUtf8Error;

@@ -17,7 +17,7 @@ path = "src/bin/main.rs"
 [dependencies]
 xcb = { version = "1.2", features = ["randr", "xkb"] }
 x11 = "2.21"
-x11rb = { version = "0.12", features = ["cursor", "randr", "xkb"] }
+x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cursor", "randr", "xkb"] }
 
 log = "0.4"
 flexi_logger = "0.25"
@@ -28,6 +28,7 @@ strum = { version = "0.19.2", features = ["derive"] }
 strum_macros = "0.19.2"
 
 bitflags = "1.2.1"
+byteorder = "1.4.3"
 
 nix = "0.20"
 

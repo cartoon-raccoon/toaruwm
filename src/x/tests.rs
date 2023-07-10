@@ -1,5 +1,7 @@
 use super::{
-    XCBConn, XConn, XWindowID,
+    xcb::XCBConn,
+    x11rb::X11RBConn,
+    XConn, XWindowID,
     Property,
 };
 use crate::x::Atom::*;
@@ -13,15 +15,10 @@ macro_rules! debug {
         (println!(concat!("[debug] ", $fmt), $($arg)*));
     };
 }
-
-#[test]
-fn test_property_retrieval() {
+fn test_property_retrieval_generic<X: XConn>(conn: &X) {
     let err = |xid: u32| -> std::string::String {
         format!("failed to get prop for window {}", xid)
     };
-
-    let mut conn = XCBConn::connect().unwrap();
-    conn.init().unwrap();
 
     let windows = conn.query_tree(conn.get_root().id).unwrap();
 
@@ -42,6 +39,22 @@ fn test_property_retrieval() {
         let wm_size_hints = conn.get_prop(WmNormalHints.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_size_hints, |p| p.is_sizehints(), "WM_NORMAL_HINTS", xid);
     }
+}
+
+#[test]
+fn test_property_retrieval_xcb() {
+    let mut conn = XCBConn::connect().unwrap();
+    conn.init().unwrap();
+
+    test_property_retrieval_generic(&conn);
+}
+
+#[test]
+fn test_property_retrieval_x11rb() {
+    let mut conn = X11RBConn::connect().unwrap();
+    conn.init().unwrap();
+
+    test_property_retrieval_generic(&conn);
 }
 
 fn prop_check_stub<F: Fn(&Property) -> bool>(

@@ -55,9 +55,6 @@ use crate::keybinds::ButtonIndex;
 mod xconn;
 mod convert;
 
-#[cfg(test)]
-mod tests;
-
 const MAX_LONG_LENGTH: u32 = 1024;
 
 const RANDR_MAJ: u32 = 1;
