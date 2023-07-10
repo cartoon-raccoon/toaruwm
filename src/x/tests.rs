@@ -1,9 +1,4 @@
-use super::{
-    xcb::XCBConn,
-    x11rb::X11RBConn,
-    XConn, XWindowID,
-    Property,
-};
+use super::{x11rb::X11RBConn, xcb::XCBConn, Property, XConn, XWindowID};
 use crate::x::Atom::*;
 
 #[cfg(debug_assertions)]
@@ -16,9 +11,8 @@ macro_rules! debug {
     };
 }
 fn test_property_retrieval_generic<X: XConn>(conn: &X) {
-    let err = |xid: u32| -> std::string::String {
-        format!("failed to get prop for window {}", xid)
-    };
+    let err =
+        |xid: u32| -> std::string::String { format!("failed to get prop for window {}", xid) };
 
     let windows = conn.query_tree(conn.get_root().id).unwrap();
 
@@ -58,10 +52,10 @@ fn test_property_retrieval_x11rb() {
 }
 
 fn prop_check_stub<F: Fn(&Property) -> bool>(
-    prop: Option<Property>, 
-    typecheck: F, 
-    name: &str, 
-    id: XWindowID
+    prop: Option<Property>,
+    typecheck: F,
+    name: &str,
+    id: XWindowID,
 ) {
     if let Some(prop) = prop {
         // main assertion occurs here
@@ -77,8 +71,9 @@ fn is_string(prop: &Property) -> bool {
 
     match prop {
         Prop::String(_) | Prop::UTF8String(_) => true,
-        Prop::U8List(s, _) | Prop::U16List(s, _) | Prop::U32List(s, _)
-        if s == "COMPOUND_TEXT" => true,
-        _ => false
+        Prop::U8List(s, _) | Prop::U16List(s, _) | Prop::U32List(s, _) if s == "COMPOUND_TEXT" => {
+            true
+        }
+        _ => false,
     }
 }

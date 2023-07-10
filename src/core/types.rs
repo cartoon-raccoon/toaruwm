@@ -6,16 +6,8 @@ use crate::layouts::LayoutType;
 
 pub use crate::core::{Ring, Selector};
 use crate::x::{
-    core::{
-        XAtom,
-        XConn,
-        StackMode,
-    },
-    property::{
-        WindowState,
-        WmHints, 
-        WmSizeHints,
-    },
+    core::{StackMode, XAtom, XConn},
+    property::{WindowState, WmHints, WmSizeHints},
 };
 
 pub use super::window::{Client, ClientRing};
@@ -39,10 +31,10 @@ pub enum Cardinal {
 }
 
 /// A type for representing a point on a display or screen.
-/// 
+///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Point.
-/// 
+///
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
@@ -52,34 +44,34 @@ pub struct Point {
 
 impl Point {
     /// Creates a new Point.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Point;
-    /// 
+    ///
     /// let point = Point::new(0, 0);
-    /// 
+    ///
     /// assert_eq!(point, Point {x: 0, y: 0});
     /// ```
     pub fn new(x: i32, y: i32) -> Point {
-        Point {x, y}
+        Point { x, y }
     }
 
     /// Calculates the x and y offsets between itself and another Point.
-    /// 
+    ///
     /// Offset is calculated with reference to itself.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Point;
-    /// 
+    ///
     /// let original = Point::new(50, 50);
     /// let new = Point::new(20, 30);
-    /// 
+    ///
     /// let (x, y) = original.calculate_offset(new);
-    /// 
+    ///
     /// assert_eq!(x, -30);
     /// assert_eq!(y, -20);
     /// ```
@@ -89,13 +81,13 @@ impl Point {
 }
 
 /// A type for representing a 2D rectangular space on a display or screen.
-/// 
+///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Geometry.
-/// 
-/// _Note:_ The Default impl returns 
+///
+/// _Note:_ The Default impl returns
 /// Geometry {0, 0, 100, 160}, **NOT** zeroed.
-/// 
+///
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Geometry {
@@ -122,12 +114,12 @@ impl Default for Geometry {
 
 impl Geometry {
     /// Constructs a new Geometry.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let geom1 = Geometry::new(0, 0, 100, 160);
     /// let geom2 = Geometry {
     ///     x: 0,
@@ -135,12 +127,13 @@ impl Geometry {
     ///     height: 100,
     ///     width: 160,
     /// };
-    /// 
+    ///
     /// assert_eq!(geom1, geom2);
     /// ```
     pub fn new(x: i32, y: i32, h: i32, w: i32) -> Self {
         Geometry {
-            x, y,
+            x,
+            y,
             height: h,
             width: w,
         }
@@ -148,14 +141,14 @@ impl Geometry {
 
     /// Convenience function for constructing a Geometry with all fields
     /// set to zero.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let geom = Geometry::zeroed();
-    /// 
+    ///
     /// assert_eq!(geom, Geometry::new(0, 0, 0, 0));
     /// ```
     pub fn zeroed() -> Self {
@@ -168,40 +161,42 @@ impl Geometry {
     }
 
     /// Check whether this geometry encloses another geometry.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let new = Geometry::new(2, 2, 50, 75);
-    /// 
+    ///
     /// assert!(original.contains(&new));
     /// ```
     pub fn contains(&self, other: &Geometry) -> bool {
         match other {
             Geometry { x, .. } if *x < self.x => false,
-            Geometry { x, width, .. } 
-                if (*x + *width as i32) > (self.x + self.width as i32) => false,
+            Geometry { x, width, .. } if (*x + *width as i32) > (self.x + self.width as i32) => {
+                false
+            }
             Geometry { y, .. } if *y < self.y => false,
-            Geometry { y, height, .. } 
-                if (*y + *height as i32) > (self.y + self.height as i32) => false,
+            Geometry { y, height, .. } if (*y + *height as i32) > (self.y + self.height as i32) => {
+                false
+            }
             _ => true,
         }
     }
 
     /// Check whether this geometry contains a certain point.
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::{Geometry, Point};
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let point = Point::new(50, 50);
-    /// 
+    ///
     /// assert!(original.contains_point(point));
     /// ```
     pub fn contains_point(&self, pt: Point) -> bool {
@@ -211,18 +206,18 @@ impl Geometry {
         wrange.contains(&pt.x) && hrange.contains(&pt.y)
     }
 
-    /// Splits a Geometry into `n` parts horizontally, each part 
+    /// Splits a Geometry into `n` parts horizontally, each part
     /// covering a region of the original Geometry, top down.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let new_geoms = original.split_horz_n(2);
-    /// 
+    ///
     /// assert_eq!(new_geoms, vec![
     ///     Geometry::new(0, 0, 50, 200),
     ///     Geometry::new(0, 50, 50, 200),
@@ -248,18 +243,18 @@ impl Geometry {
 
     /// Splits a Geometry into `n` parts vertically, each part
     /// covering a region of the original Geometry, from left.
-    /// 
+    ///
     /// Does *not* split in place.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let new_geoms = original.split_vert_n(2);
-    /// 
+    ///
     /// assert_eq!(new_geoms, vec![
     ///     Geometry::new(0, 0, 100, 100),
     ///     Geometry::new(100, 0, 100, 100),
@@ -286,24 +281,24 @@ impl Geometry {
     /// Splits a Geometry into two parts horizontally by a given ratio
     /// where the ratio is the fraction of the original height.
     /// The ratio is clamped between 0.0 and 1.0.
-    /// 
+    ///
     /// Returns `(top, bottom)`.
-    /// 
+    ///
     /// Works best with clean ratios such as 0.5, 0.75, 0.6 etc.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if ratio is `f32::NAN`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let (top, bottom) = original.split_horz_ratio(0.75);
-    /// 
+    ///
     /// assert_eq!(top, Geometry::new(0, 0, 75, 200));
     /// assert_eq!(bottom, Geometry::new(0, 75, 25, 200));
     /// ```
@@ -332,31 +327,31 @@ impl Geometry {
                 y: self.y + top_height as i32,
                 height: bottom_height,
                 width: self.width,
-            }
+            },
         )
     }
 
     /// Splits a Geometry into two parts vertically by a given ratio
     /// where the ratio is the fraction of the original width.
     /// The ratio is clamped between 0.0 and 1.0.
-    /// 
+    ///
     /// Returns `(left, right)`.
-    /// 
+    ///
     /// Works best with clean ratios such as 0.5, 0.75, 0.6 etc.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if ratio is `f32::NAN`.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let (top, bottom) = original.split_vert_ratio(0.75);
-    /// 
+    ///
     /// assert_eq!(top, Geometry::new(0, 0, 100, 150));
     /// assert_eq!(bottom, Geometry::new(150, 0, 100, 50));
     /// ```
@@ -385,24 +380,24 @@ impl Geometry {
                 y: self.y,
                 height: self.height,
                 width: right_width,
-            }
+            },
         )
     }
 
     /// Splits a Geometry _horizontally_ into two Geometries
     /// at a given height.
-    /// 
+    ///
     /// Returns (top, bottom), where bottom has the given height.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let (top, bottom) = original.split_at_height(60);
-    /// 
+    ///
     /// assert_eq!(top, Geometry::new(0, 0, 40, 200));
     /// assert_eq!(bottom, Geometry::new(0, 60, 60, 200));
     /// ```
@@ -422,24 +417,24 @@ impl Geometry {
                 y: self.y + height as i32,
                 height,
                 width: self.width,
-            }
+            },
         )
     }
 
     /// Splits a Geometry _horizontally_ into two Geometries
     /// at a given width.
-    /// 
+    ///
     /// Returns (left, right), where left has the given width.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::Geometry;
-    /// 
+    ///
     /// let original = Geometry::new(0, 0, 100, 200);
-    /// 
+    ///
     /// let (left, right) = original.split_at_width(120);
-    /// 
+    ///
     /// assert_eq!(left, Geometry::new(0, 0, 100, 120));
     /// assert_eq!(right, Geometry::new(120, 0, 100, 80));
     /// ```
@@ -459,29 +454,21 @@ impl Geometry {
                 y: self.y,
                 height: self.height,
                 width: self.width - width,
-            }
+            },
         )
     }
 
     /// Trim off an area from a Geometry.
-    /// 
+    ///
     /// This returns a new geometry.
     #[must_use]
     pub fn trim(&self, trim: i32, dir: Cardinal) -> Geometry {
         use Cardinal::*;
         match dir {
-            Up => Geometry::new(
-                self.x - trim, self.y, self.width, self.height - trim
-            ),
-            Down => Geometry::new(
-                self.x, self.y, self.width, self.height - trim
-            ),
-            Left => Geometry::new(
-                self.x, self.y + trim, self.width - trim, self.height
-            ),
-            Right => Geometry::new(
-                self.x, self.y, self.width - trim, self.height
-            )
+            Up => Geometry::new(self.x - trim, self.y, self.width, self.height - trim),
+            Down => Geometry::new(self.x, self.y, self.width, self.height - trim),
+            Left => Geometry::new(self.x, self.y + trim, self.width - trim, self.height),
+            Right => Geometry::new(self.x, self.y, self.width - trim, self.height),
         }
     }
 }
@@ -518,9 +505,9 @@ pub enum ClientConfig {
     /// Position of the window.
     Position(Geometry),
     /// Resizing the window.
-    Resize {h: i32, w: i32},
+    Resize { h: i32, w: i32 },
     /// Moving the window.
-    Move {x: i32, y: i32},
+    Move { x: i32, y: i32 },
     /// Stacking mode of the window.
     StackingMode(StackMode),
 }
@@ -546,16 +533,14 @@ pub struct NetWindowStates {
 
 impl NetWindowStates {
     pub fn new() -> Self {
-        Self {
-            states: Vec::new()
-        }
+        Self { states: Vec::new() }
     }
 
     pub fn from_strings<X: XConn>(strs: Vec<String>, conn: &X) -> Self {
         strs.into_iter()
             .map(|s| conn.atom(&s))
             .filter(|r| r.is_ok()) // filter out errors
-            .map(|a| a.unwrap())    // safe to unwrap since errors filtered out
+            .map(|a| a.unwrap()) // safe to unwrap since errors filtered out
             .collect::<Vec<XAtom>>()
             .into()
     }
@@ -571,7 +556,7 @@ impl NetWindowStates {
     pub fn remove(&mut self, prop: XAtom) -> XAtom {
         for (idx, atom) in self.states.iter().enumerate() {
             if *atom == prop {
-                return self.states.remove(idx)
+                return self.states.remove(idx);
             }
         }
         error!("Tried to remove atom not in states");
@@ -581,9 +566,7 @@ impl NetWindowStates {
 
 impl From<Vec<XAtom>> for NetWindowStates {
     fn from(from: Vec<XAtom>) -> Self {
-        Self {
-            states: from
-        }
+        Self { states: from }
     }
 }
 
@@ -596,11 +579,10 @@ impl Deref for NetWindowStates {
 }
 
 impl From<LayoutType> for WinLayoutState {
-
     #[inline]
     fn from(from: LayoutType) -> WinLayoutState {
         if let LayoutType::Floating = from {
-            return Self::Floating
+            return Self::Floating;
         }
 
         Self::Tiled

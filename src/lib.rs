@@ -4,26 +4,23 @@ extern crate bitflags;
 #[macro_use]
 mod log;
 
-pub mod x;
 pub mod core;
+pub mod keybinds;
 pub mod layouts;
 pub mod manager;
-pub mod keybinds;
+pub mod x;
 
 pub(crate) mod util;
 
 pub use crate::core::types;
+pub use crate::manager::WindowManager;
 pub use crate::x::core::Result as XResult;
 pub use crate::x::core::XConn;
-pub use crate::x::{
-    xcb::XCBConn,
-    x11rb::X11RBConn,
-};
-pub use crate::manager::WindowManager;
+pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
-use std::ops::FnMut;
 use std::io;
 use std::num::ParseIntError;
+use std::ops::FnMut;
 
 /// Convenience function for creating a XCB-backed WindowManager.
 pub fn xcb_backed_wm() -> XResult<WindowManager<XCBConn>> {
@@ -45,16 +42,12 @@ pub fn x11rb_backed_wm() -> XResult<WindowManager<X11RBConn>> {
     Ok(wm)
 }
 
+use crate::x::core::{XError, XWindowID};
 use thiserror::Error;
-use crate::x::core::{
-    XError,
-    XWindowID,
-};
 
 /// Everything that could possibly go wrong while ToaruWM is running.
 #[derive(Debug, Error, Clone)]
 pub enum ToaruError {
-
     /// An error with the underlying X connection.
     #[error(transparent)]
     XConnError(XError),
@@ -113,9 +106,7 @@ impl From<ParseIntError> for ToaruError {
 pub type Result<T> = ::core::result::Result<T, ToaruError>;
 
 /// An error handler that can be used to handle an error type.
-/// 
+///
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
 pub type ErrorHandler = Box<dyn FnMut(ToaruError)>;
-
-

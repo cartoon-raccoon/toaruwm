@@ -1,15 +1,13 @@
 use super::{
-    XWindowID, 
-    core::{XAtom, StackMode},
+    core::{StackMode, XAtom},
     input::{KeyCode, ModMask},
-};
-use crate::types::{
-    Geometry, Point,
+    XWindowID,
 };
 use crate::keybinds::Mousebind;
+use crate::types::{Geometry, Point};
 
 /// Low-level wrapper around actual X server events.
-/// 
+///
 /// Translated to EventActions by `WindowManager`.
 #[derive(Debug, Clone)]
 pub enum XEvent {
@@ -26,11 +24,11 @@ pub enum XEvent {
     /// A Client has destroyed a window.
     DestroyNotify(XWindowID),
     /// The pointer has entered a window.
-    /// 
+    ///
     /// The bool is whether the pointer is grabbed.
     EnterNotify(PointerEvent, bool),
     /// The pointer has left a window.
-    /// 
+    ///
     /// The bool is whether the pointer is grabbed.
     LeaveNotify(PointerEvent, bool),
     /// A window was reparented.
@@ -145,11 +143,8 @@ pub struct MouseEvent {
     pub state: Mousebind,
 }
 
-
 /// A trait for converting backend types to a MouseEvent type.
-pub(crate) trait ButtonEvent {
-    
-}
+pub(crate) trait ButtonEvent {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClientMessageEvent {
@@ -171,7 +166,6 @@ pub enum ClientMessageData {
 }
 
 impl ClientMessageData {
-
     #[inline(always)]
     pub fn is_u8(&self) -> bool {
         matches!(self, Self::U8(_))

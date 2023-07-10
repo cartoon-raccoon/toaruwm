@@ -4,21 +4,16 @@
 use std::collections::HashSet;
 
 use tracing::instrument;
-use tracing::{trace, debug, error};
+use tracing::{debug, error, trace};
 
 use super::{Ring, Selector};
 
-use crate::x::{
-    core::{XWindow, XWindowID, XConn, XAtom},
-    property::{WindowState},
-};
 use crate::core::types::{
-    Geometry,
-    WinLayoutState,
-    NetWindowStates,
-    BorderStyle,
-    ClientAttrs,
-    ClientConfig,
+    BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates, WinLayoutState,
+};
+use crate::x::{
+    core::{XAtom, XConn, XWindow, XWindowID},
+    property::WindowState,
 };
 
 /// A Ring of type Client.
@@ -27,7 +22,6 @@ use crate::core::types::{
 pub type ClientRing = Ring<Client>;
 
 impl ClientRing {
-
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
     pub fn remove_by_id(&mut self, id: XWindowID) -> Option<Client> {
         if let Some(i) = self.get_idx(id) {
@@ -91,10 +85,10 @@ impl ClientRing {
 /// Represents an X server client.
 /// It contains other data from the X server, stored locally,
 /// such as ICCCM and EWMH properties.
-/// 
+///
 /// Since this type is not Copy, it should not be passed around,
 /// and should only be initialised and used within a `ClientRing`.
-/// 
+///
 /// Instead of passing the entire Client around, XWindowIDs can
 /// be used instead.
 #[derive(Debug, Clone)]
@@ -121,7 +115,6 @@ impl PartialEq for Client {
 }
 
 impl Client {
-
     /// Creates a new tiled Client.
     pub fn tiled<X: XConn>(from: XWindowID, conn: &X) -> Self {
         Self::new(from, conn, WinLayoutState::Tiled)
@@ -144,7 +137,9 @@ impl Client {
             },
             initial_geom: if let Ok(geom) = conn.get_geometry(from) {
                 geom
-            } else {Geometry::default()},
+            } else {
+                Geometry::default()
+            },
             transient_for: conn.get_wm_transient_for(from),
             urgent: false,
             fullscreen: false,
@@ -184,7 +179,7 @@ impl Client {
     pub fn width(&self) -> i32 {
         self.xwindow.geom.width
     }
-    
+
     /// Returns the geometry of the window.
     #[inline(always)]
     pub fn geometry(&self) -> Geometry {
@@ -238,7 +233,7 @@ impl Client {
     }
 
     /// Sets the client's state to tiled.
-    /// 
+    ///
     /// No-op if the client is already tiled.
     #[inline]
     pub fn set_tiled(&mut self) {
@@ -246,7 +241,7 @@ impl Client {
     }
 
     /// Sets the client's state to floating.
-    /// 
+    ///
     /// No-op if the client is already floating.
     #[inline]
     pub fn set_floating(&mut self) {
@@ -268,15 +263,30 @@ impl Client {
     /// Updates all the internal properties of the client.
     #[instrument(level = "debug", skip(conn))]
     pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
-
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
             debug!("Got size hints: {:#?}", sizes);
             Geometry {
-                x: if let Some(pos) = sizes.position {pos.0} else {0},
-                y: if let Some(pos) = sizes.position {pos.1} else {0},
-                height: if let Some(dim) = sizes.size {dim.0} else {100},
-                width: if let Some(dim) = sizes.size {dim.1} else {160},
+                x: if let Some(pos) = sizes.position {
+                    pos.0
+                } else {
+                    0
+                },
+                y: if let Some(pos) = sizes.position {
+                    pos.1
+                } else {
+                    0
+                },
+                height: if let Some(dim) = sizes.size {
+                    dim.0
+                } else {
+                    100
+                },
+                width: if let Some(dim) = sizes.size {
+                    dim.1
+                } else {
+                    160
+                },
             }
         } else {
             debug!("initial size is None");
@@ -296,7 +306,9 @@ impl Client {
         self.transient_for = conn.get_wm_transient_for(self.id());
         self.urgent = if let Some(hints) = properties.wm_hints() {
             hints.urgent()
-        } else {false};
+        } else {
+            false
+        };
         self.mapped_state = if let Some(hints) = properties.wm_hints() {
             hints.initial_state
         } else {
@@ -320,9 +332,9 @@ impl Client {
     }
 
     /// Checks and updates the dynamic properties of the window.
-    /// 
+    ///
     /// Checked:
-    /// 
+    ///
     /// - WM_NAME
     /// - WM_ICON_NAME
     /// - WM_CLASS
@@ -345,29 +357,28 @@ impl Client {
     }
 
     /// Sets the border of the Client.
-    /// 
+    ///
     /// Should only be used internally.
     pub fn set_border<X: XConn>(&mut self, conn: &X, border: BorderStyle) {
-        conn.change_window_attributes(
-            self.id(), &[ClientAttrs::BorderColour(border)]
-        ).unwrap_or_else(|e| error!("{}", e));
+        conn.change_window_attributes(self.id(), &[ClientAttrs::BorderColour(border)])
+            .unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Maps the client.
     pub fn map<X: XConn>(&mut self, conn: &X) {
         //self.update_all_properties(conn);
         self.update_geometry(conn);
-        conn.change_window_attributes(
-            self.id(), 
-            &[ClientAttrs::EnableClientEvents]
-        ).unwrap_or_else(|e| error!("{}", e));
-        conn.map_window(self.id()).unwrap_or_else(|e| error!("{}", e));
+        conn.change_window_attributes(self.id(), &[ClientAttrs::EnableClientEvents])
+            .unwrap_or_else(|e| error!("{}", e));
+        conn.map_window(self.id())
+            .unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Unmaps the client.
     pub fn unmap<X: XConn>(&mut self, conn: &X) {
         self.mapped_state = WindowState::Iconic;
-        conn.unmap_window(self.id()).unwrap_or_else(|e| error!("{}", e));
+        conn.unmap_window(self.id())
+            .unwrap_or_else(|e| error!("{}", e));
     }
 
     /// Sets the _NET_WM_STATES property.
@@ -386,60 +397,72 @@ impl Client {
             self.net_states.remove(state);
         }
     }
-    
+
     /// Configure the `Client` using a provided connection.
-    /// 
+    ///
     /// Use `Client::set_geometry` and `Client::update_geometry`
     /// to change client geometry instead of this method.
     pub fn configure<X: XConn>(&self, conn: &X, attrs: &[ClientConfig]) {
-        trace!("configuring window {} with attributes {:?}", self.xwindow.id, attrs);
-        conn.configure_window(self.id(), attrs).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
+        trace!(
+            "configuring window {} with attributes {:?}",
+            self.xwindow.id,
+            attrs
         );
+        conn.configure_window(self.id(), attrs)
+            .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
     }
 
     /// Change client attributes.
     pub fn change_attributes<X: XConn>(&self, conn: &X, attrs: &[ClientAttrs]) {
-        trace!("changing window {} attributes with {:?}", self.xwindow.id, attrs);
-        conn.change_window_attributes(self.id(), attrs).unwrap_or_else(|e| {
-            error!("{}", e)
-        })
+        trace!(
+            "changing window {} attributes with {:?}",
+            self.xwindow.id,
+            attrs
+        );
+        conn.change_window_attributes(self.id(), attrs)
+            .unwrap_or_else(|e| error!("{}", e))
     }
 
     /// Resize the window using _changes_ in height and width.
-    /// 
+    ///
     /// Does not do bounds checking.
     pub fn do_resize<X: XConn>(&mut self, conn: &X, dx: i32, dy: i32) {
         self.xwindow.update_height(dy);
         self.xwindow.update_width(dx);
 
-        conn.configure_window(self.xwindow.id,
-            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Resize {
+                h: self.height(),
+                w: self.width(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
 
         // debug!(
-        //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}", 
+        //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}",
         //     self.x(), self.y(), self.height(), self.width()
         // );
     }
 
     /// Move the window using _changes_ in window coordinates.
-    /// 
+    ///
     /// Does not do bounds checking.
     pub fn do_move<X: XConn>(&mut self, conn: &X, dx: i32, dy: i32) {
         self.xwindow.update_pos_y(dy);
         self.xwindow.update_pos_x(dx);
 
-        conn.configure_window(self.xwindow.id, 
-            &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Move {
+                x: self.x(),
+                y: self.y(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
 
         // debug!(
-        //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}", 
+        //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}",
         //     self.x(), self.y(), self.height(), self.width()
         // );
     }
@@ -448,22 +471,28 @@ impl Client {
         self.xwindow.set_pos_x(x);
         self.xwindow.set_pos_y(y);
 
-        conn.configure_window(self.xwindow.id, 
-            &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Move {
+                x: self.x(),
+                y: self.y(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
     }
 
     pub fn set_size<X: XConn>(&mut self, conn: &X, height: i32, width: i32) {
         self.xwindow.set_height(height);
         self.xwindow.set_width(width);
 
-        conn.configure_window(self.xwindow.id, 
-            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Resize {
+                h: self.height(),
+                w: self.width(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
     }
 
     /// Sets the geometry of the window, but does not update it to the X server.
@@ -472,20 +501,26 @@ impl Client {
     }
 
     /// Updates its geometry on the X server.
-    /// 
+    ///
     /// Normally called after `Client::set_geometry`.
     pub fn update_geometry<X: XConn>(&self, conn: &X) {
-        conn.configure_window(self.xwindow.id,
-            &[ClientConfig::Resize{h: self.height(), w: self.width()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Resize {
+                h: self.height(),
+                w: self.width(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
 
-        conn.configure_window(self.xwindow.id, 
-            &[ClientConfig::Move{x: self.x(), y: self.y()}]
-        ).unwrap_or_else(|e|
-            warn!("Could not configure window {} with error {}", self.id(), e)
-        );
+        conn.configure_window(
+            self.xwindow.id,
+            &[ClientConfig::Move {
+                x: self.x(),
+                y: self.y(),
+            }],
+        )
+        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
     }
 
     /// Updates and sets the Client geometry with a given Geometry.

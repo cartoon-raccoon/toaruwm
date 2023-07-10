@@ -2,22 +2,15 @@ use std::str::FromStr;
 
 use tracing::{debug, info};
 
-use crate::x::{
-    XEvent, XWindowID, 
-    XConn, XError,
-    event::{
-        ConfigureRequestData,
-        ClientMessageEvent,
-        ClientMessageData,
-        PropertyEvent,
-        PointerEvent,
-    },
-    Atom,
-    Property, WmHintsFlags,
-};
 use crate::core::types::Point;
 use crate::keybinds::{Keybind, Mousebind};
 use crate::manager::WMState;
+use crate::x::{
+    event::{
+        ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
+    },
+    Atom, Property, WmHintsFlags, XConn, XError, XEvent, XWindowID,
+};
 
 // todo: update as neccesary to account for ICCCM and EWMH conventions
 #[derive(Debug, Clone)]
@@ -31,13 +24,13 @@ pub enum EventAction {
     /// Detect screens and reconfigure layout.
     ScreenReconfigure,
     /// Set the screen currently in focus from a point.
-    /// 
+    ///
     /// If point is None set based on cursor location.
     SetFocusedScreen(Option<Point>),
     /// Destroy the specified client.
     DestroyClient(XWindowID),
     /// Map the specified client and track it internally.
-    /// 
+    ///
     /// Applies to normal top-level windows.
     MapTrackedClient(XWindowID),
     /// Map the specified client and manage it without tracking.
@@ -53,7 +46,7 @@ pub enum EventAction {
     /// Run the specified mousebind.
     RunMousebind(Mousebind, XWindowID, Point),
     /// Toggle the client in or out of fullscreen.
-    /// 
+    ///
     /// Also toggles _NET_WM_STATE_FULLSCREEN.
     ToggleClientFullscreen(XWindowID, bool),
     /// Set the state of a window to urgent.
@@ -63,7 +56,6 @@ pub enum EventAction {
 }
 
 impl EventAction {
-    
     pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WMState<'_, X>) -> Vec<EventAction> {
         use EventAction::*;
         use XEvent::*;
@@ -79,11 +71,11 @@ impl EventAction {
             ConfigureRequest(event) => {
                 debug!(target: "manager::event","Configure request for window {}", event.id);
                 vec![ConfigureClient(event)]
-            },
+            }
             MapRequest(id, override_redirect) => {
                 debug!(target: "manager::event","Map request for window {}", id);
                 process_map_request(id, override_redirect, state)
-            },
+            }
             MapNotify(_id) => {
                 debug!(target: "manager::event","Map notify for window {}", _id);
                 vec![] //* ideally, tell the WM to validate
@@ -95,7 +87,7 @@ impl EventAction {
             DestroyNotify(id) => {
                 debug!(target: "manager::event","Destroy notify for window {}", id);
                 vec![DestroyClient(id)]
-            },
+            }
             // if pointer is not grabbed, tell WM to focus on client
             EnterNotify(ev, grab) => {
                 debug!(target: "manager::event","Enter notify for window {}; grab: {}", ev.id, grab);
@@ -104,7 +96,7 @@ impl EventAction {
                 } else {
                     vec![]
                 }
-            },
+            }
             LeaveNotify(ev, grab) => {
                 debug!(target: "manager::event","Leave notify for window {}; grab: {}", ev.id, grab);
                 if !grab {
@@ -112,65 +104,63 @@ impl EventAction {
                 } else {
                     vec![]
                 }
-            },
+            }
             // This doesn't do anything for now
             ReparentNotify(_event) => {
                 debug!(target: "manager::event","Reparent notify for window {}", _event.child);
                 vec![]
-            },
+            }
             PropertyNotify(event) => {
                 debug!(target: "manager::event","Property notify for window {}", event.id);
                 process_property_notify(event, state)
-            },
+            }
             KeyPress(id, event) => {
                 debug!(target: "manager::event","Keypress notify for window {}", id);
                 vec![RunKeybind(event.into(), id)]
-            },
+            }
             KeyRelease => {
                 debug!(target: "manager::event","Key release notify");
                 vec![]
-            },
+            }
             MouseEvent(event) => {
                 debug!(target: "manager::event","Mouse event for window {}", event.id);
-                vec![RunMousebind(
-                    event.state, event.id, event.location
-                )]
-            },
+                vec![RunMousebind(event.state, event.id, event.location)]
+            }
             ClientMessage(event) => {
                 info!("Client message received: {:#?}", event);
                 process_client_message(event, state)
-            },
+            }
             RandrNotify => vec![ScreenReconfigure],
             ScreenChange => vec![SetFocusedScreen(None)],
             Unknown(smth) => {
                 info!("Unrecognised event: code {}", smth);
                 vec![]
-            },
+            }
         }
     }
 }
 
 fn process_map_request<X: XConn>(
-    id: XWindowID, ovrd: bool, state: WMState<'_, X>
+    id: XWindowID,
+    ovrd: bool,
+    state: WMState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
     // if window is override-redirect or we already have the window,
     // ignore the request.
     if ovrd || state.desktop.is_managing(id) {
-        return Vec::new()
+        return Vec::new();
     }
 
     if !state.conn.should_manage(id) {
-        return vec![MapUntrackedClient(id)]
+        return vec![MapUntrackedClient(id)];
     }
 
     vec![MapTrackedClient(id)]
 }
 
-fn process_enter_notify<X: XConn>(
-   pt: PointerEvent, state: WMState<'_, X>
-) -> Vec<EventAction> {
+fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WMState<'_, X>) -> Vec<EventAction> {
     use EventAction::*;
 
     let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
@@ -192,24 +182,29 @@ fn process_enter_notify<X: XConn>(
 }
 
 fn process_property_notify<X: XConn>(
-    event: PropertyEvent, state: WMState<'_, X>
+    event: PropertyEvent,
+    state: WMState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
     let atom = if let Ok(atom) = state.conn.lookup_atom(event.atom) {
         atom
-    } else {return vec![]};
+    } else {
+        return vec![];
+    };
 
     let hints = Atom::WmHints.as_ref();
 
     if !event.deleted && atom == hints {
         let wmhints = if let Ok(Some(h)) = state.conn.get_prop(hints, event.id) {
             h
-        } else {return vec![]};
+        } else {
+            return vec![];
+        };
 
         if let Property::WMHints(wmhints) = wmhints {
             if wmhints.is_set(WmHintsFlags::URGENCY_HINT) {
-                return vec![ToggleUrgency(event.id)]
+                return vec![ToggleUrgency(event.id)];
             }
         }
     }
@@ -217,7 +212,8 @@ fn process_property_notify<X: XConn>(
 }
 
 fn process_client_message<X: XConn>(
-    event: ClientMessageEvent, state: WMState<'_, X>
+    event: ClientMessageEvent,
+    state: WMState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
@@ -234,12 +230,11 @@ fn process_client_message<X: XConn>(
     };
 
     if let ClientMessageData::U32(data) = event.data {
-        
         match Atom::from_str(&atom) {
-            Ok(Atom::NetActiveWindow) => {vec![]} //todo
-            Ok(Atom::NetWmDesktop) => vec![ClientToWorkspace(
-                event.window, data[0] as usize
-            )],
+            Ok(Atom::NetActiveWindow) => {
+                vec![]
+            } //todo
+            Ok(Atom::NetWmDesktop) => vec![ClientToWorkspace(event.window, data[0] as usize)],
             Ok(Atom::NetWmState) if is_fullscreen(&data[1..3]) => {
                 let should_fullscreen = [1, 2].contains(&data[0]);
 

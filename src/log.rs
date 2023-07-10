@@ -66,8 +66,8 @@ macro_rules! fatal {
 //     };
 // }
 
-use tracing::error;
 use crate::ToaruError;
+use tracing::error;
 
 //todo: use the proper logging api. Please.
 pub(crate) fn basic_error_handler(error: ToaruError) {

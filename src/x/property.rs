@@ -1,11 +1,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::x::core::{
-    XConn, XWindowID, XError, XAtom,
-    Result,
-};
-use crate::types::{Point};
+use crate::types::Point;
+use crate::x::core::{Result, XAtom, XConn, XError, XWindowID};
 
 /// X server properties.
 #[derive(Debug, Clone)]
@@ -34,21 +31,21 @@ pub enum Property {
     /// Raw data as a vec of bytes.
     /// Returned if the format of the response is 8.
     /// The property type is also provided as a String.
-    /// 
+    ///
     /// Used if the property type is not recognized by toaruwm.
     U8List(String, Vec<u8>),
 
     /// Raw data as a vec of words.
     /// Returned if the format of the response is 16.
     /// The property type is also provided as a String.
-    /// 
+    ///
     /// Used if the property type is not recognized by toaruwm.
     U16List(String, Vec<u16>),
 
     /// Raw data as a vec of doublewords.
     /// Returned if the format of the response is 32.
     /// The property type is also provided as a String.
-    /// 
+    ///
     /// Used if the property type is not recognized by toaruwm.
     U32List(String, Vec<u32>),
 }
@@ -59,17 +56,13 @@ impl Property {
     /// `conn` is required to contact the X server to get each atom's
     /// corresponding integer value, or to intern the atom on the
     /// server if the atom doesn't currently exist.
-    /// 
+    ///
     /// Any errors encountered when fetching values are silently discarded.
-    /// 
+    ///
     /// If the property is not `Self::Atoms`, None is returned.
     pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<XAtom>> {
         if let Self::Atom(strings) = self {
-            Some(
-                strings.into_iter()
-                    .flat_map(|s| conn.atom(s))
-                    .collect()
-            )
+            Some(strings.into_iter().flat_map(|s| conn.atom(s)).collect())
         } else {
             None
         }
@@ -84,7 +77,7 @@ macro_rules! derive_is {
                 matches!(self, $var)
             }
         }
-    }
+    };
 }
 
 derive_is!(is_atom, Self::Atom(_));
@@ -94,14 +87,14 @@ derive_is!(is_utf8str, Self::UTF8String(_));
 derive_is!(is_window, Self::Window(_));
 derive_is!(is_wmhints, Self::WMHints(_));
 derive_is!(is_sizehints, Self::WMSizeHints(_));
-derive_is!(is_u8list, Self::U8List(_,_));
-derive_is!(is_u16list, Self::U16List(_,_));
-derive_is!(is_u32list, Self::U32List(_,_));
+derive_is!(is_u8list, Self::U8List(_, _));
+derive_is!(is_u16list, Self::U16List(_, _));
+derive_is!(is_u32list, Self::U32List(_, _));
 
 impl fmt::Display for Property {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use Property::*;
         use std::string::String as StdString;
+        use Property::*;
 
         match self {
             Atom(strs) => {
@@ -130,9 +123,9 @@ impl fmt::Display for Property {
 
                 out.push_str(
                     &u8s.iter()
-                    .map(|s| format!("{:#04x}", s))
-                    .collect::<Vec<StdString>>()
-                    .join(",")
+                        .map(|s| format!("{:#04x}", s))
+                        .collect::<Vec<StdString>>()
+                        .join(","),
                 );
 
                 out.push(']');
@@ -143,10 +136,11 @@ impl fmt::Display for Property {
                 let mut out = format!("{}: [", s);
 
                 out.push_str(
-                    &u16s.iter()
-                    .map(|s| format!("{:#06x}", s))
-                    .collect::<Vec<StdString>>()
-                    .join(",")
+                    &u16s
+                        .iter()
+                        .map(|s| format!("{:#06x}", s))
+                        .collect::<Vec<StdString>>()
+                        .join(","),
                 );
 
                 out.push(']');
@@ -157,10 +151,11 @@ impl fmt::Display for Property {
                 let mut out = format!("{}: [", s);
 
                 out.push_str(
-                    &u32s.iter()
-                    .map(|s| format!("{:#08x}", s))
-                    .collect::<Vec<StdString>>()
-                    .join(",")
+                    &u32s
+                        .iter()
+                        .map(|s| format!("{:#08x}", s))
+                        .collect::<Vec<StdString>>()
+                        .join(","),
                 );
 
                 out.push(']');
@@ -243,15 +238,15 @@ const WM_HINTS_LEN: usize = 9;
 const WM_SIZE_HINTS_LEN: usize = 18;
 
 /// ICCCM-defined window hints (WM_HINTS).
-/// 
+///
 /// This struct contains all fields of the WM_HINTS
 /// type, but ToaruWM does not honour the following currently:
-/// 
+///
 /// - ICON_PIXMAP
 /// - ICON_WINDOW
 /// - ICON_POS
 /// - ICON_MASK
-/// 
+///
 /// These fields may be supported in the future.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -273,7 +268,7 @@ impl WmHints {
 
     /// Attempts to parse WmHints from a u32 slice
     /// According to the following C struct definition:
-    /// 
+    ///
     /// ```c
     /// typedef struct {
     ///     int32_t flags;
@@ -286,27 +281,27 @@ impl WmHints {
     ///     xcb_window_t window_group; /* uint32_t */
     /// } xcb_icccm_wm_hints_t;
     /// ```
-    /// 
-    /// Declaration taken from 
+    ///
+    /// Declaration taken from
     /// [here](https://cgit.freedesktop.org/xcb/util-wm/tree/icccm/xcb_icccm.h).
-    /// 
+    ///
     /// Returns XError::InvalidPropertyData on failure.
     pub fn try_from_bytes(raw: &[u32]) -> Result<Self> {
         TryFrom::try_from(raw)
     }
 
     /// Test whether `flag` is set.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::x::property::{
     ///     WmHints,
     ///     WmHintsFlags,
     /// };
-    /// 
+    ///
     /// let wm_hints = WmHints::new();
-    /// 
+    ///
     /// /* URGENCY flag is not set */
     /// assert!(!wm_hints.is_set(WmHintsFlags::URGENCY_HINT));
     /// ```
@@ -327,33 +322,32 @@ impl TryFrom<&[u32]> for WmHints {
         use XError::*;
 
         if from.len() != WM_HINTS_LEN {
-            return Err(InvalidPropertyData(
-                format!("expected [u32; 9], got {}", from.len())
-            ))
+            return Err(InvalidPropertyData(format!(
+                "expected [u32; 9], got {}",
+                from.len()
+            )));
         }
 
-        let flags = WmHintsFlags::from_bits(from[0]).ok_or_else(||
-            InvalidPropertyData(
-                "invalid flags set for WmHintsFlags".into()
-            )
-        )?;
+        let flags = WmHintsFlags::from_bits(from[0])
+            .ok_or_else(|| InvalidPropertyData("invalid flags set for WmHintsFlags".into()))?;
 
-        let accepts_input = !flags.contains(
-            WmHintsFlags::INPUT_HINT
-        ) || from[1] > 0;
+        let accepts_input = !flags.contains(WmHintsFlags::INPUT_HINT) || from[1] > 0;
 
         let initial_state = match (flags.contains(WmHintsFlags::STATE_HINT), from[2]) {
             (true, 0) => WindowState::Withdrawn,
             (true, 1) => WindowState::Normal,
             (true, 3) | (true, 2) => WindowState::Iconic,
-            (true, n) => return Err(InvalidPropertyData(
-                format!("expected 0, 1, or 3 for window state, got {}", n)
-            )),
+            (true, n) => {
+                return Err(InvalidPropertyData(format!(
+                    "expected 0, 1, or 3 for window state, got {}",
+                    n
+                )))
+            }
             (false, _) => WindowState::Normal,
         };
 
         let icon_pos = Point {
-            x: from[5] as i32, 
+            x: from[5] as i32,
             y: from[6] as i32,
         };
 
@@ -371,16 +365,16 @@ impl TryFrom<&[u32]> for WmHints {
 }
 
 /// ICCCM-defined window size hints (WM_SIZE_HINTS).
-/// 
+///
 /// ## Notes
-/// 
+///
 /// Position and Size are outdated and only exist for
 /// backwards compatibility.
-/// 
+///
 /// This struct contains all the fields in the
 /// WM_SIZE_HINTS type, but ToaruWM does not honour
 /// the following flags:
-/// 
+///
 /// - Aspect ratio
 /// - Gravity
 /// - Increments
@@ -395,7 +389,7 @@ pub struct WmSizeHints {
     pub(crate) min_aspect: Option<(i32, i32)>,
     pub(crate) max_aspect: Option<(i32, i32)>,
     pub(crate) base_size: Option<(i32, i32)>,
-    pub(crate) gravity: Option<u32>
+    pub(crate) gravity: Option<u32>,
 }
 
 impl WmSizeHints {
@@ -405,42 +399,42 @@ impl WmSizeHints {
 
     /// Attempts to parse WmSizeHints from a u32 slice
     /// according to the following C struct definition:
-    /// 
+    ///
     /// ```c
     /// typedef struct {
-    ///     uint32_t flags; 
-    ///     int32_t x, y; 
-    ///     int32_t width, height; 
+    ///     uint32_t flags;
+    ///     int32_t x, y;
+    ///     int32_t width, height;
     ///     int32_t min_width, min_height;
-    ///     int32_t max_width, max_height; 
-    ///     int32_t width_inc, height_inc; 
+    ///     int32_t max_width, max_height;
+    ///     int32_t width_inc, height_inc;
     ///     int32_t min_aspect_num, min_aspect_den;
     ///     int32_t max_aspect_num, max_aspect_den;
     ///     int32_t base_width, base_height;
     ///     uint32_t win_gravity;
     /// } xcb_size_hints_t;
     /// ```
-    /// 
-    /// Declaration taken from 
+    ///
+    /// Declaration taken from
     /// [here](https://cgit.freedesktop.org/xcb/util-wm/tree/icccm/xcb_icccm.h).
-    /// 
+    ///
     /// Returns XError::InvalidPropertyData on failure.
     pub fn try_from_bytes(raw: &[u32]) -> Result<Self> {
         TryFrom::try_from(raw)
     }
 
     /// Test whether `flag` is set.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::x::property::{
     ///     WmSizeHints,
     ///     WmSizeHintsFlags,
     /// };
-    /// 
+    ///
     /// let size_hints = WmSizeHints::new();
-    /// 
+    ///
     /// /* P_SIZE flag is not set */
     /// assert!(!size_hints.is_set(WmSizeHintsFlags::P_SIZE));
     /// ```
@@ -453,59 +447,64 @@ impl TryFrom<&[u32]> for WmSizeHints {
     type Error = XError;
 
     fn try_from(from: &[u32]) -> Result<Self> {
-        use XError::*;
         use WmSizeHintsFlags as WMSHFlags;
+        use XError::*;
 
         if from.len() != WM_SIZE_HINTS_LEN {
-            return Err(InvalidPropertyData(
-                format!("expected [u32; 18], got {}", from.len())
-            ))
+            return Err(InvalidPropertyData(format!(
+                "expected [u32; 18], got {}",
+                from.len()
+            )));
         }
 
-        let flags = WMSHFlags::from_bits(from[0]).ok_or_else(||
-            InvalidPropertyData(
-                "invalid flags set for WmSizeHintsFlags".into()
-            )
-        )?;
+        let flags = WMSHFlags::from_bits(from[0])
+            .ok_or_else(|| InvalidPropertyData("invalid flags set for WmSizeHintsFlags".into()))?;
 
-        let position = if 
-        flags.contains(WMSHFlags::US_POSITION) ||
-        flags.contains(WMSHFlags::P_POSITION) {
-            Some((from[1] as i32, from[2] as i32))
-        } else {None};
+        let position =
+            if flags.contains(WMSHFlags::US_POSITION) || flags.contains(WMSHFlags::P_POSITION) {
+                Some((from[1] as i32, from[2] as i32))
+            } else {
+                None
+            };
 
-        let size = if
-        flags.contains(WMSHFlags::US_SIZE) ||
-        flags.contains(WMSHFlags::P_POSITION) {
+        let size = if flags.contains(WMSHFlags::US_SIZE) || flags.contains(WMSHFlags::P_POSITION) {
             Some((from[3] as i32, from[4] as i32))
-        } else {None};
+        } else {
+            None
+        };
 
-        let min_size = if
-        flags.contains(WMSHFlags::P_MIN_SIZE) {
+        let min_size = if flags.contains(WMSHFlags::P_MIN_SIZE) {
             Some((from[5] as i32, from[6] as i32))
-        } else {None};
+        } else {
+            None
+        };
 
-        let max_size = if
-        flags.contains(WMSHFlags::P_MAX_SIZE) {
+        let max_size = if flags.contains(WMSHFlags::P_MAX_SIZE) {
             Some((from[7] as i32, from[8] as i32))
-        } else {None};
+        } else {
+            None
+        };
 
-        let resize_inc = if
-        flags.contains(WMSHFlags::P_RESIZE_INC) {
+        let resize_inc = if flags.contains(WMSHFlags::P_RESIZE_INC) {
             Some((from[9] as i32, from[10] as i32))
-        } else {None};
+        } else {
+            None
+        };
 
         // might as well directly use None for now
         let (min_aspect, max_aspect) = (None, None);
 
-        let base_size = if
-        flags.contains(WMSHFlags::P_BASE_SIZE) {
+        let base_size = if flags.contains(WMSHFlags::P_BASE_SIZE) {
             Some((from[15] as i32, from[16] as i32))
-        } else {None};
+        } else {
+            None
+        };
 
         let gravity = if flags.contains(WMSHFlags::P_WIN_GRAVITY) {
             Some(from[17])
-        } else {None};
+        } else {
+            None
+        };
 
         Ok(WmSizeHints {
             flags,

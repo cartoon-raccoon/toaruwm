@@ -1,68 +1,50 @@
 //! Implementation of the XConn trait for X11RBConn.
-//! 
+//!
 use x11rb::connection::Connection;
 use x11rb::protocol::{
-    xproto::{self,
-        ConnectionExt as XConnectionExt,
-        EventMask, GrabMode,
-    },
     randr::ConnectionExt as RConnectionExt,
+    xproto::{self, ConnectionExt as XConnectionExt, EventMask, GrabMode},
 };
 
 use byteorder::{LittleEndian, WriteBytesExt};
 
 use tracing::instrument;
-use tracing::{trace, error};
+use tracing::{error, trace};
 
+use crate::core::Screen;
+use crate::keybinds::{Keybind, Mousebind};
+use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
+use crate::util;
 use crate::x::{
-    core::{
-        XWindow, XWindowID,
-        XConn, XError, XAtom,
-        PointerQueryReply, Result,
-        WindowClass, 
-    }, 
-    event::{
-        XEvent, 
-        ClientMessageData,
-        ClientMessageEvent,
-    },
-    property::*,
+    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
+    property::*,
     Atom,
 };
-use crate::core::Screen;
-use crate::types::{
-    BORDER_WIDTH,
-    Geometry,
-    ClientAttrs,
-    ClientConfig,
-};
-use crate::keybinds::{Keybind, Mousebind};
-use crate::util;
 
 use super::X11RBConn;
 
 macro_rules! root_button_grab_mask {
     () => {
         EventMask::BUTTON_PRESS | EventMask::BUTTON_RELEASE
-    }
+    };
 }
 
 macro_rules! root_pointer_grab_mask {
     () => {
         EventMask::BUTTON_RELEASE | EventMask::BUTTON_MOTION
-    }
+    };
 }
 
 impl XConn for X11RBConn {
     // General X server operations
-    #[instrument(target="xconn", level="trace", skip(self))]
+    #[instrument(target = "xconn", level = "trace", skip(self))]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
         self.conn.flush()?;
 
         let event = self.conn.wait_for_event()?;
         Ok(Some(self.process_raw_event(event)?))
-        
     }
 
     fn get_root(&self) -> XWindow {
@@ -73,27 +55,26 @@ impl XConn for X11RBConn {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply
-        Ok(self.conn.get_geometry(window)?.reply()
-            .map(|ok| Geometry { // map the ok result into a Geometry
-                    x: ok.x as i32, 
-                    y: ok.y as i32, 
-                    height: ok.height as i32, 
-                    width: ok.width as i32,
-                }
-            )?
-        )
-        
+        Ok(self.conn.get_geometry(window)?.reply().map(|ok| Geometry {
+            // map the ok result into a Geometry
+            x: ok.x as i32,
+            y: ok.y as i32,
+            height: ok.height as i32,
+            width: ok.width as i32,
+        })?)
     }
 
     fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>> {
         trace!("Querying tree");
 
         // peak funcprog
-        Ok(self.conn.query_tree(window)?
-            .reply()?.children
+        Ok(self
+            .conn
+            .query_tree(window)?
+            .reply()?
+            .children
             .into_iter()
-            .collect()
-        )
+            .collect())
     }
 
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply> {
@@ -111,17 +92,19 @@ impl XConn for X11RBConn {
         })
     }
 
-    #[instrument(target="xconn", level="trace", skip(self))]
+    #[instrument(target = "xconn", level = "trace", skip(self))]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
         let check_id = self.check_win()?;
         self.conn.flush()?;
 
         let res = self.conn.randr_get_screen_resources(check_id)?.reply()?;
         let info = self.conn.randr_get_screen_info(check_id)?.reply()?;
-        
+
         // extra-peak funcprog B)
         // i'll never make something this beautiful again.
-        let crtcs: Vec<_> = res.crtcs.iter()
+        let crtcs: Vec<_> = res
+            .crtcs
+            .iter()
             // for each crtc, get its info
             .flat_map(|c| self.conn.randr_get_crtc_info(*c, 0))
             // unwrap the ok value and get the reply
@@ -130,15 +113,11 @@ impl XConn for X11RBConn {
             .enumerate()
             // construct screen
             .map(|(i, r)| {
-                let geom = Geometry::new(
-                    r.x as i32, 
-                    r.y as i32,
-                    r.height as i32,
-                    r.width as i32,
-                );
+                let geom = Geometry::new(r.x as i32, r.y as i32, r.height as i32, r.width as i32);
                 Screen::new(i as i32, geom, info.root, vec![])
             })
-            .filter(|s| s.true_geom().width > 0).collect();
+            .filter(|s| s.true_geom().width > 0)
+            .collect();
 
         self.conn.destroy_window(check_id)?.check()?;
 
@@ -151,7 +130,7 @@ impl XConn for X11RBConn {
 
     fn atom(&self, atom: &str) -> Result<XAtom> {
         if let Some(known) = self.atoms().retrieve(atom) {
-            return Ok(known)
+            return Ok(known);
         }
         trace!("Interning atom {}", atom);
         let x = self.conn.intern_atom(false, atom.as_bytes())?.reply()?;
@@ -163,12 +142,10 @@ impl XConn for X11RBConn {
         trace!("Looking up atom {}", atom);
         if let Some(name) = self.atoms().retrieve_by_value(atom) {
             trace!("Got name {}", name);
-            return Ok(name)
+            return Ok(name);
         }
         trace!("Name not known, looking up via X connection");
-        let name = String::from_utf8(
-            self.conn.get_atom_name(atom)?.reply()?.name
-        )?;
+        let name = String::from_utf8(self.conn.get_atom_name(atom)?.reply()?.name)?;
 
         trace!("Got name {}", name);
         if let Ok(mut atoms) = self.atoms.try_borrow_mut() {
@@ -187,17 +164,18 @@ impl XConn for X11RBConn {
 
     fn grab_keyboard(&self) -> Result<()> {
         trace!("Grabbing keyboard");
-        let _ = self.conn.grab_keyboard(
+        let _ = self
+            .conn
+            .grab_keyboard(
                 false,
                 x11rb::NONE,
                 x11rb::CURRENT_TIME,
                 GrabMode::ASYNC,
                 GrabMode::ASYNC,
-        ).map_err(|_|
-            XError::ServerError(
-                "Unable to grab keyboard".into()
             )
-        )?.reply()?.status;
+            .map_err(|_| XError::ServerError("Unable to grab keyboard".into()))?
+            .reply()?
+            .status;
         //todo: handle the status
         Ok(())
     }
@@ -205,10 +183,11 @@ impl XConn for X11RBConn {
     fn ungrab_keyboard(&self) -> Result<()> {
         trace!("Ungrabbing kayboard");
 
-        self.conn.ungrab_keyboard(x11rb::CURRENT_TIME)
+        self.conn
+            .ungrab_keyboard(x11rb::CURRENT_TIME)
             .map_err(|_| XError::ServerError("Unable to ungrab keyboard".into()))?
             .check()?;
-    
+
         Ok(())
     }
 
@@ -216,94 +195,101 @@ impl XConn for X11RBConn {
         trace!("Grabbing key {} for window {}", kb.code, window);
 
         for m in MODIFIERS.iter() {
-            self.conn.grab_key(
-                false,
-                window,
-                (kb.modmask | *m).into(),
-                kb.code,
-                GrabMode::ASYNC,
-                GrabMode::ASYNC,
-            ).map_err(|_|
-                XError::ServerError(
-                    format!("Unable to grab key {} for window {}", kb.code, window)
+            self.conn
+                .grab_key(
+                    false,
+                    window,
+                    (kb.modmask | *m).into(),
+                    kb.code,
+                    GrabMode::ASYNC,
+                    GrabMode::ASYNC,
                 )
-            )?.check()?;
+                .map_err(|_| {
+                    XError::ServerError(format!(
+                        "Unable to grab key {} for window {}",
+                        kb.code, window
+                    ))
+                })?
+                .check()?;
         }
-        
+
         Ok(())
     }
 
     fn ungrab_key(&self, kb: Keybind, window: XWindowID) -> Result<()> {
         //let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
 
-        self.conn.ungrab_key(
-                kb.code,
-                window,
-                kb.modmask.into(),
-        ).map_err(|_|
-            XError::ServerError(
-                format!("Unable to ungrab key {} for window {}", 
-                kb.code, window)
-            )
-        )?.check()?;
+        self.conn
+            .ungrab_key(kb.code, window, kb.modmask.into())
+            .map_err(|_| {
+                XError::ServerError(format!(
+                    "Unable to ungrab key {} for window {}",
+                    kb.code, window
+                ))
+            })?
+            .check()?;
         Ok(())
-
     }
 
     fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()> {
         trace!("Grab button {:?} for window: {}", mb.button, window);
 
         for m in MODIFIERS.iter() {
-            self.conn.grab_button(
-                false, 
-                window, 
-                root_button_grab_mask!(),
-                GrabMode::ASYNC,
-                GrabMode::ASYNC,
-                if confine { window } else { x11rb::NONE },
-                x11rb::NONE,
-                mb.button.into(),
-                (mb.modmask | *m).into(),
-            ).map_err(|_|
-                XError::ServerError(
-                    format!("Unable to grab button {:?} for window {}", mb.button, window)
+            self.conn
+                .grab_button(
+                    false,
+                    window,
+                    root_button_grab_mask!(),
+                    GrabMode::ASYNC,
+                    GrabMode::ASYNC,
+                    if confine { window } else { x11rb::NONE },
+                    x11rb::NONE,
+                    mb.button.into(),
+                    (mb.modmask | *m).into(),
                 )
-            )?.check()?;
+                .map_err(|_| {
+                    XError::ServerError(format!(
+                        "Unable to grab button {:?} for window {}",
+                        mb.button, window
+                    ))
+                })?
+                .check()?;
         }
 
         Ok(())
-
     }
 
     fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()> {
         trace!("Ungrabbing button {:?} for window {}", mb.button, window);
 
-        Ok(self.conn.ungrab_button(
-            mb.button.into(),
-            window,
-            mb.modmask.into(),
-        ).map_err(|_|
-            XError::ServerError(
-                format!("Unable to ungrab button {:?} for window {}",
+        Ok(self
+            .conn
+            .ungrab_button(mb.button.into(), window, mb.modmask.into())
+            .map_err(|_| {
+                XError::ServerError(format!(
+                    "Unable to ungrab button {:?} for window {}",
                     mb.button, window
-                )
-            )
-        )?.check()?)
+                ))
+            })?
+            .check()?)
     }
 
     fn grab_pointer(&self, winid: XWindowID, _mask: u32) -> Result<()> {
         trace!("Grabbing pointer for window: {:?}", winid);
 
-        let _ = self.conn.grab_pointer(
-            false,
-            winid,
-            root_pointer_grab_mask!(),
-            GrabMode::ASYNC,
-            GrabMode::ASYNC,
-            x11rb::NONE,
-            x11rb::NONE,
-            x11rb::CURRENT_TIME,
-        )?.reply()?;
+        let _ = self
+            .conn
+            .grab_pointer(
+                false,
+                winid,
+                root_pointer_grab_mask!(),
+                GrabMode::ASYNC,
+                GrabMode::ASYNC,
+                x11rb::NONE,
+                x11rb::NONE,
+                x11rb::CURRENT_TIME,
+            )?
+            .reply()?;
 
         Ok(())
     }
@@ -311,14 +297,12 @@ impl XConn for X11RBConn {
     fn ungrab_pointer(&self) -> Result<()> {
         trace!("Ungrabbing pointer");
 
-        self.conn.ungrab_pointer(
-            x11rb::CURRENT_TIME
-        )?.check()?;
+        self.conn.ungrab_pointer(x11rb::CURRENT_TIME)?.check()?;
 
         Ok(())
     }
 
-    #[instrument(target="xconn", level="trace", skip(self))]
+    #[instrument(target = "xconn", level = "trace", skip(self))]
     fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID> {
         use xproto::{CreateWindowAux, WindowClass as XWindowClass};
 
@@ -346,10 +330,10 @@ impl XConn for X11RBConn {
                 let visual = self.visual_type(&depth)?;
 
                 self.conn.create_colormap(
-                        xproto::ColormapAlloc::NONE,
-                        mid,
-                        screen.root,
-                        visual.visual_id,
+                    xproto::ColormapAlloc::NONE,
+                    mid,
+                    screen.root,
+                    visual.visual_id,
                 )?;
 
                 (
@@ -386,11 +370,7 @@ impl XConn for X11RBConn {
 
         if let Some(a) = ty {
             let net_name = Atom::NetWmWindowType.as_ref();
-            self.set_property(
-                wid, 
-                net_name, 
-                Property::Atom(vec![a.as_ref().into()])
-            )?;
+            self.set_property(wid, net_name, Property::Atom(vec![a.as_ref().into()]))?;
         }
 
         self.conn.flush()?;
@@ -442,8 +422,8 @@ impl XConn for X11RBConn {
     }
 
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()> {
-        use ClientMessageData::*;
         use xproto::ClientMessageData as XClientMessageData;
+        use ClientMessageData::*;
 
         trace!("Sending client message to window {}", window);
 
@@ -453,39 +433,40 @@ impl XConn for X11RBConn {
             U32(dwords) => (32, XClientMessageData::from(dwords)),
         };
 
-        let event = xproto::ClientMessageEvent::new(
-            format,
-            window,
-            data.type_,
-            to_send
-        );
+        let event = xproto::ClientMessageEvent::new(format, window, data.type_, to_send);
 
-        Ok(self.conn.send_event(
-            false,
-            window,
-            EventMask::NO_EVENT,
-            &event,
-        )?.check()?)
+        Ok(self
+            .conn
+            .send_event(false, window, EventMask::NO_EVENT, &event)?
+            .check()?)
     }
 
     #[allow(unused_must_use)]
     fn set_input_focus(&self, window: XWindowID) {
         trace!("Setting focus for window {}", window);
         self.conn.set_input_focus(
-            xproto::InputFocus::POINTER_ROOT, 
+            xproto::InputFocus::POINTER_ROOT,
             window,
-            x11rb::CURRENT_TIME
-        );//?.check()?; //* FIXME: use the error
+            x11rb::CURRENT_TIME,
+        ); //?.check()?; //* FIXME: use the error
     }
 
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()> {
-        self.configure_window(window, &[ClientConfig::Resize {
-            h: geom.height, w: geom.width
-        }])?;
+        self.configure_window(
+            window,
+            &[ClientConfig::Resize {
+                h: geom.height,
+                w: geom.width,
+            }],
+        )?;
 
-        self.configure_window(window, &[ClientConfig::Move {
-            x: geom.x, y: geom.y
-        }])?;
+        self.configure_window(
+            window,
+            &[ClientConfig::Move {
+                x: geom.x,
+                y: geom.y,
+            }],
+        )?;
 
         Ok(())
     }
@@ -501,38 +482,38 @@ impl XConn for X11RBConn {
         /* (type of property, format (bytes), actual data) */
         let (ty, format, data) = match data {
             Atom(atoms) => (
-                xproto::AtomEnum::ATOM, 32,
-                atoms
-                .iter()
-                .map(|a| self.atom(&a).unwrap_or(0))
-                .collect()
+                xproto::AtomEnum::ATOM,
+                32,
+                atoms.iter().map(|a| self.atom(&a).unwrap_or(0)).collect(),
             ),
             Cardinal(card) => (xproto::AtomEnum::CARDINAL, 32, vec![card]),
             String(strs) | UTF8String(strs) => {
                 return Ok({
                     let string = strs.join("\0").to_string();
-                    self.conn.change_property(
-                        mode,
-                        window,
-                        prop,
-                        xproto::AtomEnum::STRING,
-                        8, //format
-                        string.as_bytes().len() as u32,
-                        string.as_bytes()
-                    )?.check()?
-                })
+                    self.conn
+                        .change_property(
+                            mode,
+                            window,
+                            prop,
+                            xproto::AtomEnum::STRING,
+                            8, //format
+                            string.as_bytes().len() as u32,
+                            string.as_bytes(),
+                        )?
+                        .check()?
+                });
             }
             Window(ids) => (xproto::AtomEnum::WINDOW, 32, ids),
             WMHints(_) | WMSizeHints(_) => {
-                return Err(
-                    XError::OtherError(
-                        "Modifying WM_HINTS or WM_SIZE_HINTS is not supported".into()
-                    )
-                )
+                return Err(XError::OtherError(
+                    "Modifying WM_HINTS or WM_SIZE_HINTS is not supported".into(),
+                ))
             }
-            _ => return Err(
-                XError::InvalidPropertyData("cannot convert non-standard types".into())
-            ),
+            _ => {
+                return Err(XError::InvalidPropertyData(
+                    "cannot convert non-standard types".into(),
+                ))
+            }
         };
 
         let data_len = data.len();
@@ -543,18 +524,13 @@ impl XConn for X11RBConn {
         }
 
         if new_data.len() % 4 != 0 {
-            return Err(XError::ConversionError)
+            return Err(XError::ConversionError);
         }
 
-        Ok(self.conn.change_property(
-                mode,
-                window,
-                prop,
-                ty,
-                format,
-                data_len as u32,
-                &new_data
-        )?.check()?)
+        Ok(self
+            .conn
+            .change_property(mode, window, prop, ty, format, data_len as u32, &new_data)?
+            .check()?)
     }
 
     fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
@@ -569,7 +545,10 @@ impl XConn for X11RBConn {
     fn change_window_attributes(&self, window: XWindowID, attrs: &[ClientAttrs]) -> Result<()> {
         trace!("Changing window attributes");
         let attrs = super::convert::convert_cws(attrs);
-        Ok(self.conn.change_window_attributes(window, &attrs)?.check()?)
+        Ok(self
+            .conn
+            .change_window_attributes(window, &attrs)?
+            .check()?)
     }
 
     fn configure_window(&self, window: XWindowID, attrs: &[ClientConfig]) -> Result<()> {
@@ -577,10 +556,7 @@ impl XConn for X11RBConn {
         for attr in attrs {
             let attr2 = attr.into();
             trace!("{:?}", attr2);
-            self.conn.configure_window(
-                window,
-                &attr2
-            )?.check()?;
+            self.conn.configure_window(window, &attr2)?.check()?;
         }
         Ok(())
     }
@@ -588,10 +564,11 @@ impl XConn for X11RBConn {
     fn reparent_window(&self, window: XWindowID, parent: XWindowID) -> Result<()> {
         trace!("Reparenting window {} under parent {}", window, parent);
 
-        Ok(self.conn.reparent_window(
-            window,
-            parent,
-            0, 0 //* FIXME: placeholder values */ */
-        )?.check()?)
+        Ok(self
+            .conn
+            .reparent_window(
+                window, parent, 0, 0, //* FIXME: placeholder values */ */
+            )?
+            .check()?)
     }
 }

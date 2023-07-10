@@ -15,7 +15,7 @@ use super::core::XAtom;
 // thanks dude, and sorry for stealing your stuff.
 
 /// ToaruWM internal representations of X atoms.
-/// 
+///
 /// This allows for some measure of type safety around dealing with atoms.
 #[derive(AsRefStr, Display, EnumString, EnumIter, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Atom {
@@ -192,7 +192,7 @@ pub const AUTO_FLOAT_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeToolbar,
     Atom::NetWindowTypeUtility,
 ];
-    
+
 /// Windows with a type in this array will not be managed
 pub const UNMANAGED_WINDOW_TYPES: &[Atom] = &[
     Atom::NetWindowTypeSplash,
@@ -223,7 +223,7 @@ pub const EWMH_SUPPORTED_ATOMS: &[Atom] = &[
 
 /// A type that associates either an Atom or a String with
 /// an X-defined atom.
-/// 
+///
 /// This allows the user to manage known atoms conveniently.
 #[derive(Default, Clone, Debug)]
 pub struct Atoms {
@@ -261,9 +261,10 @@ impl Atoms {
         if let Some((known, _)) = self.known.iter().find(|(_, v)| **v == atom) {
             Some(known.to_string())
         } else {
-            self.interned.iter()
-            .find(|(_, v)| **v == atom)
-            .map(|(k, _)| k.clone())
+            self.interned
+                .iter()
+                .find(|(_, v)| **v == atom)
+                .map(|(k, _)| k.clone())
         }
     }
 }

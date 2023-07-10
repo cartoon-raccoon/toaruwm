@@ -6,11 +6,8 @@ use std::ops::{BitAnd, BitOr};
 use bitflags::bitflags;
 
 use crate::{
-    x::core::BitMask, 
-    keybinds::{
-        ModKey, ButtonIndex,
-        Mousebind,
-    },
+    keybinds::{ButtonIndex, ModKey, Mousebind},
+    x::core::BitMask,
 };
 
 //* Re-exports
@@ -20,10 +17,7 @@ pub mod keysym {
 }
 
 // Grab NumLock separately and filter it out when receiving events
-pub(crate) const MODIFIERS: &[ModMask] = &[
-    ModMask::empty(),
-    ModMask::MOD2,
-];
+pub(crate) const MODIFIERS: &[ModMask] = &[ModMask::empty(), ModMask::MOD2];
 
 /// A keycode as received from the X server.
 pub type KeyCode = u8;
@@ -36,10 +30,10 @@ pub enum MouseEventKind {
     Release,
 }
 
-bitflags!{
+bitflags! {
 
 /// Bitmask representing one or a combination of modifier keys.
-/// 
+///
 /// See definition in the X Server Protocol.
 pub struct ModMask: u16 {
     /// The Shift key.
@@ -68,24 +62,24 @@ pub struct ButtonMask: u16 {
 }
 
 /// Union of ModMask and ButtonMask.
-/// 
+///
 /// This struct conbines the individual definitions of
 /// ModMask and ButtonMask into one single bitmask.
 ///
 /// Bitwise operations are defined between ModMask and ButtonMask
 /// that yield a KeyButMask, and bitwise operations
 /// can be performed between a KeyButMask and ModMask or ButtonMask.
-/// 
+///
 /// So, for example, this operation works:
-/// 
+///
 /// ```rust
 /// use toaruwm::x::input::{ModMask, ButtonMask, KeyButMask};
-/// 
+///
 /// let shift = ModMask::SHIFT;
 /// let mousebut = ButtonMask::M1;
-/// 
+///
 /// let combined: KeyButMask = shift | mousebut;
-/// 
+///
 /// assert_eq!(combined, (KeyButMask::SHIFT|KeyButMask::M1));
 /// ```
 pub struct KeyButMask: u16 {
@@ -135,18 +129,16 @@ impl KeyButMask {
     /// Extracts the modmask portion of the bits from `self`.
     pub fn modmask(self) -> ModMask {
         ModMask::from_bits_truncate(
-            self.intersection(
-                Self::from_bits_truncate(ModMask::all().bits())
-            ).bits()
+            self.intersection(Self::from_bits_truncate(ModMask::all().bits()))
+                .bits(),
         )
     }
 
     /// Extracts the buttonmask portion of the bits from `self`.
     pub fn buttonmask(self) -> ButtonMask {
         ButtonMask::from_bits_truncate(
-            self.intersection(
-                Self::from_bits_truncate(ButtonMask::all().bits())
-            ).bits()
+            self.intersection(Self::from_bits_truncate(ButtonMask::all().bits()))
+                .bits(),
         )
     }
 }
@@ -171,7 +163,7 @@ macro_rules! _impl_bitwise {
                 <$output>::from_bits_truncate(self.bits() | rhs.bits())
             }
         }
-    }
+    };
 }
 
 // ops between KeyButMask and ModMask yielding KeyButMask
@@ -196,7 +188,8 @@ impl Mousebind {
     /// Express the modifier mask as an generic type.
     pub(crate) fn modmask<T>(&self) -> T
     where
-        T: BitMask + From<ModMask> {
+        T: BitMask + From<ModMask>,
+    {
         self.modmask.into()
     }
 }
@@ -206,10 +199,10 @@ impl ModKey {
     pub(crate) fn was_held<M: Into<ModMask>>(&self, state: M) -> bool {
         let state = state.into();
         match *self {
-            Self::Ctrl  => state.contains(ModMask::CONTROL),
-            Self::Alt   => state.contains(ModMask::MOD1),
+            Self::Ctrl => state.contains(ModMask::CONTROL),
+            Self::Alt => state.contains(ModMask::MOD1),
             Self::Shift => state.contains(ModMask::SHIFT),
-            Self::Meta  => state.contains(ModMask::MOD4)
+            Self::Meta => state.contains(ModMask::MOD4),
         }
     }
 }

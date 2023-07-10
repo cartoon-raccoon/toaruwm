@@ -8,29 +8,19 @@
 use std::fmt;
 
 use tracing::instrument;
-use tracing::{trace, debug, error};
+use tracing::{debug, error, trace};
 
-use crate::{Result, ToaruError};
 use crate::core::{
-    window::{Client, ClientRing},
     desktop::Screen,
+    window::{Client, ClientRing},
 };
-use crate::types::{
-    BorderStyle, Direction,
-    ClientAttrs,
-    ClientConfig,
-    BORDER_WIDTH,
-};
-use crate::layouts::{
-    LayoutType, 
-    LayoutEngine, 
-    LayoutAction,
-    LayoutFn,
-};
-use crate::x::{XConn, XWindowID, core::StackMode};
+use crate::layouts::{LayoutAction, LayoutEngine, LayoutFn, LayoutType};
+use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction, BORDER_WIDTH};
+use crate::x::{core::StackMode, XConn, XWindowID};
+use crate::{Result, ToaruError};
 
 /// A grouped collection of windows arranged according to a Layout.
-/// 
+///
 /// Workspaces are managed as a group by a Desktop.
 #[derive(Clone)]
 pub struct Workspace {
@@ -64,11 +54,11 @@ impl Workspace {
 
     /// Sets the layout to use and applies it to all currently mapped windows.
     pub fn set_layout<X: XConn>(
-        &mut self, 
-        layout: LayoutType, 
+        &mut self,
+        layout: LayoutType,
         lfn: Option<LayoutFn>,
-        conn: &X, 
-        scr: &Screen
+        conn: &X,
+        scr: &Screen,
     ) {
         self.layoutter.set_layout(layout, lfn);
         self.relayout(conn, scr);
@@ -90,10 +80,10 @@ impl Workspace {
     }
 
     /// Maps all the windows in the workspace.
-    #[instrument(level="debug", skip(self, conn))]
+    #[instrument(level = "debug", skip(self, conn))]
     pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         if self.windows.is_empty() {
-            return
+            return;
         }
 
         //todo: change this to account for all layouts
@@ -122,23 +112,25 @@ impl Workspace {
             // update window geometry in the x server
             window.update_geometry(conn);
             // map window
-            conn.map_window(window.id()).unwrap_or_else(|e| error!("{}", e));
+            conn.map_window(window.id())
+                .unwrap_or_else(|e| error!("{}", e));
             // re-enable events
             window.change_attributes(conn, &[ClientAttrs::EnableClientEvents]);
         }
     }
 
     /// Unmaps all the windows in the workspace.
-    #[instrument(level="debug", skip(self, conn))]
+    #[instrument(level = "debug", skip(self, conn))]
     pub fn deactivate<X: XConn>(&mut self, conn: &X) {
         for window in self.windows.iter() {
             conn.change_window_attributes(window.id(), &[ClientAttrs::DisableClientEvents])
-            .unwrap_or_else(|e| error!("{}", e));
-    
-            conn.unmap_window(window.id()).unwrap_or_else(|e| error!("{}", e));
-    
+                .unwrap_or_else(|e| error!("{}", e));
+
+            conn.unmap_window(window.id())
+                .unwrap_or_else(|e| error!("{}", e));
+
             conn.change_window_attributes(window.id(), &[ClientAttrs::EnableClientEvents])
-            .unwrap_or_else(|e| error!("{}", e));
+                .unwrap_or_else(|e| error!("{}", e));
         }
     }
 
@@ -148,52 +140,45 @@ impl Workspace {
             LayoutType::Floating => {
                 self.add_window_floating(conn, scr, id);
             }
-            _ => {
-                self.add_window_tiled(conn, scr, id)
-            }
+            _ => self.add_window_tiled(conn, scr, id),
         }
     }
 
     /// Deletes the window from the workspaces and returns it.
-    #[instrument(level="debug", skip(self, conn))]
-    pub fn del_window<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
+    #[instrument(level = "debug", skip(self, conn))]
+    pub fn del_window<X: XConn>(
+        &mut self,
+        conn: &X,
+        scr: &Screen,
+        id: XWindowID,
     ) -> Result<Client> {
         if let Some(win) = self.windows.lookup(id) {
             if win.is_floating() {
-                return Ok(self.del_window_floating(conn, scr, id))
+                return Ok(self.del_window_floating(conn, scr, id));
             } else {
-                return Ok(self.del_window_tiled(conn, scr, id))
+                return Ok(self.del_window_tiled(conn, scr, id));
             }
         }
         Err(ToaruError::UnknownClient(id))
     }
 
-    pub(crate) fn add_window_floating<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
-    ) {
+    pub(crate) fn add_window_floating<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) {
         self._add_window(conn, scr, Client::floating(id, conn));
     }
 
-    pub(crate) fn add_window_tiled<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
-    ) {
+    pub(crate) fn add_window_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) {
         if self.master.is_none() {
             self.set_master(id);
         }
         self._add_window(conn, scr, Client::tiled(id, conn));
     }
 
-    #[instrument(level="debug", skip(self, conn, scr, window))]
-    fn _add_window<X: XConn>(&mut self,
-        conn: &X, scr: &Screen, mut window: Client
-    ) {
+    #[instrument(level = "debug", skip(self, conn, scr, window))]
+    fn _add_window<X: XConn>(&mut self, conn: &X, scr: &Screen, mut window: Client) {
         trace!("adding window {:#?}", window);
         window.set_supported(conn);
         window.map(conn);
-        window.configure(conn, &[
-            ClientConfig::BorderWidth(BORDER_WIDTH)
-        ]);
+        window.configure(conn, &[ClientConfig::BorderWidth(BORDER_WIDTH)]);
 
         if self.windows.focused().is_some() {
             window.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
@@ -217,12 +202,12 @@ impl Workspace {
         self.relayout(conn, scr);
     }
 
-    fn del_window_floating<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
-    ) -> Client {
-        let window = self.windows.remove_by_id(id)
-        //todo: return Result instead
-        .expect("Could not find window");
+    fn del_window_floating<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) -> Client {
+        let window = self
+            .windows
+            .remove_by_id(id)
+            //todo: return Result instead
+            .expect("Could not find window");
 
         window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
         //window.unmap(conn);
@@ -240,13 +225,12 @@ impl Workspace {
         window
     }
 
-    fn del_window_tiled<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, id: XWindowID
-    ) -> Client {
-
+    fn del_window_tiled<X: XConn>(&mut self, conn: &X, scr: &Screen, id: XWindowID) -> Client {
         // internally remove window from tracking
-        let window = self.windows.remove_by_id(id)
-        .expect("Could not find window");
+        let window = self
+            .windows
+            .remove_by_id(id)
+            .expect("Could not find window");
 
         // disable events and unmap the window
         window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
@@ -256,14 +240,12 @@ impl Workspace {
         if self.is_master(id) {
             debug!("del_window: Window to destroy is master, doing unmap checks");
             if self.tiled_count() == 0 {
-                debug!(
-                    "del_window: Workspace is now empty, unsetting master"
-                );
+                debug!("del_window: Workspace is now empty, unsetting master");
                 self.unset_master(); //workspace is now empty
                 self.windows.unset_focused();
             } else {
                 debug!(
-                    "del_window: Workspace has {} tiled windows, setting new master", 
+                    "del_window: Workspace has {} tiled windows, setting new master",
                     self.tiled_count()
                 );
                 let new_master = self.windows.get(0).unwrap().id();
@@ -276,7 +258,7 @@ impl Workspace {
             // only master is left
             if self.tiled_count() == 1 {
                 let master = self.master.unwrap();
-                window_stack_and_focus(self, conn, master);        
+                window_stack_and_focus(self, conn, master);
             } else if !self.is_empty() {
                 assert!(self.tiled_count() > 1);
                 //todo: add last focused so we can focus to that
@@ -320,15 +302,9 @@ impl Workspace {
         self.apply_layout(conn, layouts);
     }
 
-    fn apply_layout<X: XConn>(
-        &mut self, 
-        conn: &X, 
-        layouts: Vec<LayoutAction>
-    ) {
+    fn apply_layout<X: XConn>(&mut self, conn: &X, layouts: Vec<LayoutAction>) {
         for floater in self.clients_mut().filter(|c| c.is_floating()) {
-            floater.configure(
-                conn, &[ClientConfig::StackingMode(StackMode::Above)]
-            )
+            floater.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)])
         }
 
         for rsaction in layouts {
@@ -339,7 +315,7 @@ impl Workspace {
                     self.set_master(id);
                 }
                 LayoutAction::UnsetMaster => self.unset_master(),
-                LayoutAction::Resize {id, geom} => {
+                LayoutAction::Resize { id, geom } => {
                     let window = self.windows.lookup_mut(id).unwrap();
                     window.set_and_update_geometry(conn, geom);
                 }
@@ -356,7 +332,7 @@ impl Workspace {
             }
             // internally focus
             self.windows.set_focused_by_idx(idx);
-            
+
             // tell x to focus
             window_stack_and_focus(self, conn, window);
         } else {
@@ -368,9 +344,11 @@ impl Workspace {
     pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         // remove focus if window to unfocus is currently focused
         if let Some(_) = self.windows.lookup(window) {
-            conn.change_window_attributes(window, &[
-                ClientAttrs::BorderColour(BorderStyle::Unfocused)
-            ]).unwrap_or_else(|e| error!("{}", e));
+            conn.change_window_attributes(
+                window,
+                &[ClientAttrs::BorderColour(BorderStyle::Unfocused)],
+            )
+            .unwrap_or_else(|e| error!("{}", e));
         }
     }
 
@@ -383,14 +361,14 @@ impl Workspace {
             win.id()
         } else {
             error!("cycle_focus for ws {}: nothing focused", self.name);
-            return
+            return;
         };
 
         //change currently focused border colour to unfocused
         if let Some(win) = self.windows.focused_mut() {
             win.set_border(conn, Unfocused);
         }
-        
+
         //internally, cycle focus
         self.windows.cycle_focus(dir);
 
@@ -398,10 +376,10 @@ impl Workspace {
     }
 
     /// Cycles the master to the next window in the workspace.
-    pub fn cycle_master<X: XConn>(&mut self, 
-        conn: &X, scr: &Screen, dir: Direction
-    ) {
-        if !self.is_tiling() {return}
+    pub fn cycle_master<X: XConn>(&mut self, conn: &X, scr: &Screen, dir: Direction) {
+        if !self.is_tiling() {
+            return;
+        }
 
         if !self.windows.is_empty() {
             self.windows.rotate(dir);
@@ -411,9 +389,7 @@ impl Workspace {
     }
 
     /// Deletes the focused window in the workspace and returns it.
-    pub fn take_focused_window<X: XConn>(&mut self,
-        conn: &X, screen: &Screen,
-    ) -> Option<Client> {
+    pub fn take_focused_window<X: XConn>(&mut self, conn: &X, screen: &Screen) -> Option<Client> {
         if let Some(window) = self.windows.focused() {
             let window = window.to_owned();
             self.del_window(conn, screen, window.id()).ok()?;
@@ -426,7 +402,10 @@ impl Workspace {
 
     /// Toggles the state of the currently focused window between floating and tiled.
     pub fn toggle_focused_state<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        debug!("Toggling state of focused window {:#?}", self.windows.focused());
+        debug!(
+            "Toggling state of focused window {:#?}",
+            self.windows.focused()
+        );
         let master = self.master;
         // If we have a focused window
         if let Some(win) = self.windows.focused_mut() {
@@ -434,14 +413,16 @@ impl Workspace {
             let win_id = win.id();
             debug!("Toggling window state");
             win.toggle_state();
-            if win.is_floating() { //toggling to tiled
+            if win.is_floating() {
+                //toggling to tiled
                 // if we have no master
                 if master.is_none() {
                     debug!("No master, setting master");
                     self.set_master(win_id);
                 }
                 // keep floating windows on top
-            } else { //toggling to floating
+            } else {
+                //toggling to floating
                 win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
 
                 if self.tiled_count() == 0 && self.master.is_some() {
@@ -465,27 +446,31 @@ impl Workspace {
     }
 
     /// Sets the given window to tiled and re-applies the layout.
-    /// 
+    ///
     /// Is a no-op if the workspace is in a floating layout.
     pub fn set_tiled<X: XConn>(&mut self, conn: &X, id: XWindowID, scr: &Screen) {
         debug!("Setting focused to tiled");
 
-        if self.is_floating() {return}
+        if self.is_floating() {
+            return;
+        }
 
         let master = self.master;
 
         if let Some(win) = self.windows.lookup_mut(id) {
-            if win.is_tiled() {return}
+            if win.is_tiled() {
+                return;
+            }
 
             let win_id = win.id();
 
             win.set_tiled();
-            
-            // assuming 
+
+            // assuming
             if self.tiled_count() == 0 && master.is_none() {
                 debug!("All windows are floating, setting master");
                 self.set_master(win_id);
-            } 
+            }
 
             self.relayout(conn, scr);
         }
@@ -497,7 +482,9 @@ impl Workspace {
         let master = self.master;
 
         if let Some(win) = self.windows.lookup_mut(id) {
-            if win.is_floating() {return}
+            if win.is_floating() {
+                return;
+            }
 
             let win_id = win.id();
 
@@ -505,7 +492,6 @@ impl Workspace {
             win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
             let i = win.initial_geom();
             win.set_size(conn, i.height, i.width);
-
 
             if self.tiled_count() == 0 && master.is_some() {
                 debug!("All windows are floating, unsetting master");
@@ -516,7 +502,11 @@ impl Workspace {
 
                     let new = self.windows.get(1).expect("No window of idx 1");
                     if new.is_floating() {
-                        warn!("New master of id {} name {} is floating", new.id(), new.name());
+                        warn!(
+                            "New master of id {} name {} is floating",
+                            new.id(),
+                            new.name()
+                        );
                     }
                     let new_id = new.id();
                     self.set_master(new_id);
@@ -538,7 +528,7 @@ impl Workspace {
             } else {
                 error!("set_master: No such window {}", master_id);
             }
-            return
+            return;
         }
         self.master = Some(master_id);
         let idx = self.windows.get_idx(master_id).unwrap();
@@ -585,7 +575,7 @@ impl Workspace {
     }
 
     /// Returns the number of tiled windows in the workspace.
-    /// 
+    ///
     /// Since a workspace can contain both floating and tiled windows,
     /// this returns the number of tiled windows only.
     pub fn tiled_count(&self) -> usize {
@@ -593,7 +583,7 @@ impl Workspace {
     }
 
     /// Returns the number of floating windows in the workspace.
-    /// 
+    ///
     /// Since a workspace can contain both floating and tiled windows,
     /// this returns the number of floating windows only.
     pub fn floating_count(&self) -> usize {
@@ -611,7 +601,7 @@ impl Workspace {
     pub fn is_tiling(&self) -> bool {
         !self.is_floating()
     }
-    
+
     /// Tests whether the workspace is floating.
     #[inline(always)]
     pub fn is_floating(&self) -> bool {
@@ -634,19 +624,19 @@ fn window_stack_and_focus<X: XConn>(ws: &mut Workspace, conn: &X, window: XWindo
     use BorderStyle::*;
     // disable events
     conn.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
-    .unwrap_or_else(|e| error!("{}", e));
+        .unwrap_or_else(|e| error!("{}", e));
 
     let win = ws.windows.lookup_mut(window).unwrap();
 
     // if there is a focused window, stack it above
 
     win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
-    
+
     // focus to current window
     win.set_border(conn, Focused);
     conn.set_input_focus(window);
 
     // re-enable events
     conn.change_window_attributes(window, &[ClientAttrs::EnableClientEvents])
-    .unwrap_or_else(|e| error!("{}", e));
+        .unwrap_or_else(|e| error!("{}", e));
 }

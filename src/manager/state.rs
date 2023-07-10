@@ -1,11 +1,11 @@
-use super::{WindowManager};
+use super::WindowManager;
 
-use crate::core::{Ring, Workspace, Desktop, Client};
+use crate::core::{Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// Provides a view into the state of the window manager.
 /// It is used as a context when generating event actions.
-/// 
+///
 /// The `'wm` lifetime refers to the lifetime of the parent
 /// `WindowManager` type.
 pub(crate) struct WMState<'wm, X: XConn> {
@@ -30,7 +30,7 @@ impl<X: XConn> WindowManager<X> {
     }
 }
 
-impl <'wm, X: XConn> WMState<'wm, X> {
+impl<'wm, X: XConn> WMState<'wm, X> {
     pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
         self.desktop.current().windows.lookup(id)
     }

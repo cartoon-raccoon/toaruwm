@@ -1,33 +1,24 @@
 //! Core functionality of ToaruWM's interface with the X server.
-//! 
+//!
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use std::str::FromStr;
 use std::ops::{BitAnd, BitOr};
+use std::str::FromStr;
 
 use thiserror::Error;
 use tracing::{debug, error};
 
 use crate::keybinds::{Keybind, Mousebind};
 
-use crate::types::{
-    Geometry,
-    XWinProperties,
-    ClientConfig,
-    ClientAttrs,
-};
-use crate::core::{Screen};
 use super::{
-    event::{XEvent, ClientMessageEvent},
-    property::*,
-    atom::{
-        Atom,
-        UNMANAGED_WINDOW_TYPES,
-        AUTO_FLOAT_WINDOW_TYPES,
-    },
+    atom::{Atom, AUTO_FLOAT_WINDOW_TYPES, UNMANAGED_WINDOW_TYPES},
+    event::{ClientMessageEvent, XEvent},
     input::KeyButMask,
+    property::*,
 };
+use crate::core::Screen;
+use crate::types::{ClientAttrs, ClientConfig, Geometry, XWinProperties};
 
 //* ========== X WINDOW THINGS ========== *//
 
@@ -83,9 +74,7 @@ impl XWindow {
     }
 
     pub fn with_data(id: XWindowID, geom: Geometry) -> Self {
-        XWindow {
-            id, geom,
-        }
+        XWindow { id, geom }
     }
 }
 
@@ -105,7 +94,7 @@ impl From<XWindowID> for XWindow {
                 y: 0,
                 height: 0,
                 width: 0,
-            }
+            },
         }
     }
 }
@@ -123,7 +112,7 @@ pub enum WindowClass {
 
 impl XWindow {
     /// Sets the geometry using an XConn object.
-    /// 
+    ///
     /// This method requests the X server directly for the
     /// geometry of the window and updates its internal fields
     /// accordingly.
@@ -131,7 +120,7 @@ impl XWindow {
         match conn.get_geometry(self.id) {
             Ok(geom) => {
                 debug!(
-                    "Updating geometry (conn): x: {}, y: {}, h: {}, w: {}", 
+                    "Updating geometry (conn): x: {}, y: {}, h: {}, w: {}",
                     geom.x, geom.y, geom.height, geom.width
                 );
                 self.geom = geom;
@@ -144,13 +133,13 @@ impl XWindow {
     }
 
     /// Sets the geometry using a provided Geometry.
-    /// 
+    ///
     /// Note that this does not update the geometry as tracked by
     /// the X server, and so a request should be made to the server
     /// to update the geometry there as well.
     pub fn set_geometry(&mut self, geom: Geometry) {
         debug!(
-            "Updating geometry for window {}:\nx: {}, y: {}, h: {}, w: {}", 
+            "Updating geometry for window {}:\nx: {}, y: {}, h: {}, w: {}",
             self.id, geom.x, geom.y, geom.height, geom.width
         );
         self.geom = geom;
@@ -212,7 +201,7 @@ pub enum XError {
 
     #[error("RandR error: {0}")]
     RandrError(String),
-    
+
     /// An internal server error.
     #[error("X server error: {0}")]
     ServerError(String),
@@ -229,45 +218,45 @@ pub enum XError {
     RequestError(&'static str),
 
     #[error("{0}")]
-    OtherError(String)
+    OtherError(String),
 }
 
 /// Result type for XConn.
 pub type Result<T> = ::core::result::Result<T, XError>;
 
 /// A trait used to define the interface between toaruwm and the X server.
-/// 
+///
 /// XConn provides an abstraction layer for talking to an underlying X server.
 /// Its methods are designed to provide as thin a layer as possible,
 /// often mapping directly to X server protocol requests, with type
 /// conversion to present dependency-agnostic types.
-/// 
+///
 /// An XConn implementation should also provide a way to manage X atoms.
 /// Its `atom()` method should intern an Atom if not known, and
 /// the implementation should store this in its internal state in some way.
 /// While this functionality is not required, it is heavily encouraged.
-/// 
+///
 /// An implementation of `XConn` is required for using a [WindowManager][1].
 /// The backend library used does not directly appear inside `WindowManager`.
 /// Thus, it is possible to create your own XConn type using a different
 /// library, possibly using XLib, and in theory this crate can run on
 /// any display server implementing the X protocol, given a proper
 /// implementor of `XConn`.
-/// 
+///
 /// This crate provides two implementations of XConn: [XCBConn][2] and
 /// X11RBConn.
-/// 
+///
 /// [1]: crate::manager::WindowManager
 /// [2]: crate::x::xcb::XCBConn
 pub trait XConn {
     //* General X server operations
 
     /// Receives the next event from the X server.
-    /// 
+    ///
     /// If no events are queued, returns Ok(None),
     /// allowing the event loop to continue and handle other processing.
     /// If the connection has an error, it returns Err.
-    /// 
+    ///
     /// Else, it returns Ok(Some(event)).
     fn poll_next_event(&self) -> Result<Option<XEvent>>;
 
@@ -287,12 +276,12 @@ pub trait XConn {
     fn all_outputs(&self) -> Result<Vec<Screen>>;
 
     /// Get the value of an atom by its name.
-    /// 
+    ///
     /// You can use [Atom][1]'s `as_ref()` method to get a
     /// known atom's string representation.
-    /// 
+    ///
     /// If the atom is unknown, intern it.
-    /// 
+    ///
     /// [1]: crate::x::atom::Atom
     fn atom(&self, atom: &str) -> Result<XAtom>;
 
@@ -300,7 +289,7 @@ pub trait XConn {
     fn lookup_atom(&self, atom: XAtom) -> Result<String>;
 
     /// Looks up the value of an interned atom given its name.
-    /// 
+    ///
     /// If the atom is not interned, None should be returned.
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom>;
 
@@ -311,24 +300,24 @@ pub trait XConn {
     fn ungrab_keyboard(&self) -> Result<()>;
 
     /// Grabs a key-mask combo for a given window.
-    /// 
+    ///
     /// Can move keybind into it because Keybind is Copy.
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
     /// Ungrabs a key-mask combo for a given window.
-    /// 
+    ///
     /// Can move keybind into it because Keybind is Copy.
     fn ungrab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
     /// Grabs a mouse button-mask combo for a given window.
-    /// 
+    ///
     /// Uses a `&Mousebind` because Mousebind is not Copy.
-    /// 
+    ///
     /// `confine` denotes whether or not the event should be generated.
     fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()>;
 
     /// Ungrabs a mouse button-mask combo for a given window.
-    /// 
+    ///
     /// Uses a `&Mousebind` because Mousebind is not Copy.
     fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()>;
 
@@ -353,7 +342,7 @@ pub trait XConn {
     /// Implementors should make use of the provided
     /// `XConn::win_supports()` method to delete the window
     /// via ICCCM WM_DELETE_WINDOW if supported.
-    fn destroy_window(&self, window: XWindowID) -> Result<()>; 
+    fn destroy_window(&self, window: XWindowID) -> Result<()>;
 
     /// Sends a message to a given client.
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()>;
@@ -399,7 +388,7 @@ pub trait XConn {
     }
 
     /// Gets _NET_WM_NAME or failing which, WM_NAME.
-    /// 
+    ///
     /// Returns an empty string in case of error or if neither is set.
     fn get_wm_name(&self, window: XWindowID) -> String {
         let prop = self.get_prop(Atom::NetWmName.as_ref(), window);
@@ -408,8 +397,7 @@ pub trait XConn {
             Ok(prop) => {
                 if let Some(prop) = prop {
                     match prop {
-                        Property::String(mut s) | 
-                        Property::UTF8String(mut s) => {
+                        Property::String(mut s) | Property::UTF8String(mut s) => {
                             return s.remove(0)
                         }
                         _ => {}
@@ -425,8 +413,7 @@ pub trait XConn {
             Ok(prop) => {
                 if let Some(prop) = prop {
                     match prop {
-                        Property::String(mut s) | 
-                        Property::UTF8String(mut s) => {
+                        Property::String(mut s) | Property::UTF8String(mut s) => {
                             return s.remove(0)
                         }
                         _ => {}
@@ -440,7 +427,7 @@ pub trait XConn {
     }
 
     /// Gets WM_ICON_NAME.
-    /// 
+    ///
     /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
         let prop = self.get_prop(Atom::WmIconName.as_ref(), window);
@@ -449,20 +436,19 @@ pub trait XConn {
             Ok(prop) => {
                 if let Some(prop) = prop {
                     match prop {
-                        Property::String(mut s) |
-                        Property::UTF8String(mut s) => {
-                            s.remove(0)
-                        }
-                        _ => "".into()
+                        Property::String(mut s) | Property::UTF8String(mut s) => s.remove(0),
+                        _ => "".into(),
                     }
-                } else { "".into() }
+                } else {
+                    "".into()
+                }
             }
-            Err(_) => "".into() 
+            Err(_) => "".into(),
         }
     }
 
     /// Gets WM_NORMAL_HINTS.
-    /// 
+    ///
     /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
         let prop = self.get_prop(Atom::WmNormalHints.as_ref(), window).ok()?;
@@ -476,7 +462,7 @@ pub trait XConn {
     }
 
     /// Gets WM_HINTS.
-    /// 
+    ///
     /// Returns None if not set or in case of error.
     fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints> {
         let prop = self.get_prop(Atom::WmHints.as_ref(), window).ok()?;
@@ -492,22 +478,23 @@ pub trait XConn {
     fn accepts_input(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
             hints.accepts_input
-        } else {false}
+        } else {
+            false
+        }
     }
 
     /// Gets WM_CLASS.
-    /// 
+    ///
     /// Returns a tuple of empty strings if not set or in case of error.
     fn get_wm_class(&self, window: XWindowID) -> (String, String) {
         use Property::{String, UTF8String};
 
-        let prop = self.get_prop(Atom::WmClass.as_ref(), window)
-        .unwrap_or(None);
+        let prop = self
+            .get_prop(Atom::WmClass.as_ref(), window)
+            .unwrap_or(None);
 
         match prop {
-            Some(String(strs)) | Some(UTF8String(strs)) => {
-                (strs[0].to_owned(), strs[1].to_owned())
-            }
+            Some(String(strs)) | Some(UTF8String(strs)) => (strs[0].to_owned(), strs[1].to_owned()),
             _ => {
                 debug!("Got wrong property: {:?}", prop);
                 ("".into(), "".into())
@@ -516,7 +503,7 @@ pub trait XConn {
     }
 
     /// Gets WM_PROTOCOLS.
-    /// 
+    ///
     /// Returns None if not set or in case of error.
     fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<XAtom>> {
         let prop = self.get_prop(Atom::WmProtocols.as_ref(), window).ok()?;
@@ -534,11 +521,13 @@ pub trait XConn {
 
     /// Check whether a window supports the given protocol.
     fn win_supports(&self, protocol: &str, id: XWindowID) -> bool {
-        self.atom(protocol).map(|atom| {
-            self.get_wm_protocols(id).map(|protocols| {
-                protocols.contains(&atom)
-            }).unwrap_or(false)
-        }).unwrap_or(false)
+        self.atom(protocol)
+            .map(|atom| {
+                self.get_wm_protocols(id)
+                    .map(|protocols| protocols.contains(&atom))
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false)
     }
 
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
@@ -547,7 +536,7 @@ pub trait XConn {
         if let Some(Property::U32List(s, list)) = prop {
             if s != Atom::WmState.as_ref() {
                 error!("Got wrong type for wm_state: {}", s);
-                return None
+                return None;
             }
             Some(match list[0] as i32 {
                 1 => WindowState::Normal,
@@ -555,7 +544,7 @@ pub trait XConn {
                 0 => WindowState::Withdrawn,
                 n => {
                     error!("Expected 1, 3, or 0 for WM_STATE, got {}", n);
-                    return None
+                    return None;
                 }
             })
         } else {
@@ -571,7 +560,9 @@ pub trait XConn {
             if ids[0] == 0 {
                 warn!("Received window type but value is 0");
                 None
-            } else {Some(ids[0])}
+            } else {
+                Some(ids[0])
+            }
         } else {
             error!("Expected window type, got {:?}", prop);
             None
@@ -581,7 +572,9 @@ pub trait XConn {
     fn get_urgency(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
             hints.urgent()
-        } else {false}
+        } else {
+            false
+        }
     }
 
     // EWMH-related operations
@@ -592,7 +585,7 @@ pub trait XConn {
             Ok(atoms)
         } else {
             Err(XError::InvalidPropertyData(
-                "Expected Atom type for get_window_type".into()
+                "Expected Atom type for get_window_type".into(),
             ))
         }
     }
@@ -604,36 +597,30 @@ pub trait XConn {
             Ok(atoms)
         } else {
             Err(XError::InvalidPropertyData(
-                "Expected Atom type for get_window_states".into()
+                "Expected Atom type for get_window_states".into(),
             ))
         }
-        
     }
 
     /// Sets the _NET_SUPPORTED property on the root window.
-    /// 
+    ///
     /// This indicated the protocols supported by the window manager.
     fn set_supported(&self, atoms: &[Atom]) -> Result<()> {
         self.set_property(
             self.get_root().id,
             Atom::NetSupported.as_ref(),
-            Property::Atom(atoms.iter()
-                .map(|a| a.to_string())
-                .collect()
-            )
+            Property::Atom(atoms.iter().map(|a| a.to_string()).collect()),
         )
     }
 
     fn set_wm_state(&self, window: XWindowID, atoms: &[XAtom]) {
-        let atoms = atoms.iter()
-            .map(|s| self.lookup_atom(*s).unwrap_or_else(|_|String::new()))
+        let atoms = atoms
+            .iter()
+            .map(|s| self.lookup_atom(*s).unwrap_or_else(|_| String::new()))
             .filter(|s| !s.is_empty())
             .collect();
-        self.set_property(
-            window, 
-            Atom::NetWmState.as_ref(), 
-            Property::Atom(atoms)
-        ).unwrap_or_else(|_| error!("failed to set wm state"));
+        self.set_property(window, Atom::NetWmState.as_ref(), Property::Atom(atoms))
+            .unwrap_or_else(|_| error!("failed to set wm state"));
     }
 
     /// Returns whether a WindowManager should manage a window.
@@ -645,20 +632,20 @@ pub trait XConn {
                 .filter(|s| s.is_ok())
                 .map(|a| a.unwrap())
                 .collect::<Vec<Atom>>(),
-            Err(_) => return true
+            Err(_) => return true,
         };
-    
+
         !UNMANAGED_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
     }
 
     /// Returns whether a WindowManager should set a window to floating.
-    /// 
+    ///
     /// Can accept user-specified classes that should float.
     fn should_float(&self, window: XWindowID, float_classes: &[String]) -> bool {
         let (_, class) = self.get_wm_class(window);
 
         if float_classes.iter().any(|s| *s == class) {
-            return true
+            return true;
         }
 
         let win_type = match self.get_window_type(window) {
@@ -668,7 +655,7 @@ pub trait XConn {
                 .filter(|s| s.is_ok())
                 .map(|a| a.unwrap())
                 .collect::<Vec<Atom>>(),
-            Err(_) => return true
+            Err(_) => return true,
         };
 
         AUTO_FLOAT_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
@@ -676,6 +663,4 @@ pub trait XConn {
 }
 
 /// Abstracts over methods that all XConn implementations use internally.
-pub(crate) trait XConnInner: XConn {
-
-}
+pub(crate) trait XConnInner: XConn {}

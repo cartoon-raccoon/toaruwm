@@ -7,29 +7,15 @@ use strum::*;
 use xcb::x;
 use xcb::Xid;
 
-use super::{XCBConn, id};
-use crate::keybinds::{
-    ButtonIndex,
-    ModKey,
-    Mousebind,
-};
-use crate::types::{
-    Point,
-    BorderStyle,
-    ClientConfig,
-    ClientAttrs,
-};
-use crate::x::{
-    core::{XError, Result, BitMask},
-    event::MouseEvent,
-    input::{
-        ModMask, 
-        ButtonMask, 
-        KeyButMask,
-        MouseEventKind
-    },
-};
+use super::{id, XCBConn};
+use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
+use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;
+use crate::x::{
+    core::{BitMask, Result, XError},
+    event::MouseEvent,
+    input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
+};
 
 impl BitMask for x::ModMask {}
 impl BitMask for x::ButtonMask {}
@@ -47,9 +33,9 @@ impl From<ButtonIndex> for x::ButtonIndex {
         use ButtonIndex::*;
 
         match from {
-            Left    => x::ButtonIndex::N1,
-            Middle  => x::ButtonIndex::N2,
-            Right   => x::ButtonIndex::N3,
+            Left => x::ButtonIndex::N1,
+            Middle => x::ButtonIndex::N2,
+            Right => x::ButtonIndex::N3,
             Button4 => x::ButtonIndex::N4,
             Button5 => x::ButtonIndex::N5,
         }
@@ -62,10 +48,10 @@ impl From<ModKey> for x::ModMask {
         use ModKey::*;
 
         match from {
-            Ctrl  => x::ModMask::CONTROL,
-            Alt   => x::ModMask::N1,
+            Ctrl => x::ModMask::CONTROL,
+            Alt => x::ModMask::N1,
             Shift => x::ModMask::SHIFT,
-            Meta  => x::ModMask::N4,
+            Meta => x::ModMask::N4,
         }
     }
 }
@@ -102,16 +88,13 @@ impl From<x::KeyButMask> for ModMask {
 
 impl XCBConn {
     /// Converts generic events into mouse events.
-    pub(super) fn do_mouse_press(
-        &self, ev: x::ButtonPressEvent, rel: bool
-    ) -> Result<MouseEvent> {
-
+    pub(super) fn do_mouse_press(&self, ev: x::ButtonPressEvent, rel: bool) -> Result<MouseEvent> {
         let button = ButtonIndex::try_from(ev.detail())?;
         let modmask = ModKey::iter()
-            .filter(|m| m.was_held(ev.state())
-        ).fold(ModMask::empty(), |acc, n| {
-            acc | <ModKey as Into<ModMask>>::into(n)
-        });
+            .filter(|m| m.was_held(ev.state()))
+            .fold(ModMask::empty(), |acc, n| {
+                acc | <ModKey as Into<ModMask>>::into(n)
+            });
 
         let kind = if !rel {
             self.mousemode.set(Some(button));
@@ -131,23 +114,20 @@ impl XCBConn {
                 button,
                 modmask,
                 kind,
-            }
+            },
         })
     }
 
-    pub(super) fn do_mouse_motion(
-        &self, ev: x::MotionNotifyEvent
-    ) -> Result<MouseEvent> {
-
+    pub(super) fn do_mouse_motion(&self, ev: x::MotionNotifyEvent) -> Result<MouseEvent> {
         let Some(button) = self.mousemode.get() else {
             //? fixme (account for this instead of returning Err)
             return Err(XError::ConversionError)
         };
-        let modmask = ModKey::iter().filter(
-            |m| m.was_held(ev.state())
-        ).fold(ModMask::empty(), |acc, n| {
-            acc | <ModKey as Into<ModMask>>::into(n)
-        });
+        let modmask = ModKey::iter()
+            .filter(|m| m.was_held(ev.state()))
+            .fold(ModMask::empty(), |acc, n| {
+                acc | <ModKey as Into<ModMask>>::into(n)
+            });
 
         Ok(MouseEvent {
             id: id!(ev.child()),
@@ -159,7 +139,7 @@ impl XCBConn {
                 button,
                 modmask,
                 kind: MouseEventKind::Motion,
-            }
+            },
         })
     }
 }
@@ -167,44 +147,29 @@ impl XCBConn {
 // converting ClientConfigs to (u16, u32) slices for xcb
 impl From<&ClientConfig> for Vec<x::ConfigWindow> {
     fn from(from: &ClientConfig) -> Vec<x::ConfigWindow> {
-        use ClientConfig::*;
         use super::StackMode::*;
+        use ClientConfig::*;
 
         match from {
             BorderWidth(px) => vec![x::ConfigWindow::BorderWidth(*px)],
             Position(geom) => vec![
-                    x::ConfigWindow::X(geom.x),
-                    x::ConfigWindow::Y(geom.y),
-                    x::ConfigWindow::Height(geom.height as u32),
-                    x::ConfigWindow::Width(geom.width as u32),
+                x::ConfigWindow::X(geom.x),
+                x::ConfigWindow::Y(geom.y),
+                x::ConfigWindow::Height(geom.height as u32),
+                x::ConfigWindow::Width(geom.width as u32),
             ],
-            Resize {h, w} => vec![
+            Resize { h, w } => vec![
                 x::ConfigWindow::Height(*h as u32),
                 x::ConfigWindow::Width(*w as u32),
             ],
-            Move {x, y} => vec![
-                x::ConfigWindow::X(*x),
-                x::ConfigWindow::Y(*y),
-            ],
-            StackingMode(sm) => {
-                match sm {
-                    Above    => vec![
-                        x::ConfigWindow::StackMode(x::StackMode::Above)
-                    ],
-                    Below    => vec![
-                        x::ConfigWindow::StackMode(x::StackMode::Below)
-                    ],
-                    TopIf    => vec![
-                        x::ConfigWindow::StackMode(x::StackMode::TopIf)
-                    ],
-                    BottomIf => vec![
-                        x::ConfigWindow::StackMode(x::StackMode::BottomIf)
-                    ],
-                    Opposite => vec![
-                        x::ConfigWindow::StackMode(x::StackMode::Opposite)
-                    ],
-                }
-            }
+            Move { x, y } => vec![x::ConfigWindow::X(*x), x::ConfigWindow::Y(*y)],
+            StackingMode(sm) => match sm {
+                Above => vec![x::ConfigWindow::StackMode(x::StackMode::Above)],
+                Below => vec![x::ConfigWindow::StackMode(x::StackMode::Below)],
+                TopIf => vec![x::ConfigWindow::StackMode(x::StackMode::TopIf)],
+                BottomIf => vec![x::ConfigWindow::StackMode(x::StackMode::BottomIf)],
+                Opposite => vec![x::ConfigWindow::StackMode(x::StackMode::Opposite)],
+            },
         }
     }
 }
@@ -212,46 +177,34 @@ impl From<&ClientConfig> for Vec<x::ConfigWindow> {
 use x::{Cw, EventMask};
 
 /// Event mask for enabling client events.
-pub const ENABLE_CLIENT_EVENTS: EventMask =
-    EventMask::ENTER_WINDOW
+pub const ENABLE_CLIENT_EVENTS: EventMask = EventMask::ENTER_WINDOW
     .union(EventMask::LEAVE_WINDOW)
     .union(EventMask::PROPERTY_CHANGE)
     .union(EventMask::STRUCTURE_NOTIFY);
 
 /// Event mask for disabling client events.
-pub const DISABLE_CLIENT_EVENTS: EventMask =
-    EventMask::NO_EVENT;
+pub const DISABLE_CLIENT_EVENTS: EventMask = EventMask::NO_EVENT;
 
 /// Event mask for selecting events on the root window.
-pub const ROOT_EVENT_MASK: EventMask =
-    EventMask::PROPERTY_CHANGE
+pub const ROOT_EVENT_MASK: EventMask = EventMask::PROPERTY_CHANGE
     .union(EventMask::SUBSTRUCTURE_REDIRECT)
     .union(EventMask::SUBSTRUCTURE_NOTIFY)
     .union(EventMask::BUTTON_MOTION);
 
-
 impl From<&ClientAttrs> for Cw {
     fn from(from: &ClientAttrs) -> Cw {
-        use ClientAttrs::*;
         use BorderStyle::*;
+        use ClientAttrs::*;
 
         match from {
-            BorderColour(bs) => {
-                match bs {
-                    Focused   => Cw::BorderPixel(util::FOCUSED_COL),
-                    Unfocused => Cw::BorderPixel(util::UNFOCUSED_COL),
-                    Urgent    => Cw::BorderPixel(util::URGENT_COL),
-                }
+            BorderColour(bs) => match bs {
+                Focused => Cw::BorderPixel(util::FOCUSED_COL),
+                Unfocused => Cw::BorderPixel(util::UNFOCUSED_COL),
+                Urgent => Cw::BorderPixel(util::URGENT_COL),
             },
-            EnableClientEvents => {
-                Cw::EventMask(ENABLE_CLIENT_EVENTS)
-            }
-            DisableClientEvents => {
-                Cw::EventMask(DISABLE_CLIENT_EVENTS)
-            }
-            RootEventMask => {
-                Cw::EventMask(ROOT_EVENT_MASK)
-            }
+            EnableClientEvents => Cw::EventMask(ENABLE_CLIENT_EVENTS),
+            DisableClientEvents => Cw::EventMask(DISABLE_CLIENT_EVENTS),
+            RootEventMask => Cw::EventMask(ROOT_EVENT_MASK),
         }
     }
 }

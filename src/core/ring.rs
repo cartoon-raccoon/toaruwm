@@ -1,20 +1,20 @@
 //! This module defines Ring, a data structure inspired by Penrose.
-//! 
+//!
 //! A `Ring` abstracts over an internal buffer and presents an interface
-//! that resembles a ring-buffer, with one element in focus, or none. 
+//! that resembles a ring-buffer, with one element in focus, or none.
 //! It can be rotated and the focus can be set, unset or cycled through
 //! in different directions.
-//! 
+//!
 //! Retrieving items from a `Ring` can be done using a `Selector`, which
 //! can retrieve the focused item, an item at an index, or an item that
 //! fulfills a predicate.
-//! 
+//!
 //! Insertion into a Ring is done with an InsertPoint, which can insert an item
 //! with respect to the current item in focus, or at a specified index.
 
 use std::collections::VecDeque;
-use std::ops::{Index, IndexMut};
 use std::iter::FromIterator;
+use std::ops::{Index, IndexMut};
 
 use super::types::Direction;
 
@@ -49,7 +49,7 @@ pub enum Selector<'a, T> {
 }
 
 /// An internal data structure to manage items as a ring buffer.
-/// 
+///
 /// Provides an interface where the data is a ring of items,
 /// with a single item in focus.
 /// Ideally, the only time there is no focused item is when the ring is empty.
@@ -70,14 +70,14 @@ impl<T> Ring<T> {
 
     /// Construct a new instance of a Ring with a set capacity
     /// already allocated.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use toaruwm::core::Ring;
-    /// 
+    ///
     /// let ring: Ring<u32> = Ring::with_capacity(2);
-    /// 
+    ///
     /// assert_eq!(2, ring.capacity());
     /// ```
     pub fn with_capacity(cap: usize) -> Self {
@@ -88,18 +88,18 @@ impl<T> Ring<T> {
     }
 
     /// Number of items already inside the Ring.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use toaruwm::core::Ring;
-    /// 
+    ///
     /// let mut ring: Ring<u32> = Ring::new();
-    /// 
+    ///
     /// ring.push(5);
     /// ring.push(9);
     /// ring.push(4);
-    /// 
+    ///
     /// assert_eq!(ring.len(), 3);
     /// ```
     #[inline(always)]
@@ -109,14 +109,14 @@ impl<T> Ring<T> {
 
     /// Returns the number of items the Ring can hold
     /// without reallocating.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use toaruwm::core::Ring;
-    /// 
+    ///
     /// let ring: Ring<u32> = Ring::with_capacity(2);
-    /// 
+    ///
     /// assert_eq!(2, ring.capacity());
     /// ```
     #[inline(always)]
@@ -125,14 +125,14 @@ impl<T> Ring<T> {
     }
 
     /// Returns whether the Ring is empty.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```no_run
     /// use toaruwm::core::Ring;
-    /// 
+    ///
     /// let ring: Ring<u32> = Ring::new();
-    /// 
+    ///
     /// assert!(ring.is_empty());
     /// ```
     #[inline(always)]
@@ -148,14 +148,14 @@ impl<T> Ring<T> {
             Forward => {
                 if let Some(i) = self.focused {
                     if i == self.len() - 1 {
-                        return true
+                        return true;
                     }
                 }
             }
             Backward => {
                 if let Some(i) = self.focused {
                     if i == 0 {
-                        return true
+                        return true;
                     }
                 }
             }
@@ -165,8 +165,8 @@ impl<T> Ring<T> {
 
     /// Returns the index of the element that is
     /// currently in focus.
-    /// 
-    /// 
+    ///
+    ///
     #[inline(always)]
     pub fn focused_idx(&self) -> Option<usize> {
         self.focused
@@ -187,7 +187,7 @@ impl<T> Ring<T> {
     /// Returns a reference to the focused element.
     pub fn focused(&self) -> Option<&T> {
         if let Some(i) = self.focused {
-            return self.get(i)
+            return self.get(i);
         }
 
         None
@@ -196,7 +196,7 @@ impl<T> Ring<T> {
     /// Returns a mutable reference to the focused element.
     pub fn focused_mut(&mut self) -> Option<&mut T> {
         if let Some(i) = self.focused {
-            return self.get_mut(i)
+            return self.get_mut(i);
         }
 
         None
@@ -204,7 +204,9 @@ impl<T> Ring<T> {
 
     /// Moves the element specified by index to the front.
     pub fn move_front(&mut self, idx: usize) {
-        if idx != 0 {self.items.swap(0, idx)}
+        if idx != 0 {
+            self.items.swap(0, idx)
+        }
     }
 
     /// Pushes an element to the front of the Ring.
@@ -221,9 +223,9 @@ impl<T> Ring<T> {
     }
 
     /// Pops the element off the front.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the Ring is empty.
     pub fn pop_front(&mut self) -> T {
         self.items.pop_front().unwrap()
@@ -240,14 +242,14 @@ impl<T> Ring<T> {
     }
 
     /// Insert an item into the Ring with an insert point.
-    /// 
+    ///
     /// The focused index does not change.
-    /// 
+    ///
     /// If insert point revolves around the focused item and nothing has focus,
     /// it appends the item to the end of the ring.
     pub fn insert(&mut self, point: InsertPoint, item: T) {
-        use InsertPoint::*;
         use Direction::*;
+        use InsertPoint::*;
 
         match point {
             Index(idx) => {
@@ -313,14 +315,14 @@ impl<T> Ring<T> {
     }
 
     /// Returns a reversed iterator over the items in the Ring.
-    /// 
+    ///
     /// Equivalent to calling `Ring::iter().rev()`.
     pub fn iter_rev(&self) -> impl Iterator<Item = &T> {
         self.items.iter().rev()
     }
 
     /// Returns a reversed mutable iterator over the items in the Ring.
-    /// 
+    ///
     /// Equivalent to calling `Ring::iter_mut().rev()`.
     pub fn iter_rev_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.items.iter_mut().rev()
@@ -347,7 +349,7 @@ impl<T> Ring<T> {
     }
 
     /// Cycles the focus by one in the given direction.
-    /// 
+    ///
     /// Is a no-op if nothing is in focus.
     pub fn cycle_focus(&mut self, direction: Direction) {
         use Direction::*;
@@ -394,9 +396,7 @@ impl<T> Ring<T> {
         use Selector::*;
 
         match s {
-            Any | Focused => {
-                self.focused
-            }
+            Any | Focused => self.focused,
             Index(i) => {
                 if i < self.len() {
                     Some(i)
@@ -404,16 +404,14 @@ impl<T> Ring<T> {
                     None
                 }
             }
-            Condition(f) => {
-                self.element_by(f).map(|(i, _)| i)
-            }
+            Condition(f) => self.element_by(f).map(|(i, _)| i),
         }
     }
 }
 
 impl<T> Index<usize> for Ring<T> {
     type Output = T;
-    
+
     fn index(&self, idx: usize) -> &T {
         &self.items[idx]
     }
@@ -423,12 +421,12 @@ impl<T> IndexMut<usize> for Ring<T> {
     fn index_mut(&mut self, idx: usize) -> &mut T {
         &mut self.items[idx]
     }
-} 
+}
 
 impl<T> FromIterator<T> for Ring<T> {
     fn from_iter<A>(iter: A) -> Self
     where
-        A: IntoIterator<Item = T>
+        A: IntoIterator<Item = T>,
     {
         Ring {
             items: iter.into_iter().collect(),
