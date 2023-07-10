@@ -133,7 +133,7 @@ impl X11RBConn {
         }
 
         // get root window id
-        self.root = match self.conn.setup().roots.iter().nth(self.idx as usize) {
+        self.root = match self.conn.setup().roots.get(self.idx) {
             Some(screen) => {
                 let id = screen.root;
                 let geom = self.get_geometry(id)?;
@@ -253,11 +253,11 @@ impl X11RBConn {
     }
 
     pub(crate) fn depth<'a>(&self, screen: &'a Screen) -> Result<&'a Depth> {
-        Ok(screen
+        screen
             .allowed_depths
             .iter()
             .max_by(|x, y| x.depth.cmp(&y.depth))
-            .ok_or(XError::RequestError("No allowed depths for screen"))?)
+            .ok_or(XError::RequestError("No allowed depths for screen"))
     }
 
     pub(crate) fn visual_type(&self, depth: &Depth) -> Result<xproto::Visualtype> {
@@ -268,7 +268,7 @@ impl X11RBConn {
             .ok_or(XError::RequestError("Could not get true color visualtype")))?)
     }
 
-    #[instrument(target = "xcbconn", level = "trace", skip(self))]
+    #[instrument(target = "x11rbconn", level = "trace", skip(self))]
     fn process_raw_event(&self, event: Event) -> Result<XEvent> {
         match event {
             //* RandR events
@@ -462,7 +462,7 @@ impl X11RBConn {
                     .map(|a| self.lookup_atom(a).unwrap_or_else(|_| "".into()))
                     .collect()
             })),
-            "CARDINAL" => Some(Property::Cardinal(r.value32().unwrap().nth(0).unwrap())),
+            "CARDINAL" => Some(Property::Cardinal(r.value32().unwrap().next().unwrap())),
             "STRING" => Some(Property::String(
                 String::from_utf8_lossy(&r.value)
                     .trim_matches('\0')

@@ -629,8 +629,7 @@ pub trait XConn {
             Ok(atoms) => atoms
                 .into_iter()
                 .map(|s| Atom::from_str(&s))
-                .filter(|s| s.is_ok())
-                .map(|a| a.unwrap())
+                .filter_map(|a| a.ok())
                 .collect::<Vec<Atom>>(),
             Err(_) => return true,
         };
@@ -652,8 +651,7 @@ pub trait XConn {
             Ok(atoms) => atoms
                 .into_iter()
                 .map(|s| Atom::from_str(&s))
-                .filter(|s| s.is_ok())
-                .map(|a| a.unwrap())
+                .filter_map(|s| s.ok())
                 .collect::<Vec<Atom>>(),
             Err(_) => return true,
         };

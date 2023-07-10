@@ -159,7 +159,7 @@ impl XConn for X11RBConn {
 
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
         trace!("Looking up interned atom name {}", name);
-        self.atoms().retrieve(&name.to_string())
+        self.atoms().retrieve(&name)
     }
 
     fn grab_keyboard(&self) -> Result<()> {
@@ -325,9 +325,9 @@ impl XConn for X11RBConn {
             ),
             WindowClass::InputOutput(a) => {
                 let mid = self.conn.generate_id()?;
-                let screen = self.screen(self.idx as usize)?;
-                let depth = self.depth(&screen)?;
-                let visual = self.visual_type(&depth)?;
+                let screen = self.screen(self.idx)?;
+                let depth = self.depth(screen)?;
+                let visual = self.visual_type(depth)?;
 
                 self.conn.create_colormap(
                     xproto::ColormapAlloc::NONE,
@@ -355,7 +355,7 @@ impl XConn for X11RBConn {
         }
         let wid = self.conn.generate_id()?;
         self.conn.create_window(
-            depth as u8,
+            depth,
             wid,
             self.root.id,
             geom.x as i16,
@@ -364,7 +364,7 @@ impl XConn for X11RBConn {
             geom.height as u16,
             bwidth as u16,
             class,
-            visualid as u32,
+            visualid,
             &data,
         )?;
 
@@ -437,7 +437,7 @@ impl XConn for X11RBConn {
 
         Ok(self
             .conn
-            .send_event(false, window, EventMask::NO_EVENT, &event)?
+            .send_event(false, window, EventMask::NO_EVENT, event)?
             .check()?)
     }
 
@@ -484,12 +484,12 @@ impl XConn for X11RBConn {
             Atom(atoms) => (
                 xproto::AtomEnum::ATOM,
                 32,
-                atoms.iter().map(|a| self.atom(&a).unwrap_or(0)).collect(),
+                atoms.iter().map(|a| self.atom(a).unwrap_or(0)).collect(),
             ),
             Cardinal(card) => (xproto::AtomEnum::CARDINAL, 32, vec![card]),
             String(strs) | UTF8String(strs) => {
-                return Ok({
-                    let string = strs.join("\0").to_string();
+                return {
+                    let string = strs.join("\0");
                     self.conn
                         .change_property(
                             mode,
@@ -500,8 +500,9 @@ impl XConn for X11RBConn {
                             string.as_bytes().len() as u32,
                             string.as_bytes(),
                         )?
-                        .check()?
-                });
+                        .check()?;
+                    Ok(())
+                };
             }
             Window(ids) => (xproto::AtomEnum::WINDOW, 32, ids),
             WMHints(_) | WMSizeHints(_) => {

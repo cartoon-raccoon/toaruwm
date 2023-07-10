@@ -219,8 +219,7 @@ fn process_client_message<X: XConn>(
 
     let is_fullscreen = |data: &[u32]| {
         data.iter()
-            .map(|&a| state.conn.lookup_atom(a))
-            .flatten()
+            .flat_map(|&a| state.conn.lookup_atom(a))
             .any(|s| s == Atom::NetWmStateFullscreen.as_ref())
     };
 

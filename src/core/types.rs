@@ -176,11 +176,11 @@ impl Geometry {
     pub fn contains(&self, other: &Geometry) -> bool {
         match other {
             Geometry { x, .. } if *x < self.x => false,
-            Geometry { x, width, .. } if (*x + *width as i32) > (self.x + self.width as i32) => {
+            Geometry { x, width, .. } if (*x + *width) > (self.x + self.width) => {
                 false
             }
             Geometry { y, .. } if *y < self.y => false,
-            Geometry { y, height, .. } if (*y + *height as i32) > (self.y + self.height as i32) => {
+            Geometry { y, height, .. } if (*y + *height) > (self.y + self.height) => {
                 false
             }
             _ => true,
@@ -200,8 +200,8 @@ impl Geometry {
     /// assert!(original.contains_point(point));
     /// ```
     pub fn contains_point(&self, pt: Point) -> bool {
-        let wrange = self.x..(self.x + self.width as i32);
-        let hrange = self.y..(self.y + self.height as i32);
+        let wrange = self.x..(self.x + self.width);
+        let hrange = self.y..(self.y + self.height);
 
         wrange.contains(&pt.x) && hrange.contains(&pt.y)
     }
@@ -232,7 +232,7 @@ impl Geometry {
         for i in 0..n {
             ret.push(Geometry {
                 x: self.x,
-                y: self.y + (i as i32 * new_height as i32),
+                y: self.y + (i as i32 * new_height),
                 height: new_height,
                 width: self.width,
             })
@@ -266,9 +266,9 @@ impl Geometry {
 
         let mut ret = Vec::new();
 
-        for i in 0..n as usize {
+        for i in 0..n {
             ret.push(Geometry {
-                x: self.x + (i as i32 * new_width as i32),
+                x: self.x + (i as i32 * new_width),
                 y: self.y,
                 height: self.height,
                 width: new_width,
@@ -324,7 +324,7 @@ impl Geometry {
             // bottom
             Geometry {
                 x: self.x,
-                y: self.y + top_height as i32,
+                y: self.y + top_height,
                 height: bottom_height,
                 width: self.width,
             },
@@ -376,7 +376,7 @@ impl Geometry {
             },
             // right
             Geometry {
-                x: self.x + left_width as i32,
+                x: self.x + left_width,
                 y: self.y,
                 height: self.height,
                 width: right_width,
@@ -414,7 +414,7 @@ impl Geometry {
             // Bottom
             Geometry {
                 x: self.x,
-                y: self.y + height as i32,
+                y: self.y + height,
                 height,
                 width: self.width,
             },
@@ -450,7 +450,7 @@ impl Geometry {
             },
             // Right
             Geometry {
-                x: self.x + width as i32,
+                x: self.x + width,
                 y: self.y,
                 height: self.height,
                 width: self.width - width,
@@ -539,8 +539,7 @@ impl NetWindowStates {
     pub fn from_strings<X: XConn>(strs: Vec<String>, conn: &X) -> Self {
         strs.into_iter()
             .map(|s| conn.atom(&s))
-            .filter(|r| r.is_ok()) // filter out errors
-            .map(|a| a.unwrap()) // safe to unwrap since errors filtered out
+            .filter_map(|a| a.ok()) // filter out errors
             .collect::<Vec<XAtom>>()
             .into()
     }

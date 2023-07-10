@@ -298,7 +298,7 @@ impl Workspace {
 
     /// Calls the layout function and applies it to the workspace.
     pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        let layouts = self.layoutter.gen_layout(&self, scr);
+        let layouts = self.layoutter.gen_layout(self, scr);
         self.apply_layout(conn, layouts);
     }
 
@@ -343,7 +343,7 @@ impl Workspace {
     /// Unfocuses the given window ID.
     pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         // remove focus if window to unfocus is currently focused
-        if let Some(_) = self.windows.lookup(window) {
+        if self.windows.lookup(window).is_some() {
             conn.change_window_attributes(
                 window,
                 &[ClientAttrs::BorderColour(BorderStyle::Unfocused)],

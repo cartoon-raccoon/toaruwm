@@ -492,7 +492,7 @@ impl XCBConn {
             )),
             "CARDINAL" => Some(Property::Cardinal(r.value()[0])),
             "STRING" => Some(Property::String(
-                String::from_utf8_lossy(&r.value().to_vec())
+                String::from_utf8_lossy(r.value())
                     .trim_matches('\0')
                     .split('\0')
                     .map(|a| a.to_string())

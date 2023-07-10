@@ -119,9 +119,7 @@ impl XConn for XCBConn {
             })
             // filter out errors
             // todo: add a warning?
-            .filter(|r| r.is_ok())
-            // unwrap it
-            .map(|ok| ok.unwrap())
+            .filter_map(|r| r.ok())
             // assign it an index
             .enumerate()
             // construct screen
@@ -191,7 +189,7 @@ impl XConn for XCBConn {
 
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
         trace!("Looking up interned atom name {}", name);
-        self.atoms().retrieve(&name.to_string())
+        self.atoms().retrieve(name)
     }
 
     fn grab_keyboard(&self) -> Result<()> {
@@ -379,8 +377,8 @@ impl XConn for XCBConn {
             WindowClass::InputOutput(a) => {
                 let mid: x::Colormap = self.conn.generate_id();
                 let screen = self.screen(self.idx as usize)?;
-                let depth = self.depth(&screen)?;
-                let visual = self.visual_type(&depth)?;
+                let depth = self.depth(screen)?;
+                let visual = self.visual_type(depth)?;
 
                 req_and_check!(
                     self.conn,
@@ -414,7 +412,7 @@ impl XConn for XCBConn {
         req_and_check!(
             self.conn,
             &x::CreateWindow {
-                depth: depth as u8,
+                depth: depth,
                 wid,
                 parent: cast!(x::Window, self.root.id),
                 x: geom.x as i16,
@@ -423,7 +421,7 @@ impl XConn for XCBConn {
                 height: geom.height as u16,
                 border_width: bwidth as u16,
                 class,
-                visual: visualid as u32,
+                visual: visualid,
                 value_list: &data,
             }
         )?;
@@ -566,7 +564,7 @@ impl XConn for XCBConn {
         let (ty, data) = match data {
             Atom(atoms) => (
                 x::ATOM_ATOM,
-                atoms.iter().map(|a| self.atom(&a).unwrap_or(0)).collect(),
+                atoms.iter().map(|a| self.atom(a).unwrap_or(0)).collect(),
             ),
             Cardinal(card) => (x::ATOM_CARDINAL, vec![card]),
             String(strs) | UTF8String(strs) => {

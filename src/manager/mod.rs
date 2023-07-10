@@ -410,7 +410,7 @@ impl<X: XConn> WindowManager<X> {
 
         if let Some(win) = self.selected {
             if let Some(win) = current.windows.lookup_mut(win) {
-                win.do_resize(&self.conn, dx as i32, dy as i32);
+                win.do_resize(&self.conn, dx, dy);
             } else {
                 error!("Tried to move untracked window {}", win)
             }
@@ -604,7 +604,7 @@ impl<X: XConn> WindowManager<X> {
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
         self.desktop
             .current_mut()
-            .del_window(&self.conn, &self.screens.focused().unwrap(), id)?;
+            .del_window(&self.conn, self.screens.focused().unwrap(), id)?;
         Ok(())
     }
 
@@ -621,7 +621,7 @@ impl<X: XConn> WindowManager<X> {
         };
 
         self.desktop
-            .send_window_to(id, &name, &self.conn, &self.screens.focused().unwrap())
+            .send_window_to(id, &name, &self.conn, self.screens.focused().unwrap())
     }
 
     #[instrument(level = "debug", skip(self, bdgs))]

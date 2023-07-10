@@ -26,7 +26,7 @@ pub(super) fn gen_layout(
                 geom.height - bwidth as i32,
                 geom.width - bwidth as i32,
             );
-            return vec![SetMaster(id), Resize { id, geom: new }];
+            vec![SetMaster(id), Resize { id, geom: new }]
         } else {
             debug!("Multiple windows mapped, recalculating");
 

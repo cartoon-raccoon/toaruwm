@@ -62,7 +62,7 @@ impl Property {
     /// If the property is not `Self::Atoms`, None is returned.
     pub fn as_atoms<X: XConn>(&self, conn: &X) -> Option<Vec<XAtom>> {
         if let Self::Atom(strings) = self {
-            Some(strings.into_iter().flat_map(|s| conn.atom(s)).collect())
+            Some(strings.iter().flat_map(|s| conn.atom(s)).collect())
         } else {
             None
         }
