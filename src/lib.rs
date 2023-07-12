@@ -46,11 +46,12 @@
 //! use toaruwm::{x11rb_backed_wm, hook};
 //! use toaruwm::{WindowManager, Config};
 //! use toaruwm::keybinds::{
+//!     mb, ButtonIndex as Idx,
 //!     Keymap, Keybinds, Mousebinds, 
-//!     ModKey, MouseEventKind
+//!     ModKey, MouseEventKind::*,
 //! };
 //! 
-//! / convenience typedef
+//! // convenience typedef
 //! type Wm<'a> = &'a mut WindowManager<X11RBConn>;
 //!
 //! //* defining keybinds and associated WM actions
@@ -60,18 +61,21 @@
 //! ];
 //! 
 //! //* 1: Setup X Connection and allocate new WM object
-//! let mut wm = x11rb_backed_wm(Config::default())?;
+//! let mut wm = x11rb_backed_wm(Config::default()).unwrap();
 //!
 //! //* 2: Read/setup config
 //! // if using as a library, declare config here
 //! // else use a Config type to read a config file
 //!
-//! let keymap = Keymap::new()?;
+//! let keymap = Keymap::new().unwrap();
 //!
 //! // adding keybinds
 //! let mut keybinds = Keybinds::new();
 //! for (kb, cb) in KEYBINDS {
-//!     keybinds.insert(keymap.parse_keybinding(kb)?, Box::new(cb));
+//!     keybinds.insert(
+//!         keymap.parse_keybinding(kb).unwrap(), 
+//!         Box::new(cb)
+//!     );
 //! }
 //!
 //! // adding mousebinds
