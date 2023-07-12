@@ -7,14 +7,22 @@
 //! offers two submodules which each contain implementations using the XCB
 //! and X11RB backing libraries respectively.
 
+/// Types for dealing with atoms and their string representations.
 pub mod atom;
+/// Core types and traits for interfacing with the X server.
 pub mod core;
+/// Convenience types for cursors.
 pub mod cursor;
+/// Types for representing X events.
 pub mod event;
+/// Types for working with keyboard and mouse input.
 pub mod input;
+/// Types for working with window properties.
 pub mod property;
 
+/// Implementation of `XConn` backed by the `x11rb` library.
 pub mod x11rb;
+/// Implementation of `XConn` backed by the `xcb` library.
 pub mod xcb;
 
 pub use self::core::{XAtom, XConn, XError, XWindow, XWindowID};
@@ -22,11 +30,13 @@ pub use atom::{Atom, Atoms};
 pub use event::XEvent;
 pub use property::*;
 
-pub use crate::X11RBConn;
-pub use crate::XCBConn;
+pub use self::x11rb::X11RBConn;
+pub use self::xcb::XCBConn;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+pub(crate) mod dummy;
 
 // various backend-agnostic conversion implementations
 
