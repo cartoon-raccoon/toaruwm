@@ -56,7 +56,7 @@ const RANDR_MIN: u32 = 4;
 ///
 /// # Usage
 ///
-/// ```rust
+/// ```no_run
 /// use toaruwm::x::xcb::XCBConn;
 ///
 /// let mut conn = XCBConn::connect().expect("Connection error");

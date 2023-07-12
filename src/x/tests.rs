@@ -10,6 +10,7 @@ macro_rules! debug {
         (println!(concat!("[debug] ", $fmt), $($arg)*));
     };
 }
+
 fn test_property_retrieval_generic<X: XConn>(conn: &X) {
     let err =
         |xid: u32| -> std::string::String { format!("failed to get prop for window {}", xid) };
@@ -76,4 +77,16 @@ fn is_string(prop: &Property) -> bool {
         }
         _ => false,
     }
+}
+
+#[test]
+fn test_connection_init_xcb() {
+    let mut conn = XCBConn::new().unwrap();
+    conn.init().expect("could not initialize xcb connection");
+}
+
+#[test]
+fn test_connection_init_x11rb() {
+    let mut conn = X11RBConn::new().unwrap();
+    conn.init().expect("could not initialize x11rb connection");
 }

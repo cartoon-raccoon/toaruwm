@@ -33,8 +33,17 @@ pub use property::*;
 pub use self::x11rb::X11RBConn;
 pub use self::xcb::XCBConn;
 
-#[cfg(test)]
+
+/* since xconn implementations can only be tested
+on a system with an X server running, disable this
+unless we specifically enable the `protocol` cfg flag
+which should only be be used if testing locally */
+#[cfg(all(test, protocol))]
 mod tests;
+
+/* since the dummy connection is used for testing
+higher-level code and does not actually interact with
+an actual X server, keep this enabled for standard testing */
 #[cfg(test)]
 pub(crate) mod dummy;
 
