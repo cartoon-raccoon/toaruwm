@@ -228,17 +228,34 @@ impl<T> Ring<T> {
     ///
     /// Panics if the Ring is empty.
     pub fn pop_front(&mut self) -> T {
+        if let Some(f) = self.focused {
+            if f == 0 {self.unset_focused();}
+        }
         self.items.pop_front().unwrap()
     }
 
-    pub fn remove(&mut self, idx: usize) -> Option<T> {
-        let ret = self.items.remove(idx);
 
+    /// Removes an element from the Ring, returning it if it exists.
+    /// 
+    /// If the item being removed is the focused element,
+    /// it also unsets the focus.
+    pub fn remove(&mut self, idx: usize) -> Option<T> {
+        let Some(ret) = self.items.remove(idx) else {
+            return None
+        };
+
+        // check if we just removed the focused element.
+        if let Some(i) = self.focused {
+            if i == idx {
+                self.unset_focused();
+            }
+        }
+        // if empty, unfocus
         if self.is_empty() {
             self.unset_focused();
         }
 
-        ret
+        Some(ret)
     }
 
     /// Insert an item into the Ring with an insert point.
