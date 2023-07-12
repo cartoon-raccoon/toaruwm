@@ -39,14 +39,14 @@ macro_rules! fn_ends {
 //     };
 // }
 
-macro_rules! warn {
-    ($fmt:expr) => {
-        (println!(concat!("[!] ", $fmt)))
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        (println!(concat!("[!] ", $fmt), $($arg)*))
-    };
-}
+// macro_rules! warn {
+//     ($fmt:expr) => {
+//         (println!(concat!("[!] ", $fmt)))
+//     };
+//     ($fmt:expr, $($arg:tt)*) => {
+//         (println!(concat!("[!] ", $fmt), $($arg)*))
+//     };
+// }
 
 macro_rules! fatal {
     ($fmt:expr) => {
@@ -69,7 +69,6 @@ macro_rules! fatal {
 use crate::ToaruError;
 use tracing::error;
 
-//todo: use the proper logging api. Please.
 pub(crate) fn basic_error_handler(error: ToaruError) {
     error!("{}", error);
 }
