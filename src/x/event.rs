@@ -55,6 +55,8 @@ pub enum XEvent {
 /// Data associated with a configure event.
 #[derive(Debug, Clone, Copy)]
 pub struct ConfigureEvent {
+    /// Whether the window manager sent this event.
+    pub from_root: bool,
     /// The window associated with the event.
     pub id: XWindowID,
     /// The new geometry requested by the window.
@@ -89,8 +91,8 @@ pub struct ConfigureRequestData {
 /// Data associated with a reparent event.
 #[derive(Debug, Clone, Copy)]
 pub struct ReparentEvent {
-    /// The event window.
-    pub event: XWindowID,
+    /// Whether the window manager sent this event.
+    pub from_root: bool,
     /// The parent window.
     pub parent: XWindowID,
     /// The child of the parent window.
@@ -148,7 +150,7 @@ pub(crate) trait ButtonEvent {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ClientMessageEvent {
-    /// The window the event originated from.
+    /// The window receiving the message.
     pub window: XWindowID,
     /// Client message data.
     pub data: ClientMessageData,

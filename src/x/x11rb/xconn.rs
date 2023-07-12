@@ -9,7 +9,7 @@ use x11rb::protocol::{
 use byteorder::{LittleEndian, WriteBytesExt};
 
 use tracing::instrument;
-use tracing::{error, trace};
+use tracing::{error, warn, trace};
 
 use crate::core::Screen;
 use crate::keybinds::{Keybind, Mousebind};
@@ -231,7 +231,7 @@ impl XConn for X11RBConn {
         Ok(())
     }
 
-    fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()> {
+    fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()> {
         trace!("Grab button {:?} for window: {}", mb.button, window);
 
         for m in MODIFIERS.iter() {
@@ -259,7 +259,7 @@ impl XConn for X11RBConn {
         Ok(())
     }
 
-    fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()> {
+    fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()> {
         trace!("Ungrabbing button {:?} for window {}", mb.button, window);
 
         Ok(self
@@ -534,7 +534,7 @@ impl XConn for X11RBConn {
             .check()?)
     }
 
-    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
+    fn get_property(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
         let atom = self.atom(prop)?;
         self.get_prop_atom(atom, window)
     }

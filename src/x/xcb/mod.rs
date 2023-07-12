@@ -16,8 +16,7 @@ use xcb::randr;
 use xcb::x;
 use xcb::{Xid, XidNew};
 
-use tracing::instrument;
-use tracing::{debug, trace};
+use tracing::trace;
 
 use strum::*;
 
@@ -298,21 +297,18 @@ impl XCBConn {
                 }
             }
             unk => {
-                debug!("got unknown error {:?}", unk);
                 Ok(XEvent::Unknown(format!("{:?}", unk)))
             }
         }
     }
 
-    #[instrument(target = "xcbconn", level = "trace", skip(self))]
+    //#[instrument(target = "xcbconn", level = "trace", skip(self))]
     fn process_x_event(&self, event: x::Event) -> Result<XEvent> {
         use x::Event;
         match event {
             Event::ConfigureNotify(event) => {
-                if id!(event.event()) == self.root.id {
-                    trace!("Top level window configuration");
-                }
                 Ok(XEvent::ConfigureNotify(ConfigureEvent {
+                    from_root: id!(event.event()) == self.root.id,
                     id: id!(event.window()),
                     geom: Geometry {
                         x: event.x() as i32,
@@ -331,7 +327,7 @@ impl XCBConn {
                 let id = id!(req.window());
                 let parent = id!(req.parent());
                 let is_root = id == self.root.id;
-                if parent == self.root.id {
+                if id == self.root.id {
                     trace!("Top level window configuration request");
                 }
 
@@ -423,7 +419,7 @@ impl XCBConn {
                 Ok(XEvent::LeaveNotify(ptrev, grab))
             }
             Event::ReparentNotify(event) => Ok(XEvent::ReparentNotify(ReparentEvent {
-                event: id!(event.event()),
+                from_root: id!(event.event()) == self.root.id,
                 parent: id!(event.parent()),
                 child: id!(event.window()),
                 over_red: event.override_redirect(),

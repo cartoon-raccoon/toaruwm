@@ -10,8 +10,7 @@ use x11rb::protocol::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use tracing::instrument;
-use tracing::{debug, trace};
+use tracing::trace;
 
 use strum::*;
 
@@ -268,7 +267,7 @@ impl X11RBConn {
             .ok_or(XError::RequestError("Could not get true color visualtype")))?)
     }
 
-    #[instrument(target = "x11rbconn", level = "trace", skip(self))]
+    //#[instrument(target = "x11rbconn", level = "trace", skip(self))]
     fn process_raw_event(&self, event: Event) -> Result<XEvent> {
         match event {
             //* RandR events
@@ -278,10 +277,8 @@ impl X11RBConn {
 
             //* Core X protocol events
             Event::ConfigureNotify(event) => {
-                if event.event == self.root.id {
-                    trace!("Top level window configuration");
-                }
                 Ok(XEvent::ConfigureNotify(ConfigureEvent {
+                    from_root: event.event == self.root.id,
                     id: event.window,
                     geom: Geometry {
                         x: event.x as i32,
@@ -391,7 +388,7 @@ impl X11RBConn {
                 Ok(XEvent::LeaveNotify(ptrev, grab))
             }
             Event::ReparentNotify(event) => Ok(XEvent::ReparentNotify(ReparentEvent {
-                event: event.event,
+                from_root: event.event == self.root.id,
                 parent: event.parent,
                 child: event.window,
                 over_red: event.override_redirect,
@@ -426,7 +423,6 @@ impl X11RBConn {
                 type_: event.type_,
             })),
             unk => {
-                debug!("got unknown event {:?}", unk);
                 Ok(XEvent::Unknown(format!("{:?}", unk)))
             }
         }

@@ -18,19 +18,19 @@ fn test_property_retrieval_generic<X: XConn>(conn: &X) {
 
     for xid in windows {
         debug!("querying window {}", xid);
-        let wm_name = conn.get_prop(WmName.as_ref(), xid).expect(&err(xid));
+        let wm_name = conn.get_property(WmName.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_name, is_string, "WM_NAME", xid);
 
-        let net_wm_name = conn.get_prop(NetWmName.as_ref(), xid).expect(&err(xid));
+        let net_wm_name = conn.get_property(NetWmName.as_ref(), xid).expect(&err(xid));
         prop_check_stub(net_wm_name, is_string, "NET_WM_NAME", xid);
 
-        let wm_class = conn.get_prop(WmClass.as_ref(), xid).expect(&err(xid));
+        let wm_class = conn.get_property(WmClass.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_class, is_string, "WM_CLASS", xid);
 
-        let wm_hints = conn.get_prop(WmHints.as_ref(), xid).expect(&err(xid));
+        let wm_hints = conn.get_property(WmHints.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_hints, |p| p.is_wmhints(), "WM_HINTS", xid);
 
-        let wm_size_hints = conn.get_prop(WmNormalHints.as_ref(), xid).expect(&err(xid));
+        let wm_size_hints = conn.get_property(WmNormalHints.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_size_hints, |p| p.is_sizehints(), "WM_NORMAL_HINTS", xid);
     }
 }

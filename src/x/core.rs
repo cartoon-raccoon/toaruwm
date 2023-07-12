@@ -7,7 +7,7 @@ use std::ops::{BitAnd, BitOr};
 use std::str::FromStr;
 
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::keybinds::{Keybind, Mousebind};
 
@@ -48,13 +48,21 @@ pub enum StackMode {
 
 /// Reply to a pointer query.
 pub struct PointerQueryReply {
+    /// If the pointer is on the current screen.
     pub same_screen: bool,
+    /// The root window.
     pub root: XWindowID,
+    /// The child containing the pointer.
     pub child: XWindowID,
+    /// The x-coordinate of the pointer relative to the root window.
     pub root_x: i32,
+    /// The y-coordinate of the pointer relative to the root window.
     pub root_y: i32,
+    /// The x-coordinate of the pointer relative to the child window.
     pub win_x: i32,
+    /// The y-coordinate of the pointer relative to the child window.
     pub win_y: i32,
+    /// The logical state of the buttons and modkeys.
     pub mask: KeyButMask,
 }
 
@@ -139,7 +147,7 @@ impl XWindow {
     /// to update the geometry there as well.
     pub fn set_geometry(&mut self, geom: Geometry) {
         debug!(
-            "Updating geometry for window {}:\nx: {}, y: {}, h: {}, w: {}",
+            "Updating geometry for window {}: x: {}, y: {}, h: {}, w: {}",
             self.id, geom.x, geom.y, geom.height, geom.width
         );
         self.geom = geom;
@@ -299,27 +307,19 @@ pub trait XConn {
     /// Ungrabs the keyboard.
     fn ungrab_keyboard(&self) -> Result<()>;
 
-    /// Grabs a key-mask combo for a given window.
-    ///
-    /// Can move keybind into it because Keybind is Copy.
+    /// Grabs a key-modmask combo for a given window.
     fn grab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
-    /// Ungrabs a key-mask combo for a given window.
-    ///
-    /// Can move keybind into it because Keybind is Copy.
+    /// Ungrabs a key-modmask combo for a given window.
     fn ungrab_key(&self, kb: Keybind, window: XWindowID) -> Result<()>;
 
     /// Grabs a mouse button-mask combo for a given window.
     ///
-    /// Uses a `&Mousebind` because Mousebind is not Copy.
-    ///
     /// `confine` denotes whether or not the event should be generated.
-    fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()>;
+    fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()>;
 
     /// Ungrabs a mouse button-mask combo for a given window.
-    ///
-    /// Uses a `&Mousebind` because Mousebind is not Copy.
-    fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()>;
+    fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()>;
 
     /// Grabs the pointer.
     fn grab_pointer(&self, winid: XWindowID, mask: u32) -> Result<()>;
@@ -357,7 +357,7 @@ pub trait XConn {
     fn set_property(&self, window: XWindowID, prop: &str, data: Property) -> Result<()>;
 
     /// Retrieves a given property for a given window by its atom name.
-    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Option<Property>>;
+    fn get_property(&self, prop: &str, window: XWindowID) -> Result<Option<Property>>;
 
     /// Sets the root screen.
     fn set_root_scr(&mut self, scr: i32);
@@ -391,7 +391,7 @@ pub trait XConn {
     ///
     /// Returns an empty string in case of error or if neither is set.
     fn get_wm_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop(Atom::NetWmName.as_ref(), window);
+        let prop = self.get_property(Atom::NetWmName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
@@ -407,7 +407,7 @@ pub trait XConn {
             Err(e) => error!("{}", e),
         }
 
-        let prop = self.get_prop(Atom::WmName.as_ref(), window);
+        let prop = self.get_property(Atom::WmName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
@@ -430,7 +430,7 @@ pub trait XConn {
     ///
     /// Returns an empty string in case of error.
     fn get_wm_icon_name(&self, window: XWindowID) -> String {
-        let prop = self.get_prop(Atom::WmIconName.as_ref(), window);
+        let prop = self.get_property(Atom::WmIconName.as_ref(), window);
 
         match prop {
             Ok(prop) => {
@@ -451,7 +451,7 @@ pub trait XConn {
     ///
     /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
-        let prop = self.get_prop(Atom::WmNormalHints.as_ref(), window).ok()?;
+        let prop = self.get_property(Atom::WmNormalHints.as_ref(), window).ok()?;
 
         if let Some(Property::WMSizeHints(sh)) = prop {
             Some(sh)
@@ -465,7 +465,7 @@ pub trait XConn {
     ///
     /// Returns None if not set or in case of error.
     fn get_wm_hints(&self, window: XWindowID) -> Option<WmHints> {
-        let prop = self.get_prop(Atom::WmHints.as_ref(), window).ok()?;
+        let prop = self.get_property(Atom::WmHints.as_ref(), window).ok()?;
 
         if let Some(Property::WMHints(hints)) = prop {
             Some(hints)
@@ -490,13 +490,13 @@ pub trait XConn {
         use Property::{String, UTF8String};
 
         let prop = self
-            .get_prop(Atom::WmClass.as_ref(), window)
+            .get_property(Atom::WmClass.as_ref(), window)
             .unwrap_or(None);
 
         match prop {
             Some(String(strs)) | Some(UTF8String(strs)) => (strs[0].to_owned(), strs[1].to_owned()),
             _ => {
-                debug!("Got wrong property: {:?}", prop);
+                debug!(target: "get_wm_class", "expected strings, got: {:?}", prop);
                 ("".into(), "".into())
             }
         }
@@ -506,7 +506,7 @@ pub trait XConn {
     ///
     /// Returns None if not set or in case of error.
     fn get_wm_protocols(&self, window: XWindowID) -> Option<Vec<XAtom>> {
-        let prop = self.get_prop(Atom::WmProtocols.as_ref(), window).ok()?;
+        let prop = self.get_property(Atom::WmProtocols.as_ref(), window).ok()?;
 
         if let Some(Property::Atom(atoms)) = prop {
             let mut ret = Vec::new();
@@ -531,7 +531,7 @@ pub trait XConn {
     }
 
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
-        let prop = self.get_prop(Atom::WmState.as_ref(), window).ok()?;
+        let prop = self.get_property(Atom::WmState.as_ref(), window).ok()?;
 
         if let Some(Property::U32List(s, list)) = prop {
             if s != Atom::WmState.as_ref() {
@@ -548,13 +548,13 @@ pub trait XConn {
                 }
             })
         } else {
-            error!("Expected Property::U32List, got {:?}", prop);
+            debug!(target: "get_wm_state", "window {} did not set WM_STATE", window);
             None
         }
     }
 
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
-        let prop = self.get_prop(Atom::WmTransientFor.as_ref(), window).ok()?;
+        let prop = self.get_property(Atom::WmTransientFor.as_ref(), window).ok()?;
 
         if let Some(Property::Window(ids)) = prop {
             if ids[0] == 0 {
@@ -564,7 +564,10 @@ pub trait XConn {
                 Some(ids[0])
             }
         } else {
-            error!("Expected window type, got {:?}", prop);
+            debug!(
+                target: "get_wm_transient_for", 
+                "window {} did not set WM_TRANSIENT_FOR", window
+            );
             None
         }
     }
@@ -581,10 +584,10 @@ pub trait XConn {
     fn get_window_type(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmWindowType.as_ref();
 
-        if let Some(Property::Atom(atoms)) = self.get_prop(atom, window)? {
-            Ok(atoms)
-        } else {
-            Err(XError::InvalidPropertyData(
+        match self.get_property(atom, window)? {
+            Some(Property::Atom(atoms)) => Ok(atoms),
+            None => Ok(vec![]),
+            _ => Err(XError::InvalidPropertyData(
                 "Expected Atom type for get_window_type".into(),
             ))
         }
@@ -593,10 +596,10 @@ pub trait XConn {
     fn get_window_states(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmState.as_ref();
 
-        if let Some(Property::Atom(atoms)) = self.get_prop(atom, window)? {
-            Ok(atoms)
-        } else {
-            Err(XError::InvalidPropertyData(
+        match self.get_property(atom, window)? {
+            Some(Property::Atom(atoms)) => Ok(atoms),
+            None => Ok(vec![]),
+            _ => Err(XError::InvalidPropertyData(
                 "Expected Atom type for get_window_states".into(),
             ))
         }

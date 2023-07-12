@@ -5,7 +5,7 @@ use xcb::x;
 use xcb::{Xid, XidNew};
 
 use tracing::instrument;
-use tracing::{error, trace};
+use tracing::{error, warn, trace};
 
 use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::core::Screen;
@@ -270,7 +270,7 @@ impl XConn for XCBConn {
         Ok(())
     }
 
-    fn grab_button(&self, mb: &Mousebind, window: XWindowID, confine: bool) -> Result<()> {
+    fn grab_button(&self, mb: Mousebind, window: XWindowID, confine: bool) -> Result<()> {
         trace!("Grab button {:?} for window: {}", mb.button, window);
 
         for m in MODIFIERS.iter() {
@@ -303,7 +303,7 @@ impl XConn for XCBConn {
         Ok(())
     }
 
-    fn ungrab_button(&self, mb: &Mousebind, window: XWindowID) -> Result<()> {
+    fn ungrab_button(&self, mb: Mousebind, window: XWindowID) -> Result<()> {
         trace!("Ungrabbing button {:?} for window {}", mb.button, window);
 
         req_and_check!(
@@ -604,7 +604,7 @@ impl XConn for XCBConn {
         )?)
     }
 
-    fn get_prop(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
+    fn get_property(&self, prop: &str, window: XWindowID) -> Result<Option<Property>> {
         let atom = self.atom(prop)?;
         self.get_prop_atom(atom, window)
     }
