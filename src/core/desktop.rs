@@ -7,7 +7,7 @@
 //! `Screen` represents a physical monitor that X is connected to.
 //! It encapsulates monitor resolution and is used by the tiling
 //! algorithms to resize windows.
-//!
+#![allow(dead_code)]
 
 use tracing::debug;
 
@@ -281,13 +281,14 @@ impl Desktop {
         scr: &Screen,
     ) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
-        let window = self.current_mut().del_window(conn, scr, id)?;
+        let Some(window) = self.current_mut().del_window(conn, scr, id)? else {
+            return Err(UnknownClient(id))
+        };
         debug!("Sending window {} to workspace {}", window.id(), name);
-        if let Some(ws) = self.find_mut(name) {
-            ws.push_window(window);
-        } else {
-            return Err(UnknownWorkspace(name.into()));
-        }
+        let Some(ws) = self.find_mut(name) else {
+            return Err(UnknownWorkspace(name.into()))
+        };
+        ws.push_window(window);
         self.current_mut().relayout(conn, scr);
         Ok(())
     }

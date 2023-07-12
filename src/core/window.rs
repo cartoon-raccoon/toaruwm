@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use tracing::instrument;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, warn, trace};
 
 use super::{Ring, Selector};
 
@@ -19,16 +19,19 @@ use crate::x::{
 /// A Ring of type Client.
 ///
 /// Contains additional methods more specific to window management.
+/// 
+/// The focused element of this ring is the window that currently
+/// has the input focus.
 pub type ClientRing = Ring<Client>;
 
 impl ClientRing {
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
     pub fn remove_by_id(&mut self, id: XWindowID) -> Option<Client> {
-        if let Some(i) = self.get_idx(id) {
-            self.remove(i)
-        } else {
-            None
-        }
+        let Some(i) = self.get_idx(id) else {
+            return None
+        };
+
+        self.remove(i)
     }
 
     /// Wrapper around `Ring::index` that takes a window ID.
@@ -125,6 +128,7 @@ impl Client {
         Self::new(from, conn, WinLayoutState::Floating)
     }
 
+    #[instrument(level="debug", skip(conn))]
     fn new<X: XConn>(from: XWindowID, conn: &X, layout: WinLayoutState) -> Self {
         let properties = conn.get_client_properties(from);
         Self {
@@ -366,12 +370,14 @@ impl Client {
 
     /// Maps the client.
     pub fn map<X: XConn>(&mut self, conn: &X) {
-        //self.update_all_properties(conn);
-        self.update_geometry(conn);
+        trace!("mapping window {}", self.xwindow.id);
+        // note that we do not update our geometry here.
+        // all geometry updates are done by the layout engine.
         conn.change_window_attributes(self.id(), &[ClientAttrs::EnableClientEvents])
             .unwrap_or_else(|e| error!("{}", e));
         conn.map_window(self.id())
             .unwrap_or_else(|e| error!("{}", e));
+        trace!("mapping complete");
     }
 
     /// Unmaps the client.
@@ -531,6 +537,7 @@ impl Client {
 
     /// Sets the supported protocols for the client.
     pub fn set_supported<X: XConn>(&mut self, conn: &X) {
+        trace!("setting supported protocols for window {}", self.xwindow.id);
         if let Some(protocols) = conn.get_wm_protocols(self.id()) {
             for protocol in protocols {
                 self.protocols.insert(protocol);
