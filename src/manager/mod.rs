@@ -2,9 +2,14 @@
 use std::fmt;
 use std::iter::FromIterator;
 use std::process::{Command, Stdio};
+use std::collections::HashMap;
+
+//use std::marker::PhantomData;
+
+//use std::sync::OnceLock;
 
 use tracing::instrument;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, warn, info, trace, span, Level};
 
 use crate::core::{Desktop, Screen};
 use crate::keybinds::{Keybind, Keybinds, Mousebind, Mousebinds};
@@ -24,7 +29,11 @@ pub mod state;
 pub use event::EventAction;
 pub(crate) use state::WMState;
 
-use config::Config;
+pub use config::Config;
+
+use state::State;
+
+//static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
 
 macro_rules! handle_err {
     ($call:expr, $_self:expr) => {
@@ -34,11 +43,22 @@ macro_rules! handle_err {
     };
 }
 
-/// Some arbitrary code that can run on a certain event.
-///
-/// Accepts a `&mut WindowManager<X>` as a parameter, so it can
-/// manipulate internal manager state.
+/// Arbitrary code that can be run by the window manager.
 pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
+
+/// Macro for creating a hook that can be run by the window manager.
+#[macro_export]
+macro_rules! hook {
+    (|$wm:ident| $code:tt) => {
+        Box::new(|$wm: &mut WindowManager<_>| $code)
+    };
+    (move |$wm:ident| $code:tt) => {
+        Box::new(move |$wm: &mut WindowManager<_>| $code)
+    }
+}
+
+/// Hooks that can be run by the window manager.
+pub type Hooks<X> = HashMap<State, Vec<Hook<X>>>;
 
 /// The main window manager object that owns the event loop,
 /// and receives and responds to events.
@@ -115,14 +135,12 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
 
 impl<X: XConn> WindowManager<X> {
     /// Constructs a new WindowManager object.
-    pub fn new(conn: X) -> WindowManager<X> {
+    pub fn new(conn: X, config: Config) -> WindowManager<X> {
         let root = conn.get_root();
         let mut screens = Ring::from_iter(
             conn.all_outputs()
                 .unwrap_or_else(|e| fatal!("Could not get screens: {}", e)),
         );
-        //todo: this should be passed in
-        let config = Config::default();
         let workspaces = config.workspaces.iter().map(|(ws, _)| ws.clone()).collect();
 
         for (ws_name, idx) in &config.workspaces {
@@ -138,7 +156,7 @@ impl<X: XConn> WindowManager<X> {
 
         Self {
             conn,
-            config,
+            config, //todo: layouttype should be specified in config
             desktop: Desktop::new(LayoutType::DTiled, None, workspaces),
             screens,
             root,
@@ -224,13 +242,13 @@ impl<X: XConn> WindowManager<X> {
     }
 
     pub fn grab_bindings(&mut self, mb: &Mousebinds<X>, kb: &Keybinds<X>) -> Result<()> {
-        info!("Grabbing mouse bindings");
+        info!(target: "", "Grabbing mouse bindings");
         let root_id = self.conn.get_root().id;
         for binding in mb.keys() {
-            self.conn.grab_button(binding, root_id, true)?;
+            self.conn.grab_button(*binding, root_id, true)?;
         }
 
-        info!("Grabbing key bindings");
+        info!(target: "", "Grabbing key bindings");
         for binding in kb.keys() {
             self.conn.grab_key(*binding, root_id)?;
         }
@@ -240,9 +258,16 @@ impl<X: XConn> WindowManager<X> {
 
     /// Runs the main event loop.
     pub fn run(&mut self, mut mb: Mousebinds<X>, mut kb: Keybinds<X>) -> Result<()> {
-        info!("Beginning event loop");
-
+        info!(target: "", "Grabbing any existing windows");
+        // todo
+        
+        info!(target: "", "Setup complete, beginning event loop");
         loop {
+            // mark the start of an event loop
+            let span = span!(Level::DEBUG, "evloop");
+            debug!("================== Event Loop Start ==================");
+            let enter = span.enter();
+
             let event = self.process_next_event().or_else(|e| {
                 match e {
                     // only return if the error is a connection error
@@ -266,6 +291,9 @@ impl<X: XConn> WindowManager<X> {
             if !self.running {
                 break;
             }
+
+            // mark the end of an event loop iteration
+            drop(enter);
         }
 
         if self.restart {
@@ -282,7 +310,7 @@ impl<X: XConn> WindowManager<X> {
         let result = Command::new(cmd)
             .args(args)
             .stdout(Stdio::null())
-            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn();
 
         match result {
@@ -294,7 +322,7 @@ impl<X: XConn> WindowManager<X> {
     /// Set an error handler for WindowManager.
     pub fn set_error_handler<F>(&mut self, f: F)
     where
-        F: FnMut(ToaruError) + 'static,
+        F: for<'a> FnMut(ToaruError) + 'static,
     {
         self.ehandler = Box::new(f);
     }
@@ -444,10 +472,12 @@ impl<X: XConn> WindowManager<X> {
         }
     }
 
-    /// Closes the focused window
+    /// Closes the focused window.
     pub fn close_focused_window(&mut self) {
         if let Some(window) = self.desktop.current_mut().windows.focused() {
             handle_err!(self.conn.destroy_window(window.id()), self);
+        } else {
+            warn!("Could not find focused window to destroy");
         }
     }
 
@@ -456,14 +486,17 @@ impl<X: XConn> WindowManager<X> {
         self.running = false;
     }
 
+    /// Restarts the window manager in-place.
     pub fn restart(&mut self) {
         self.running = false;
         self.restart = true;
     }
 
+    /// Dumps the internal state of WindowManager to stderr.
     pub fn dump_internal_state(&self) {
-        info!("========== | Internal State Dump | ==========");
-        info!("{:#?}", &self);
+        eprintln!("============== | INTERNAL STATE DUMP | ==============");
+        eprintln!("{:#?}", &self);
+        eprintln!("====================| END DUMP |=====================")
     }
 
     //* Private methods
@@ -595,7 +628,6 @@ impl<X: XConn> WindowManager<X> {
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
     fn map_untracked_client(&self, id: XWindowID) -> Result<()> {
         Ok(self.conn.map_window(id)?)
     }
@@ -670,11 +702,11 @@ impl<X: XConn> WindowManager<X> {
         }
     }
 
-    fn set_fullscreen(&mut self, id: XWindowID, should_fullscreen: bool) -> Result<()> {
+    fn set_fullscreen(&mut self, _id: XWindowID, _should_fullscreen: bool) -> Result<()> {
         todo!()
     }
 
-    fn toggle_urgency(&mut self, id: XWindowID) -> Result<()> {
+    fn toggle_urgency(&mut self, _id: XWindowID) -> Result<()> {
         //todo
         Ok(())
     }

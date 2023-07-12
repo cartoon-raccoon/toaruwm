@@ -3,12 +3,17 @@ use super::WindowManager;
 use crate::core::{Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum State {
+
+}
+
 /// Provides a view into the state of the window manager.
 /// It is used as a context when generating event actions.
 ///
 /// The `'wm` lifetime refers to the lifetime of the parent
 /// `WindowManager` type.
-pub(crate) struct WMState<'wm, X: XConn> {
+pub struct WMState<'wm, X: XConn> {
     pub conn: &'wm X,
     pub workspaces: &'wm Ring<Workspace>,
     pub desktop: &'wm Desktop,

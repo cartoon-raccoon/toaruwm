@@ -22,8 +22,8 @@ use toaruwm::keybinds::{
 };
 use toaruwm::types::Cardinal::*;
 use toaruwm::x::x11rb::X11RBConn;
-use toaruwm::x11rb_backed_wm;
-use toaruwm::WindowManager;
+use toaruwm::{x11rb_backed_wm, hook};
+use toaruwm::{WindowManager, Config};
 
 use std::collections::HashMap;
 
@@ -50,9 +50,8 @@ const KEYBINDS: &[(&str, fn(Wm))] = &[
 ];
 
 pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    // set up the logger
     logger::fmt()
-        // use the pretty builder
-        //.pretty()
         // only log enter and exit
         .with_span_events(FmtSpan::ACTIVE)
         // log all events up to TRACE
@@ -67,7 +66,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .try_init()?;
 
     //* 1: Setup X Connection and allocate new WM object
-    let mut wm = x11rb_backed_wm()?;
+    let mut wm = x11rb_backed_wm(Config::default())?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here
@@ -76,13 +75,13 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let keymap = Keymap::new()?;
 
     // adding keybinds
-    let mut keybinds: Keybinds<X11RBConn> = HashMap::new();
+    let mut keybinds: Keybinds<_> = HashMap::new();
     for (kb, cb) in KEYBINDS {
         keybinds.insert(keymap.parse_keybinding(kb)?, Box::new(cb));
     }
 
     // adding mousebinds
-    let mut mousebinds: Mousebinds<X11RBConn> = HashMap::new();
+    let mut mousebinds: Mousebinds<_> = HashMap::new();
     mousebinds.insert(
         mb(vec![ModKey::Meta], Idx::Left, Motion),
         Box::new(|wm: Wm, pt| wm.move_window_ptr(pt)),
@@ -92,13 +91,20 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Box::new(|wm: Wm, pt| wm.resize_window_ptr(pt)),
     );
 
+    //* create a hook if you want
+    let test_hook = hook!(|wm| {
+        wm.dump_internal_state();
+        println!("hello from a hook!");
+    });
+    
     //* 3: Register the WM as a client with the X server
     //*    and initialise internal state
     //* a: Grab keys and mousebinds
-    wm.register(Vec::new() /* pass config in here */);
+    wm.register(vec![test_hook]);
+    wm.grab_bindings(&mousebinds, &keybinds)?;
 
-    //* 4: Run the WM
-    wm.grab_and_run(mousebinds, keybinds)?;
+    //* 4: We're good to go!
+    wm.run(mousebinds, keybinds)?;
 
     Ok(())
 }

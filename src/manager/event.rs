@@ -61,7 +61,7 @@ impl EventAction {
         use XEvent::*;
         match event {
             ConfigureNotify(event) => {
-                debug!(target: "manager::event","Configure notify");
+                debug!(target: "manager::event","configure notify for window {}", event.id);
                 if event.id == state.root.id {
                     vec![ScreenReconfigure]
                 } else {
@@ -69,28 +69,28 @@ impl EventAction {
                 }
             }
             ConfigureRequest(event) => {
-                debug!(target: "manager::event","Configure request for window {}", event.id);
+                debug!(target: "manager::event","configure request for window {}", event.id);
                 vec![ConfigureClient(event)]
             }
             MapRequest(id, override_redirect) => {
-                debug!(target: "manager::event","Map request for window {}", id);
+                debug!(target: "manager::event","map request for window {}", id);
                 process_map_request(id, override_redirect, state)
             }
             MapNotify(_id) => {
-                debug!(target: "manager::event","Map notify for window {}", _id);
+                debug!(target: "manager::event","map notify for window {}", _id);
                 vec![] //* ideally, tell the WM to validate
             }
             UnmapNotify(id) => {
-                debug!(target: "manager::event","Unmap notify for window {}", id);
+                debug!(target: "manager::event","unmap notify for window {}", id);
                 vec![UnmapClient(id)]
             }
             DestroyNotify(id) => {
-                debug!(target: "manager::event","Destroy notify for window {}", id);
+                debug!(target: "manager::event","destroy notify for window {}", id);
                 vec![DestroyClient(id)]
             }
             // if pointer is not grabbed, tell WM to focus on client
             EnterNotify(ev, grab) => {
-                debug!(target: "manager::event","Enter notify for window {}; grab: {}", ev.id, grab);
+                debug!(target: "manager::event","enter notify for window {}; grab: {}", ev.id, grab);
                 if !grab {
                     process_enter_notify(ev, state)
                 } else {
@@ -98,7 +98,7 @@ impl EventAction {
                 }
             }
             LeaveNotify(ev, grab) => {
-                debug!(target: "manager::event","Leave notify for window {}; grab: {}", ev.id, grab);
+                debug!(target: "manager::event","leave notify for window {}; grab: {}", ev.id, grab);
                 if !grab {
                     vec![ClientUnfocus(ev.id), SetFocusedScreen(Some(ev.abs))]
                 } else {
@@ -107,23 +107,23 @@ impl EventAction {
             }
             // This doesn't do anything for now
             ReparentNotify(_event) => {
-                debug!(target: "manager::event","Reparent notify for window {}", _event.child);
+                debug!(target: "manager::event","reparent notify for window {}", _event.child);
                 vec![]
             }
             PropertyNotify(event) => {
-                debug!(target: "manager::event","Property notify for window {}", event.id);
+                debug!(target: "manager::event","property notify for window {}", event.id);
                 process_property_notify(event, state)
             }
             KeyPress(id, event) => {
-                debug!(target: "manager::event","Keypress notify for window {}", id);
+                debug!(target: "manager::event","keypress notify for window {}", id);
                 vec![RunKeybind(event.into(), id)]
             }
             KeyRelease => {
-                debug!(target: "manager::event","Key release notify");
+                debug!(target: "manager::event","key release notify");
                 vec![]
             }
             MouseEvent(event) => {
-                debug!(target: "manager::event","Mouse event for window {}", event.id);
+                debug!(target: "manager::event","mouse event for window {}", event.id);
                 vec![RunMousebind(event.state, event.id, event.location)]
             }
             ClientMessage(event) => {
@@ -196,7 +196,7 @@ fn process_property_notify<X: XConn>(
     let hints = Atom::WmHints.as_ref();
 
     if !event.deleted && atom == hints {
-        let wmhints = if let Ok(Some(h)) = state.conn.get_prop(hints, event.id) {
+        let wmhints = if let Ok(Some(h)) = state.conn.get_property(hints, event.id) {
             h
         } else {
             return vec![];
