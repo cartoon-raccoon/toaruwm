@@ -19,6 +19,8 @@ add hooks to allow users to modfify a client before it is mapped
 figure out restarting in-place
 hooks on startup, grabbing and managing existing windows
 make master a region of windows, instead of one window?
+make XCBConn and X11RBConn conversion methods more generic
+make keybinds use keysyms and account for modkey state (since some keysyms are only accessible when using modkeys)
 
 tests:
 - map window, unmap window
