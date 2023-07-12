@@ -190,15 +190,61 @@ impl Keymap {
     }
 }
 
+// macro_rules! _impl_bindings {
+//     ($inner:expr, $bind:ty) => {
+        
+//     };
+// }
+
+/// A function is run when a keybind is invoked.
+pub type KeyCallback<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
+
+/// A function that is run when a mousebind is invoked.
+/// 
+/// An additional Point is supplied to track the location of the pointer.
+pub type MouseCallback<X> = Box<dyn FnMut(&mut WindowManager<X>, Point)>;
+
 /// A set of keybinds that can be run by the the window manager.
 ///
 /// It consists of two components: A keybind, and its associated
 /// callback function. It accepts a mutable reference to a
 /// WindowManager to run associated methods.
-pub type Keybinds<X> = HashMap<Keybind, Box<dyn FnMut(&mut WindowManager<X>)>>;
+pub struct Keybinds<X>
+where
+    X: XConn,
+{
+    bindings: HashMap<Keybind, KeyCallback<X>>,
+}
 
-pub fn new_keybinds<X: XConn>() -> Keybinds<X> {
-    HashMap::new()
+impl<X: XConn> Keybinds<X> {
+    pub fn new() -> Self {
+        Self{
+            bindings: HashMap::new()
+        }
+    }
+
+    /// Returns an iterator over the keybinds stored inside.
+    pub fn keys(&self) -> impl Iterator<Item = &Keybind> {
+        self.bindings.keys()
+    }
+
+    /// Inserts a new keybind-callback mapping.
+    pub fn insert(&mut self, kb: Keybind, cb: KeyCallback<X>) {
+        self.bindings.insert(kb, cb);
+    }
+
+    /// Removes the callback associated with the given keybind.
+    pub fn remove(&mut self, kb: &Keybind) -> Option<KeyCallback<X>> {
+        self.bindings.remove(kb)
+    }
+
+    pub fn get(&self, kb: &Keybind) -> Option<&KeyCallback<X>> {
+        self.bindings.get(kb)
+    }
+
+    pub fn get_mut(&mut self, kb: &Keybind) -> Option<&mut KeyCallback<X>> {
+        self.bindings.get_mut(kb)
+    }
 }
 
 /// A set of mousebinds that can be run by the window manager.
@@ -210,10 +256,39 @@ pub fn new_keybinds<X: XConn>() -> Keybinds<X> {
 /// in the user-facing API.
 ///
 /// [1]: crate::core::types::Point
-pub type Mousebinds<X> = HashMap<Mousebind, Box<dyn FnMut(&mut WindowManager<X>, Point)>>;
+pub struct Mousebinds<X>
+where
+    X: XConn,
+{
+    bindings: HashMap<Mousebind, MouseCallback<X>>
+}
 
-pub fn new_mousebinds<X: XConn>() -> Mousebinds<X> {
-    HashMap::new()
+impl<X: XConn> Mousebinds<X> {
+    pub fn new() -> Self {
+        Self{
+            bindings: HashMap::new()
+        }
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &Mousebind> {
+        self.bindings.keys()
+    }
+
+    pub fn insert(&mut self, kb: Mousebind, cb: MouseCallback<X>) {
+        self.bindings.insert(kb, cb);
+    }
+
+    pub fn remove(&mut self, kb: &Mousebind) -> Option<MouseCallback<X>> {
+        self.bindings.remove(kb)
+    }
+
+    pub fn get(&self, kb: &Mousebind) -> Option<&MouseCallback<X>> {
+        self.bindings.get(kb)
+    }
+
+    pub fn get_mut(&mut self, kb: &Mousebind) -> Option<&mut MouseCallback<X>> {
+        self.bindings.get_mut(kb)
+    }
 }
 
 #[cfg(test)]

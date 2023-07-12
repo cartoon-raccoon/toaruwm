@@ -22,6 +22,9 @@ pub use atom::{Atom, Atoms};
 pub use event::XEvent;
 pub use property::*;
 
+pub use crate::X11RBConn;
+pub use crate::XCBConn;
+
 #[cfg(test)]
 mod tests;
 

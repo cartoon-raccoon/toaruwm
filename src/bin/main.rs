@@ -21,11 +21,9 @@ use toaruwm::keybinds::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
 use toaruwm::types::Cardinal::*;
-use toaruwm::x::x11rb::X11RBConn;
+use toaruwm::X11RBConn;
 use toaruwm::{x11rb_backed_wm, hook};
 use toaruwm::{WindowManager, Config};
-
-use std::collections::HashMap;
 
 // convenience typedef
 type Wm<'a> = &'a mut WindowManager<X11RBConn>;
@@ -75,13 +73,13 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let keymap = Keymap::new()?;
 
     // adding keybinds
-    let mut keybinds: Keybinds<_> = HashMap::new();
+    let mut keybinds = Keybinds::new();
     for (kb, cb) in KEYBINDS {
         keybinds.insert(keymap.parse_keybinding(kb)?, Box::new(cb));
     }
 
     // adding mousebinds
-    let mut mousebinds: Mousebinds<_> = HashMap::new();
+    let mut mousebinds = Mousebinds::new();
     mousebinds.insert(
         mb(vec![ModKey::Meta], Idx::Left, Motion),
         Box::new(|wm: Wm, pt| wm.move_window_ptr(pt)),
