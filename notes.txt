@@ -1,26 +1,45 @@
-todo:
-    implement workspaces
+SHORT-TERM TODO:
 
-convert layout engine into a trait? use trait object to generate layout?
-(this would allow users to define their own special layouts, but would probably cause lifetime issues)
-
-make XConn::poll_for_event blocking? (preserves processing power)
-
-create an elegant way to handle borders
+- finish implementing the dummy connection
+- create an elegant way to handle borders
     (can be integrated with handling window gaps)
-workspace methods to return error?
-multi-screen support (set focused screen, assign workspace to screen, etc)
-Implement config and use it
-finalise cursor methods
-Fullscreen toggling (EWMH and manual)
-integrate logging API
-implement Debug properly for user-facing types
-add hooks to allow users to modfify a client before it is mapped
-figure out restarting in-place
-hooks on startup, grabbing and managing existing windows
-make master a region of windows, instead of one window?
-make XCBConn and X11RBConn conversion methods more generic
-make keybinds use keysyms and account for modkey state (since some keysyms are only accessible when using modkeys)
+- workspace methods to return error?
+- implement Config and use it
+- finalise cursor interface
+- Fullscreen toggling (EWMH and manual)
+- implement Debug properly for user-facing types
+- add hooks to allow users to modfify a client before it is mapped
+- hooks on grabbing and managing existing windows (startup hooks done)
+- make XCBConn and X11RBConn conversion methods more generic
+- make keybinds use keysyms and account for modkey state 
+    (since some keysyms are only accessible when using modkeys)
+
+LONG-TERM TODO:
+
+- convert layout engine into a trait? use trait object to generate layout?
+  (this would allow users to define their own special layouts, but would probably cause lifetime issues)
+- multi-screen support (set focused screen, assign workspace to screen, etc)
+- figure out restarting in-place
+- make master a region of windows, instead of one window?
+- make src/ one workspace of two within this repo
+i.e:
+  root/
+  |  Cargo.toml
+  |  README.md
+  |  src/ (main binary executable)
+  |
+  |---toaruwm/ (project core)
+  |      Cargo.toml
+  |      src/
+  |
+  |---libtoaru/ (add-ons and extensions (e.g. bars, widgets))
+         Cargo.toml
+         src/
+
+- hypothesis-based testing for workspace and window manager functionality
+- make this whole project async ;P (this will be fun)
+- add multi-display support (via randr)
+- add xkb support
 
 tests:
 - map window, unmap window
@@ -31,11 +50,11 @@ tests:
     - auto-toggling to floating when moved
 
 cool stuff to add:
-- Reading window layout from serialized data
+- Reading window layout from serialized data (hide serde behind feature flag)
 - script or build hook to auto-generate desktop file
-- desktop notifications via dbus
+- dbus interop for various widgets (e.g. mpris)
+- mpd client functionality
 - wm transient for, firefox video in picture
-- dbus support (for what? idfk lol)
 
 conventions and rules
 - pass windows around by their id
