@@ -143,10 +143,6 @@ impl KeyButMask {
     }
 }
 
-impl BitMask for ModMask {}
-impl BitMask for ButtonMask {}
-impl BitMask for KeyButMask {}
-
 macro_rules! _impl_bitwise {
     (And: $lhs:ty, $rhs:ty => $output:ty) => {
         impl BitAnd<$rhs> for $lhs {

@@ -3,7 +3,10 @@
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use std::ops::{BitAnd, BitOr};
+use core::ops::{
+    BitAnd, BitOr, Not,
+    BitAndAssign, BitOrAssign
+};
 use std::str::FromStr;
 
 use thiserror::Error;
@@ -28,13 +31,19 @@ pub type XWindowID = u32;
 /// An X Atom, an unsigned 32-bit integer.
 pub type XAtom = u32;
 
-/// A trait for allowing certain types to be treated as bitmasks.
-pub trait BitMask: BitAnd + BitOr + Sized {}
+/// A marker trait to signal that a type can be treated as a bitmask.
+/// 
+/// This means that the type supports bitmask
+pub trait BitMask
+where
+    Self: BitAnd + BitOr + Not + 
+    BitAndAssign + BitOrAssign + Sized {}
 
-impl BitMask for u8 {}
-impl BitMask for u16 {}
-impl BitMask for u32 {}
-impl BitMask for u64 {}
+// Blanket implementation for Bitmask
+impl<T> BitMask for T
+where
+    T: BitAnd + BitOr + Not +
+       BitAndAssign + BitOrAssign + Sized {}
 
 /// Window stacking modes defined by the X Protocol.
 #[derive(Clone, Copy, Debug)]

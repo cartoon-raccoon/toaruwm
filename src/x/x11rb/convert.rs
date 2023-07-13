@@ -10,15 +10,11 @@ use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;
 use crate::x::{
-    core::{BitMask, Result, XError},
+    core::{Result, XError},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
     x11rb::X11RBConn,
 };
-
-impl BitMask for xproto::ModMask {}
-impl BitMask for xproto::ButtonMask {}
-impl BitMask for xproto::KeyButMask {}
 
 //* button mask and index conversions
 impl From<ButtonMask> for xproto::ButtonMask {
