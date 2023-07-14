@@ -5,6 +5,8 @@ use std::process::{Command, Stdio};
 
 use strum::*;
 
+use custom_debug_derive::Debug;
+
 use crate::manager::WindowManager;
 use crate::types::Point;
 use crate::x::{
@@ -227,6 +229,26 @@ impl Keymap {
 //     };
 // }
 
+//todo
+/// An ergonomic wrapper for creating a [`Keybind`].
+#[macro_export]
+macro_rules! keybind {
+    () => {
+
+    }
+}
+
+//todo
+/// An ergonomic wrapper for creating a [`Mousebind`].
+#[macro_export]
+macro_rules! mousebind {
+    () => {
+
+    }
+}
+
+//todo: create a macro for tying everything together.
+
 /// A function is run when a keybind is invoked.
 pub type KeyCallback<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 
@@ -242,7 +264,7 @@ pub type MouseCallback<X> = Box<dyn FnMut(&mut WindowManager<X>, Point)>;
 /// WindowManager to run associated methods.
 /// 
 /// Clone is not implemented for this type since Callbacks are not Clone.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Keybinds<X>
 where
     X: XConn,
@@ -298,7 +320,7 @@ impl<X: XConn> Keybinds<X> {
 /// Clone is not implemented for this type since Callbacks are not Clone.
 ///
 /// [1]: crate::core::types::Point
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Mousebinds<X>
 where
     X: XConn,
