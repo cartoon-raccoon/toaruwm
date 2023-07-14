@@ -42,19 +42,24 @@
 //! the following general structure:
 //! 
 //! ```no_run
-//! use toaruwm::x::X11RBConn;
-//! use toaruwm::{x11rb_backed_wm, hook};
-//! use toaruwm::{WindowManager, Config};
+//!# use toaruwm::x::X11RBConn;
+//!# use toaruwm::WindowManager;
+//!# use toaruwm::Initialized;
+//! 
+//!# // convenience typedef
+//!# type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
+//! use toaruwm::{
+//!     Config,
+//!     x11rb_backed_wm, hook
+//! };
 //! use toaruwm::keybinds::{
 //!     mb, ButtonIndex as Idx,
 //!     Keymap, Keybinds, Mousebinds, 
 //!     ModKey, MouseEventKind::*,
 //! };
 //! 
-//! // convenience typedef
-//! type Wm<'a> = &'a mut WindowManager<X11RBConn>;
-//!
-//! //* defining keybinds and associated WM actions
+//! //todo: hide all this behind a declarative macro
+//! // defining keybinds and associated WM actions
 //! const KEYBINDS: &[(&str, fn(Wm))] = &[
 //!     ("M-q", |wm| wm.close_focused_window()),
 //!     ("M-S-q", |wm| wm.quit()),
@@ -149,16 +154,19 @@ pub use crate::manager::{WindowManager, Config};
 pub use crate::x::core::XConn;
 #[doc(inline)]
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
+#[doc(inline)]
+pub use crate::x::ConnStatus;
 
+use crate::x::Initialized;
 use crate::x::Result as XResult;
 
 use std::io;
 use std::num::ParseIntError;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn>> {
-    let mut conn = XCBConn::connect()?;
-    conn.init()?;
+pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn<Initialized>>> {
+    let conn = XCBConn::connect()?;
+    let conn = conn.init()?;
 
     let wm = WindowManager::new(conn, config);
 
@@ -166,9 +174,9 @@ pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn>> {
 }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
-pub fn x11rb_backed_wm(config: Config) -> XResult<WindowManager<X11RBConn>> {
-    let mut conn = X11RBConn::connect()?;
-    conn.init()?;
+pub fn x11rb_backed_wm(config: Config) -> XResult<WindowManager<X11RBConn<Initialized>>> {
+    let conn = X11RBConn::connect()?;
+    let conn = conn.init()?;
 
     let wm = WindowManager::new(conn, config);
 
@@ -246,5 +254,6 @@ use crate::manager::WmState;
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
 pub trait ErrorHandler<X: XConn> {
+    /// Calls the error handler.
     fn call(&self, state: WmState<'_, X>, err: ToaruError);
 }

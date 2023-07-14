@@ -7,7 +7,7 @@ use strum::*;
 use xcb::x;
 use xcb::Xid;
 
-use super::{id, XCBConn};
+use super::{id, XCBConn, Initialized};
 use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;
@@ -90,7 +90,7 @@ impl From<x::KeyButMask> for ModMask {
     }
 }
 
-impl XCBConn {
+impl XCBConn<Initialized> {
     /// Converts generic events into mouse events.
     pub(super) fn do_mouse_press(&self, ev: x::ButtonPressEvent, rel: bool) -> Result<MouseEvent> {
         let button = ButtonIndex::try_from(ev.detail())?;

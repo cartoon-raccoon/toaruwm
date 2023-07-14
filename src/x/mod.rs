@@ -8,6 +8,17 @@
 //! For concrete implementation of the traits exported here, this module
 //! offers two submodules which each contain implementations using the XCB
 //! and X11RB backing libraries respectively.
+//! 
+//! ## Connection Object Initialization
+//! 
+//! The two `XConn` implementors have two states: unitialized, and
+//! initialized, marked in their type constructor. Uninitialized
+//! connections are connections that have only established a connection
+//! to the server, and have not initialized any of their internal
+//! state required for them to be able to safely call any of their
+//! methods. Thus, `XConn` is only implemented for initialized connections,
+//! and users will have to call the `init` method for a Connection object
+//! to be usable.
 
 pub mod atom;
 pub mod core;
@@ -47,6 +58,32 @@ higher-level code and does not actually interact with
 an actual X server, keep this enabled for standard testing */
 #[cfg(test)]
 pub(crate) mod dummy;
+
+mod private {
+    pub trait Sealed {}
+}
+
+/// A trait defining marker types `Unitialized` and `Initialized`.
+pub trait ConnStatus: private::Sealed {}
+
+/// A marker struct indicating a connection is uninitialized.
+/// 
+/// Uninitialized connections do not expose any methods.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Uninitialized;
+
+impl ConnStatus for Uninitialized {}
+impl private::Sealed for Uninitialized {}
+
+/// A marker type indicating a connection is initialized and can be used.
+/// 
+/// Initialized connections expose all available methods.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Initialized;
+
+impl ConnStatus for Initialized {}
+impl private::Sealed for Initialized {}
+
 
 // various backend-agnostic conversion implementations
 

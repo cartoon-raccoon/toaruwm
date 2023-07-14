@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
@@ -15,6 +17,7 @@ use tracing::trace;
 use strum::*;
 
 use super::{
+    ConnStatus, Initialized, Uninitialized,
     atom::Atom,
     core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
@@ -61,7 +64,7 @@ const RANDR_MIN: u32 = 4;
 ///
 /// [1]: crate::x::core::XConn
 /// [2]: crate::manager::WindowManager
-pub struct X11RBConn {
+pub struct X11RBConn<S: ConnStatus> {
     conn: RustConnection,
     root: XWindow,
     idx: usize,
@@ -69,19 +72,12 @@ pub struct X11RBConn {
     atoms: RefCell<Atoms>, // wrap in RefCell for interior mutability
     cursor: u32,
     mousemode: Cell<Option<ButtonIndex>>, // ditto
+    _marker: PhantomData<S>,
 }
 
-impl X11RBConn {
-    /// Connects and initializes a new Connection.
-    pub fn new() -> Result<Self> {
-        let mut conn = Self::connect()?;
-        conn.init()?;
-
-        Ok(conn)
-    }
-
-    /// Connect to the X server and allocate a new Connection.
-    pub fn connect() -> Result<Self> {
+impl X11RBConn<Uninitialized> {
+        /// Connect to the X server and allocate a new Connection.
+        pub fn connect() -> Result<X11RBConn<Uninitialized>> {
         // initialize xcb connection
         let (conn, idx) = x11rb::connect(None)?;
         trace!("Connected to x server, got preferred screen {}", idx);
@@ -89,16 +85,16 @@ impl X11RBConn {
 
         // initialize our atom handler
         let atoms = RefCell::new(Atoms::new());
-        let cursor = conn.generate_id()?;
 
-        Ok(Self {
+        Ok(X11RBConn {
             conn,
             root: XWindow::zeroed(),
             idx,
             randr_base: 0,
             atoms,
-            cursor,
+            cursor: 0,
             mousemode: Cell::new(None),
+            _marker: PhantomData,
         })
     }
 
@@ -113,7 +109,7 @@ impl X11RBConn {
     /// - Creates and sets the cursor.
     ///
     /// [1]: crate::x::Atom;
-    pub fn init(&mut self) -> Result<()> {
+    pub fn init(mut self) -> Result<X11RBConn<Initialized>> {
         // validate randr version
         let res = self
             .conn
@@ -132,10 +128,10 @@ impl X11RBConn {
         }
 
         // get root window id
-        self.root = match self.conn.setup().roots.get(self.idx) {
+        let root = match self.conn.setup().roots.get(self.idx) {
             Some(screen) => {
                 let id = screen.root;
-                let geom = self.get_geometry(id)?;
+                let geom = self.get_geometry_inner(id)?;
                 XWindow::with_data(id, geom)
             }
             None => return Err(XError::NoScreens),
@@ -143,7 +139,7 @@ impl X11RBConn {
         trace!("Got root: {:?}", self.root);
 
         // initialize randr and get its event mask
-        self.randr_base = self
+        let randr_base = self
             .conn
             .query_extension(randr::X11_EXTENSION_NAME.as_bytes())?
             //.ok_or_else(|| XError::RandrError("could not load randr".into()))?
@@ -173,30 +169,38 @@ impl X11RBConn {
         }
 
         // initialize cursor and set it for the root screen
-        self.create_cursor(cursor::LEFT_PTR)?;
-        self.set_cursor(self.root.id)?;
+        let cursor = self.create_cursor_inner(cursor::LEFT_PTR)?;
+        self.set_cursor_inner(self.root.id, cursor)?;
 
-        Ok(())
+        Ok(X11RBConn {
+            conn: self.conn,
+            root,
+            idx: self.idx,
+            randr_base,
+            atoms: self.atoms,
+            cursor,
+            mousemode: self.mousemode,
+            _marker: PhantomData,
+        })
     }
+}
 
-    /// Adds an atom to internal atom storage.
-    pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
-        self.atoms.get_mut().insert(name.as_ref(), atom);
+impl<S: ConnStatus> X11RBConn<S> {
+    #[inline]
+    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Geometry> {
+        trace!("Getting geometry for window {}", window);
+
+        // send the request and grab its reply
+        Ok(self.conn.get_geometry(window)?.reply().map(|ok| Geometry {
+            // map the ok result into a Geometry
+            x: ok.x as i32,
+            y: ok.y as i32,
+            height: ok.height as i32,
+            width: ok.width as i32,
+        })?)
     }
-
-    /// Returns a reference to its internal atom storage.
-    pub fn atoms(&self) -> &Atoms {
-        // SAFETY: returns an immutable reference
-        unsafe { &*self.atoms.as_ptr() }
-    }
-
-    /// Exposes `X11RBConn`'s internal connection.
-    pub fn conn(&self) -> &RustConnection {
-        &self.conn
-    }
-
-    /// Allocates a new cursor in the X server.
-    pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
+    #[inline]
+    pub(crate) fn create_cursor_inner(&mut self, glyph: u16) -> Result<u32> {
         trace!("creating cursor");
 
         let fid = self.conn.generate_id()?;
@@ -219,12 +223,10 @@ impl X11RBConn {
             )?
             .check()?;
 
-        self.cursor = cid;
-        Ok(())
+        Ok(cid)
     }
-
-    /// Sets a cursor for the given window.
-    pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
+    #[inline]
+    pub(crate) fn set_cursor_inner(&self, window: XWindowID, cursor: u32) -> Result<()> {
         use x11rb::protocol::xproto::ChangeWindowAttributesAux;
 
         trace!("setting cursor for {}", window);
@@ -232,11 +234,46 @@ impl X11RBConn {
         self.conn
             .change_window_attributes(
                 window,
-                &ChangeWindowAttributesAux::new().cursor(self.cursor),
+                &ChangeWindowAttributesAux::new().cursor(cursor),
             )?
             .check()?;
 
         Ok(())
+    }
+}
+
+impl X11RBConn<Initialized> {
+    /// Shortcut static method for directly creating
+    /// an initialized connection.
+    pub fn new() -> Result<Self> {
+        X11RBConn::connect()?.init()
+    }
+
+    /// Adds an atom to internal atom storage.
+    pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
+        self.atoms.get_mut().insert(name.as_ref(), atom);
+    }
+
+    /// Returns a reference to its internal atom storage.
+    pub fn atoms(&self) -> &Atoms {
+        // SAFETY: returns an immutable reference
+        unsafe { &*self.atoms.as_ptr() }
+    }
+
+    /// Exposes `X11RBConn`'s internal connection.
+    pub fn conn(&self) -> &RustConnection {
+        &self.conn
+    }
+
+    /// Allocates a new cursor in the X server.
+    pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
+        self.cursor = self.create_cursor_inner(glyph)?;
+        Ok(())
+    }
+
+    /// Sets a cursor for the given window.
+    pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
+        self.set_cursor_inner(window, self.cursor)
     }
 
     pub(crate) fn check_win(&self) -> Result<XWindowID> {
@@ -506,7 +543,7 @@ impl X11RBConn {
     }
 }
 
-impl fmt::Debug for X11RBConn {
+impl<S: ConnStatus + fmt::Debug> fmt::Debug for X11RBConn<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("X11RBConn")
             .field("root", &self.root)

@@ -15,6 +15,7 @@ use crate::x::{
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
     x11rb::X11RBConn,
 };
+use super::Initialized;
 
 //* button mask and index conversions
 #[doc(hidden)]
@@ -90,7 +91,7 @@ impl From<xproto::KeyButMask> for KeyButMask {
     }
 }
 
-impl X11RBConn {
+impl X11RBConn<Initialized> {
     /// Converts generic events into mouse events.
     pub(in crate::x::x11rb) fn do_mouse_press(
         &self,

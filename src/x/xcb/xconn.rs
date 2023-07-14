@@ -8,6 +8,7 @@ use tracing::instrument;
 use tracing::{error, warn, trace};
 
 use super::{cast, id, req_and_check, req_and_reply, util};
+use super::Initialized;
 use crate::core::Screen;
 use crate::keybinds::{Keybind, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
@@ -22,7 +23,7 @@ use crate::x::{
 
 use super::XCBConn;
 
-impl XConn for XCBConn {
+impl XConn for XCBConn<Initialized> {
     // General X server operations
     #[instrument(target = "xconn", level = "trace", skip(self))]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -37,22 +38,7 @@ impl XConn for XCBConn {
     }
 
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry> {
-        trace!("Getting geometry for window {}", window);
-
-        // send the request and grab its reply
-        Ok(req_and_reply!(
-            self.conn,
-            &x::GetGeometry {
-                drawable: x::Drawable::Window(cast!(x::Window, window))
-            }
-        )
-        .map(|ok| Geometry {
-            // map the ok result into a Geometry
-            x: ok.x() as i32,
-            y: ok.y() as i32,
-            height: ok.height() as i32,
-            width: ok.width() as i32,
-        })?)
+        self.get_geometry_inner(window)
     }
 
     fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>> {

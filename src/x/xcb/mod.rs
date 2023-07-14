@@ -10,6 +10,7 @@
 //! NOTE: As of `xcb` 1.2.1, there is a bug in the library that causes
 //! panics due to a misaligned pointer dereference. You should use
 //! `x11rb` instead.
+use core::marker::PhantomData;
 
 use std::cell::{Cell, RefCell};
 use std::fmt;
@@ -23,6 +24,7 @@ use tracing::trace;
 use strum::*;
 
 use super::{
+    ConnStatus, Initialized, Uninitialized,
     atom::Atom,
     core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
@@ -71,7 +73,7 @@ const RANDR_MIN: u32 = 4;
 ///
 /// [1]: crate::x::core::XConn
 /// [2]: crate::manager::WindowManager
-pub struct XCBConn {
+pub struct XCBConn<S: ConnStatus> {
     conn: xcb::Connection,
     root: XWindow,
     idx: i32,
@@ -79,17 +81,10 @@ pub struct XCBConn {
     atoms: RefCell<Atoms>, // wrap in RefCell for interior mutability
     cursor: x::Cursor,
     mousemode: Cell<Option<ButtonIndex>>, // ditto
+    _marker: PhantomData<S>,
 }
 
-impl XCBConn {
-    /// Connects and initializes a new Connection.
-    pub fn new() -> Result<Self> {
-        let mut conn = Self::connect()?;
-        conn.init()?;
-
-        Ok(conn)
-    }
-
+impl XCBConn<Uninitialized> {
     /// Connect to the X server and allocate a new Connection.
     pub fn connect() -> Result<Self> {
         // initialize xcb connection
@@ -109,6 +104,7 @@ impl XCBConn {
             atoms,
             cursor,
             mousemode: Cell::new(None),
+            _marker: PhantomData
         })
     }
 
@@ -123,7 +119,7 @@ impl XCBConn {
     /// - Creates and sets the cursor.
     ///
     /// [1]: crate::x::Atom;
-    pub fn init(&mut self) -> Result<()> {
+    pub fn init(mut self) -> Result<XCBConn<Initialized>> {
         // validate randr version
         let res = req_and_reply!(
             self.conn,
@@ -132,41 +128,41 @@ impl XCBConn {
                 minor_version: RANDR_MIN
             }
         )?;
-
+    
         let (maj, min) = (res.major_version(), res.minor_version());
-
+    
         trace!("Got randr version {}.{}", maj, min);
-
+    
         if maj != RANDR_MAJ || min < RANDR_MIN {
             return Err(XError::RandrError(format!(
                 "Received randr version {}.{}, requires v{}.{} or higher",
                 maj, min, RANDR_MAJ, RANDR_MIN
             )));
         }
-
+    
         // get root window id
-        self.root = match self.conn.get_setup().roots().nth(self.idx as usize) {
+        let root = match self.conn.get_setup().roots().nth(self.idx as usize) {
             Some(screen) => {
                 let id = id!(screen.root());
-                let geom = self.get_geometry(id)?;
+                let geom = self.get_geometry_inner(id)?;
                 XWindow::with_data(id, geom)
             }
             None => return Err(XError::NoScreens),
         };
         trace!("Got root: {:?}", self.root);
-
+    
         // initialize randr and get its event mask
-        self.randr_base = randr::get_extension_data(&self.conn)
+        let randr_base = randr::get_extension_data(&self.conn)
             .ok_or_else(|| XError::RandrError("could not load randr".into()))?
             .first_event;
-
+    
         trace!("Got randr_base {}", self.randr_base);
-
+    
         let atomcount = Atom::iter().count();
         let mut atomvec = Vec::with_capacity(atomcount);
-
+    
         // intern all known atoms
-
+    
         // get cookies for all first
         for atom in Atom::iter() {
             atomvec.push((
@@ -177,39 +173,55 @@ impl XCBConn {
                 }),
             ));
         }
-
+    
         let atoms = self.atoms.get_mut();
-
+    
         // then get replies
         for (name, cookie) in atomvec {
             atoms.insert(&name, id!(self.conn.wait_for_reply(cookie)?.atom()));
         }
-
+    
         // initialize cursor and set it for the root screen
-        self.create_cursor(cursor::LEFT_PTR)?;
-        self.set_cursor(self.root.id)?;
+        let cursor = self.create_cursor_inner(cursor::LEFT_PTR)?;
+        self.set_cursor_inner(self.root.id, cursor)?;
 
-        Ok(())
+        Ok(XCBConn {
+            conn: self.conn,
+            root,
+            idx: self.idx,
+            randr_base,
+            atoms: self.atoms,
+            cursor,
+            mousemode: self.mousemode,
+            _marker: PhantomData,
+        })
     }
 
-    /// Adds an atom to internal atom storage.
-    pub fn add_atom<S: AsRef<str>>(&mut self, name: S, atom: XAtom) {
-        self.atoms.get_mut().insert(name.as_ref(), atom);
+}
+
+impl<S: ConnStatus> XCBConn<S> {
+    #[inline]
+    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Geometry> {
+        trace!("Getting geometry for window {}", window);
+
+        // send the request and grab its reply
+        Ok(req_and_reply!(
+            self.conn,
+            &x::GetGeometry {
+                drawable: x::Drawable::Window(cast!(x::Window, window))
+            }
+        )
+        .map(|ok| Geometry {
+            // map the ok result into a Geometry
+            x: ok.x() as i32,
+            y: ok.y() as i32,
+            height: ok.height() as i32,
+            width: ok.width() as i32,
+        })?)
     }
 
-    /// Returns a reference to its internal atom storage.
-    pub fn atoms(&self) -> &Atoms {
-        // SAFETY: returns an immutable reference
-        unsafe { &*self.atoms.as_ptr() }
-    }
-
-    /// Exposes `XCBConn`'s internal connection.
-    pub fn conn(&self) -> &xcb::Connection {
-        &self.conn
-    }
-
-    /// Allocates a new cursor on the X server.
-    pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
+    #[inline]
+    pub(crate) fn create_cursor_inner(&self, glyph: u16) -> Result<x::Cursor> {
         trace!("creating cursor");
 
         let fid: x::Font = self.conn.generate_id();
@@ -239,23 +251,57 @@ impl XCBConn {
             }
         )?;
 
-        self.cursor = cid;
-        Ok(())
+        Ok(cid)
     }
 
-    /// Sets the cursor for the given window.
-    pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
+    #[inline]
+    pub(crate) fn set_cursor_inner(&self, window: XWindowID, cursor: x::Cursor) -> Result<()> {
         trace!("setting cursor for {}", window);
 
         req_and_check!(
             self.conn,
             &x::ChangeWindowAttributes {
                 window: cast!(x::Window, window),
-                value_list: &[x::Cw::Cursor(self.cursor)]
+                value_list: &[x::Cw::Cursor(cursor)]
             }
         )?;
 
         Ok(())
+    }
+}
+
+impl XCBConn<Initialized> {
+    /// Shortcut static method to directly connect and 
+    /// initialize a new connection.
+    pub fn new() -> Result<Self> {
+        XCBConn::connect()?.init()
+    }
+
+    /// Adds an atom to internal atom storage.
+    pub fn add_atom<N: AsRef<str>>(&mut self, name: N, atom: XAtom) {
+        self.atoms.get_mut().insert(name.as_ref(), atom);
+    }
+
+    /// Returns a reference to its internal atom storage.
+    pub fn atoms(&self) -> &Atoms {
+        // SAFETY: returns an immutable reference
+        unsafe { &*self.atoms.as_ptr() }
+    }
+
+    /// Exposes `XCBConn`'s internal connection.
+    pub fn conn(&self) -> &xcb::Connection {
+        &self.conn
+    }
+
+    /// Allocates a new cursor on the X server.
+    pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
+        self.cursor = self.create_cursor_inner(glyph)?;
+        Ok(())
+    }
+
+    /// Sets the cursor for the given window.
+    pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
+        self.set_cursor_inner(window, self.cursor)
     }
 
     pub(crate) fn check_win(&self) -> Result<XWindowID> {
@@ -530,7 +576,7 @@ impl XCBConn {
     }
 }
 
-impl fmt::Debug for XCBConn {
+impl<S: ConnStatus> fmt::Debug for XCBConn<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("XCBConn")
             .field("root", &self.root)

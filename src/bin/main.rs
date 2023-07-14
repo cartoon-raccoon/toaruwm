@@ -22,11 +22,14 @@ use toaruwm::keybinds::{
 };
 use toaruwm::types::Cardinal::*;
 use toaruwm::X11RBConn;
-use toaruwm::{x11rb_backed_wm, hook};
-use toaruwm::{WindowManager, Config};
+use toaruwm::x::Initialized;
+use toaruwm::{
+    WindowManager, Config,
+    x11rb_backed_wm, hook
+};
 
 // convenience typedef
-type Wm<'a> = &'a mut WindowManager<X11RBConn>;
+type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
 
 //* defining keybinds and associated WM actions
 const KEYBINDS: &[(&str, fn(Wm))] = &[

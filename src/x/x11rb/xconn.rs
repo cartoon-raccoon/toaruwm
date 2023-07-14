@@ -22,6 +22,7 @@ use crate::x::{
     property::*,
     Atom,
 };
+use super::Initialized;
 
 use super::X11RBConn;
 
@@ -37,7 +38,7 @@ macro_rules! root_pointer_grab_mask {
     };
 }
 
-impl XConn for X11RBConn {
+impl XConn for X11RBConn<Initialized> {
     // General X server operations
     #[instrument(target = "xconn", level = "trace", skip(self))]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -52,16 +53,7 @@ impl XConn for X11RBConn {
     }
 
     fn get_geometry(&self, window: XWindowID) -> Result<Geometry> {
-        trace!("Getting geometry for window {}", window);
-
-        // send the request and grab its reply
-        Ok(self.conn.get_geometry(window)?.reply().map(|ok| Geometry {
-            // map the ok result into a Geometry
-            x: ok.x as i32,
-            y: ok.y as i32,
-            height: ok.height as i32,
-            width: ok.width as i32,
-        })?)
+        self.get_geometry_inner(window)
     }
 
     fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>> {
