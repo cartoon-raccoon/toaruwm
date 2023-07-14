@@ -7,8 +7,8 @@ use super::state::State;
 /// 
 /// A `Hook` is just a wrapper around a boxed trait object
 /// implementing [`FnMut`].
-/// You would generally use this through the [`hook`] macro's
-/// much more ergonomic interface.
+/// You would generally use this through the [`hook`](crate::hook)
+/// macro's much more ergonomic interface.
 pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 
 /// Macro for creating a hook that can be run by the window manager.

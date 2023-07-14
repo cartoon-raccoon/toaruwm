@@ -77,7 +77,7 @@ pub struct X11RBConn<S: ConnStatus> {
 
 impl X11RBConn<Uninitialized> {
         /// Connect to the X server and allocate a new Connection.
-        pub fn connect() -> Result<X11RBConn<Uninitialized>> {
+        pub fn connect() -> Result<Self> {
         // initialize xcb connection
         let (conn, idx) = x11rb::connect(None)?;
         trace!("Connected to x server, got preferred screen {}", idx);
@@ -86,7 +86,7 @@ impl X11RBConn<Uninitialized> {
         // initialize our atom handler
         let atoms = RefCell::new(Atoms::new());
 
-        Ok(X11RBConn {
+        Ok(Self {
             conn,
             root: XWindow::zeroed(),
             idx,
@@ -108,7 +108,7 @@ impl X11RBConn<Uninitialized> {
     /// - Interns all known [atoms][1].
     /// - Creates and sets the cursor.
     ///
-    /// [1]: crate::x::Atom;
+    /// [1]: crate::x::atom::Atom
     pub fn init(mut self) -> Result<X11RBConn<Initialized>> {
         // validate randr version
         let res = self

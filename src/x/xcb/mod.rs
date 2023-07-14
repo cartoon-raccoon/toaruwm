@@ -118,7 +118,7 @@ impl XCBConn<Uninitialized> {
     /// - Interns all known [atoms][1].
     /// - Creates and sets the cursor.
     ///
-    /// [1]: crate::x::Atom;
+    /// [1]: crate::x::Atom
     pub fn init(mut self) -> Result<XCBConn<Initialized>> {
         // validate randr version
         let res = req_and_reply!(

@@ -75,7 +75,8 @@ pub type LayoutFn = fn(&Workspace, &Screen, u32, f32) -> Vec<LayoutAction>;
 
 /// An object responsible for arranging layouts within a screen.
 /// 
-/// Used within a [`WindowManager`] to generate layouts on the fly.
+/// Used within a [`WindowManager`](crate::WindowManager) to generate
+/// layouts on the fly.
 #[derive(Clone)]
 pub struct LayoutEngine {
     layout: LayoutType,
@@ -92,6 +93,7 @@ impl fmt::Debug for LayoutEngine {
 }
 
 impl LayoutEngine {
+    /// Create a LayoutEngine with the given layout.
     pub fn with_layout(layout: LayoutType, layoutfn: Option<LayoutFn>) -> Self {
         match layout {
             LayoutType::Floating => Self {
