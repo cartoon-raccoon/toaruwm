@@ -27,7 +27,7 @@ pub mod event;
 pub mod input;
 pub mod property;
 
-/// Implementation of `XConn` backed bt the `x11rb` library.
+/// Implementation of `XConn` backed by the `x11rb` library.
 pub mod x11rb;
 /// Implementation of `XConn` backed by the `xcb` library.
 pub mod xcb;
@@ -61,8 +61,9 @@ an actual X server, keep this enabled for standard testing */
 #[cfg(test)]
 pub(crate) mod dummy;
 
-/// Types for representing connection status.
 pub mod status {
+    //! Types for representing connection status.
+    //! 
     //! This module contains the [`ConnStatus`] sealed trait,
     //! as well as its two implementors, [`Initialized`] and
     //! [`Uninitialized`]. These are used to mark the state of
