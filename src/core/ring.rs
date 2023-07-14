@@ -12,9 +12,12 @@
 //! Insertion into a Ring is done with an InsertPoint, which can insert an item
 //! with respect to the current item in focus, or at a specified index.
 
+use core::ops::{Index, IndexMut};
+
 use std::collections::VecDeque;
 use std::iter::FromIterator;
-use std::ops::{Index, IndexMut};
+
+use custom_debug_derive::Debug;
 
 use super::types::Direction;
 
@@ -36,8 +39,7 @@ pub enum InsertPoint {
 }
 
 /// A type to select items from a Ring.
-// todo: implement debug
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Selector<'a, T> {
     /// Any item.
     Any,
