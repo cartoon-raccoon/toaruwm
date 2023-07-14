@@ -22,7 +22,7 @@ pub mod x11rb;
 pub mod xcb;
 
 #[doc(inline)]
-pub use self::core::{XAtom, XConn, XError, XWindow, XWindowID};
+pub use self::core::{XAtom, XConn, XError, XWindow, XWindowID, Result};
 #[doc(inline)]
 pub use atom::{Atom, Atoms};
 #[doc(inline)]
@@ -69,7 +69,6 @@ impl From<TFSError> for XError {
 use std::convert::TryFrom;
 
 use crate::keybinds::ButtonIndex;
-use crate::x::core::Result;
 
 impl TryFrom<u8> for ButtonIndex {
     type Error = XError;

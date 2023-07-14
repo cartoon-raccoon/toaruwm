@@ -16,7 +16,7 @@ use tracing::{debug, error, warn, info, trace, span, Level};
 use crate::core::{Desktop, Screen};
 use crate::keybinds::{Keybind, Keybinds, Mousebind, Mousebinds};
 use crate::layouts::LayoutType;
-use crate::log::basic_error_handler;
+use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};
 use crate::x::{
     event::ConfigureRequestData, input::MouseEventKind, Atom, Property, XConn, XError, XEvent,
@@ -36,7 +36,7 @@ pub mod hooks;
 #[doc(inline)]
 pub use event::EventAction;
 #[doc(inline)]
-pub use state::WMState;
+pub use state::WmState;
 #[doc(inline)]
 pub use config::Config;
 #[doc(inline)]
@@ -47,7 +47,7 @@ pub use hooks::{Hook, Hooks};
 macro_rules! handle_err {
     ($call:expr, $_self:expr) => {
         if let Err(e) = $call {
-            ($_self.ehandler)(e.into());
+            $_self.ehandler.call($_self.state(), e.into());
         }
     };
 }
@@ -119,7 +119,7 @@ pub struct WindowManager<X: XConn> {
     /// The root window.
     root: XWindow,
     /// A main error handler function.
-    ehandler: ErrorHandler,
+    ehandler: Box<dyn ErrorHandler<X>>,
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
     selected: Option<XWindowID>,
@@ -173,7 +173,7 @@ impl<X: XConn> WindowManager<X> {
             desktop: Desktop::new(LayoutType::DTiled, None, workspaces),
             screens,
             root,
-            ehandler: Box::new(basic_error_handler),
+            ehandler: Box::new(DefaultErrorHandler),
             selected: None,
             focused: None,
             last_mouse_pos: Point { x: 0, y: 0 },
@@ -292,7 +292,7 @@ impl<X: XConn> WindowManager<X> {
                     ToaruError::XConnError(XError::Connection(_)) => Err(e),
                     // else, handle error and map to an Ok(None)
                     e => {
-                        (self.ehandler)(e);
+                        (self.ehandler).call(self.state(), e);
                         Ok(None)
                     }
                 }
@@ -332,16 +332,19 @@ impl<X: XConn> WindowManager<X> {
 
         match result {
             Ok(_) => {}
-            Err(e) => (self.ehandler)(ToaruError::SpawnProc(e.to_string())),
+            Err(e) => (self.ehandler).call(
+                self.state(),
+                ToaruError::SpawnProc(e.to_string())
+            ),
         }
     }
 
     /// Set an error handler for WindowManager.
-    pub fn set_error_handler<F>(&mut self, f: F)
-    where
-        F: FnMut(ToaruError) + 'static,
+    pub fn set_error_handler<E>(&mut self, ehandler: E)
+    where 
+        E: ErrorHandler<X> + 'static
     {
-        self.ehandler = Box::new(f);
+        self.ehandler = Box::new(ehandler);
     }
 
     /// Goes to the specified workspace.
@@ -737,6 +740,6 @@ impl<X: XConn> WindowManager<X> {
     }
 
     fn handle_error(&mut self, err: XError, _evt: XEvent) {
-        (self.ehandler)(ToaruError::XConnError(err));
+        (self.ehandler).call(self.state(), ToaruError::XConnError(err));
     }
 }

@@ -1,3 +1,8 @@
+//! Types for configuring a `WindowManager`.
+//! 
+//! 
+
+/// Configuration of a window manager.
 #[derive(Debug, Clone)]
 pub struct Config {
     /// The workspaces and the screen it should be sent to.

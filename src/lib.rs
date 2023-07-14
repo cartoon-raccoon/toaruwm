@@ -143,14 +143,17 @@ pub mod x;
 pub(crate) mod util;
 
 pub use crate::core::types;
+#[doc(inline)]
 pub use crate::manager::{WindowManager, Config};
-pub use crate::x::core::Result as XResult;
+#[doc(inline)]
 pub use crate::x::core::XConn;
+#[doc(inline)]
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
+
+use crate::x::Result as XResult;
 
 use std::io;
 use std::num::ParseIntError;
-use std::ops::FnMut;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
 pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn>> {
@@ -236,8 +239,12 @@ impl From<ParseIntError> for ToaruError {
 /// The general result type used by ToaruWM.
 pub type Result<T> = ::core::result::Result<T, ToaruError>;
 
+
+use crate::manager::WmState;
 /// An error handler that can be used to handle an error type.
 ///
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
-pub type ErrorHandler = Box<dyn FnMut(ToaruError)>;
+pub trait ErrorHandler<X: XConn> {
+    fn call(&self, state: WmState<'_, X>, err: ToaruError);
+}

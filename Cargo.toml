@@ -27,6 +27,8 @@ tracing-subscriber = {version = "0.3", features = ["ansi", "std", "fmt"]}
 strum = { version = "0.19.2", features = ["derive"] }
 strum_macros = "0.19.2"
 
+custom_debug_derive = "0.5.1"
+
 bitflags = "1.2.1"
 byteorder = "1.4.3"
 

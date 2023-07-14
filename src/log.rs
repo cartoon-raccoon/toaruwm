@@ -1,53 +1,3 @@
-// #[cfg(debug_assertions)]
-// macro_rules! debug {
-//     ($fmt:expr) => {
-//         (println!(concat!("[debug] ", $fmt)));
-//     };
-//     ($fmt:expr, $($arg:tt)*) => {
-//         (println!(concat!("[debug] ", $fmt), $($arg)*));
-//     };
-// }
-
-#[cfg(not(debug_assertions))]
-macro_rules! debug {
-    ($fmt:expr) => {};
-    ($fmt:expr, $($arg:tt)*) => {};
-}
-
-// #[cfg(debug_assertions)]
-// macro_rules! fn_ends {
-//     ($fmt:expr) => {
-//         (println!(concat!("================ ", $fmt, " ================")));
-//     };
-//     ($fmt:expr, $($arg:tt)*) => {
-//         (println!(concat!("================ ", $fmt, " ================"), $($arg)*));
-//     };
-// }
-
-#[cfg(not(debug_assertions))]
-macro_rules! fn_ends {
-    ($fmt:expr) => {};
-    ($fmt:expr, $($arg:tt)*) => {};
-}
-
-// macro_rules! info {
-//     ($fmt:expr) => {
-//         (println!(concat!("[*] ", $fmt)))
-//     };
-//     ($fmt:expr, $($arg:tt)*) => {
-//         (println!(concat!("[*] ", $fmt), $($arg)*))
-//     };
-// }
-
-// macro_rules! warn {
-//     ($fmt:expr) => {
-//         (println!(concat!("[!] ", $fmt)))
-//     };
-//     ($fmt:expr, $($arg:tt)*) => {
-//         (println!(concat!("[!] ", $fmt), $($arg)*))
-//     };
-// }
-
 macro_rules! fatal {
     ($fmt:expr) => {
         (panic!(concat!("[FATAL] ", $fmt)))
@@ -66,9 +16,16 @@ macro_rules! fatal {
 //     };
 // }
 
-use crate::ToaruError;
+use crate::{
+    XConn, ToaruError, ErrorHandler
+};
+use crate::manager::WmState;
 use tracing::error;
 
-pub(crate) fn basic_error_handler(error: ToaruError) {
-    error!("{}", error);
+pub(crate) struct DefaultErrorHandler;
+
+impl<X: XConn> ErrorHandler<X> for DefaultErrorHandler {
+    fn call(&self, _: WmState<'_, X>, err: ToaruError) {
+        error!("{}", err)
+    }
 }

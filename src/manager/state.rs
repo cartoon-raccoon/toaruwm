@@ -1,23 +1,25 @@
 use super::WindowManager;
 
+use custom_debug_derive::Debug;
+
 use crate::core::{Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// The state that the current window manager is in.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(std::fmt::Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum State {
 
 }
 
 /// Provides introspection into the state of the window manager.
-/// It is used as a context when generating event actions.
 ///
 /// The `'wm` lifetime refers to the lifetime of the parent
 /// `WindowManager` type.
-#[derive(Clone)]
-pub struct WMState<'wm, X: XConn> {
+#[derive(Debug, Clone, Copy)]
+pub struct WmState<'wm, X: XConn> {
     /// The `XConn` implementation currently being used.
+    #[debug(skip)]
     pub conn: &'wm X,
     /// The workspaces maintained by the window manager.
     pub workspaces: &'wm Ring<Workspace>,
@@ -34,8 +36,8 @@ pub struct WMState<'wm, X: XConn> {
 
 impl<X: XConn> WindowManager<X> {
     /// Provides a WMState for introspection.
-    pub fn state(&self) -> WMState<'_, X> {
-        WMState {
+    pub fn state(&self) -> WmState<'_, X> {
+        WmState {
             conn: &self.conn,
             workspaces: &self.desktop.workspaces,
             desktop: &self.desktop,
@@ -46,7 +48,7 @@ impl<X: XConn> WindowManager<X> {
     }
 }
 
-impl<'wm, X: XConn> WMState<'wm, X> {
+impl<'wm, X: XConn> WmState<'wm, X> {
     /// Looks up a client with the given X ID.
     pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
         self.desktop.current().windows.lookup(id)

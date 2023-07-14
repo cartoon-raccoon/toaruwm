@@ -4,7 +4,7 @@ use tracing::{debug, info};
 
 use crate::core::types::Point;
 use crate::keybinds::{Keybind, Mousebind};
-use crate::manager::WMState;
+use crate::manager::WmState;
 use crate::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
@@ -13,6 +13,11 @@ use crate::x::{
 };
 
 // todo: update as neccesary to account for ICCCM and EWMH conventions
+/// Actions that should be taken by the `WindowManager`.
+/// 
+/// These are automatically translated within the `WindowManager`
+/// from [`XEvent`]s, and you generally shouldn't have to use this
+/// directly.
 #[derive(Debug, Clone)]
 pub enum EventAction {
     /// Focus the specified client.
@@ -56,7 +61,7 @@ pub enum EventAction {
 }
 
 impl EventAction {
-    pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WMState<'_, X>) -> Vec<EventAction> {
+    pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WmState<'_, X>) -> Vec<EventAction> {
         use EventAction::*;
         use XEvent::*;
         match event {
@@ -143,7 +148,7 @@ impl EventAction {
 fn process_map_request<X: XConn>(
     id: XWindowID,
     ovrd: bool,
-    state: WMState<'_, X>,
+    state: WmState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
@@ -160,7 +165,7 @@ fn process_map_request<X: XConn>(
     vec![MapTrackedClient(id)]
 }
 
-fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WMState<'_, X>) -> Vec<EventAction> {
+fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WmState<'_, X>) -> Vec<EventAction> {
     use EventAction::*;
 
     let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
@@ -183,7 +188,7 @@ fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WMState<'_, X>) -> Ve
 
 fn process_property_notify<X: XConn>(
     event: PropertyEvent,
-    state: WMState<'_, X>,
+    state: WmState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
@@ -213,7 +218,7 @@ fn process_property_notify<X: XConn>(
 
 fn process_client_message<X: XConn>(
     event: ClientMessageEvent,
-    state: WMState<'_, X>,
+    state: WmState<'_, X>,
 ) -> Vec<EventAction> {
     use EventAction::*;
 
