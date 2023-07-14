@@ -20,9 +20,6 @@ pub enum LayoutType {
     ///
     /// Similar to XMonad or Qtile.
     DTiled,
-    /// A manually tiled layout style that
-    /// enforces equal-sized windows.
-    MTiled,
     /// User-specified layout.
     Other(String),
 }
@@ -42,7 +39,7 @@ impl LayoutType {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LayoutAction {
     SetMaster(XWindowID),
     UnsetMaster,
@@ -77,6 +74,8 @@ pub enum LayoutAction {
 pub type LayoutFn = fn(&Workspace, &Screen, u32, f32) -> Vec<LayoutAction>;
 
 /// An object responsible for arranging layouts within a screen.
+/// 
+/// Used within a [`WindowManager`] to generate layouts on the fly.
 #[derive(Clone)]
 pub struct LayoutEngine {
     layout: LayoutType,
@@ -103,9 +102,6 @@ impl LayoutEngine {
                 layout,
                 _layoutgen: dtiled::gen_layout,
             },
-            LayoutType::MTiled => {
-                todo!("Manual tiling not yet implemented")
-            }
             LayoutType::Other(_) => Self {
                 layout,
                 _layoutgen: layoutfn.expect("no LayoutFn given"),
@@ -120,9 +116,6 @@ impl LayoutEngine {
         match layout {
             LayoutType::Floating => self._layoutgen = floating::gen_layout,
             LayoutType::DTiled => self._layoutgen = dtiled::gen_layout,
-            LayoutType::MTiled => {
-                todo!("Manual tiling not yet implemented")
-            }
             LayoutType::Other(_) => self._layoutgen = lfn.expect("no LayoutFn given"),
         }
     }
@@ -137,4 +130,27 @@ impl LayoutEngine {
         //todo: pass in proper border width and ratio numbers
         (self._layoutgen)(ws, scr, crate::types::BORDER_WIDTH, 0.5)
     }
+}
+
+/// A trait for implementing layouts.
+/// 
+/// This will usually be used as a trait object by the manager itself.
+pub trait Layout {
+    /// The name of the Layout, used to display in some kind of status bar.
+    fn name(&self) -> &str;
+
+    /// Generates the actions to be taken to lay out the windows.
+    /// Parameters:
+    /// - &Workspace: the workspace to layout.
+    /// - &Screen: the screen the workspace is on.
+    /// - u32: The border width.
+    /// - f32: The master ratio.
+    fn layout(&mut self, 
+        ws: &Workspace, 
+        scr: &Screen, 
+        bwidth: u32,
+        ratio: f32) -> Vec<LayoutAction>;
+
+    /// Returns a boxed version of itself, so it can be used a trait object.
+    fn boxed(&self) -> Box<dyn Layout>;
 }
