@@ -1,9 +1,9 @@
 //! The window manager itself, and associated modules.
 
 //#![allow(unused_variables, unused_imports, dead_code)]
+use std::ffi::OsStr;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ffi::OsStr;
 use std::process::{Command, Stdio};
 
 //use std::marker::PhantomData;
@@ -11,7 +11,7 @@ use std::process::{Command, Stdio};
 //use std::sync::OnceLock;
 
 use tracing::instrument;
-use tracing::{debug, error, warn, info, trace, span, Level};
+use tracing::{debug, error, info, span, trace, warn, Level};
 
 use crate::core::{Desktop, Screen};
 use crate::keybinds::{Keybind, Keybinds, Mousebind, Mousebinds};
@@ -28,19 +28,19 @@ use crate::{ErrorHandler, Result, ToaruError};
 pub mod config;
 /// A translation layer for converting X events into `WindowManager` actions.
 pub mod event;
-/// Types for introspection into the WindowManager's state.
-pub mod state;
 /// Macros and storage types for window manager hooks.
 pub mod hooks;
+/// Types for introspection into the WindowManager's state.
+pub mod state;
 
-#[doc(inline)]
-pub use event::EventAction;
-#[doc(inline)]
-pub use state::WmState;
 #[doc(inline)]
 pub use config::Config;
 #[doc(inline)]
+pub use event::EventAction;
+#[doc(inline)]
 pub use hooks::{Hook, Hooks};
+#[doc(inline)]
+pub use state::WmState;
 
 //static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
 
@@ -78,26 +78,26 @@ macro_rules! handle_err {
 ///
 /// /* register the windowmanager with the x server */
 /// wm.register(Vec::new());
-/// 
+///
 /// /* run the windowmanager, ideally grabbing your keybinds first! */
 /// wm.run(Keybinds::new(), Mousebinds::new());
 /// ```
-/// 
+///
 /// The WindowManager has a few methods defined on it that allow you
 /// to control its behaviour. These methods are usually invoked through
 /// a callback triggered by a keybind or mousebind.
-/// 
+///
 /// ## Example
-/// 
+///
 /// ```ignore
 /// use toaruwm::keybinds::{ModKey, Keybind, Keybinds, Mousebinds};
-/// 
+///
 /// /* create a new keybinds object */
 /// let mut keybinds = Keybinds::new();
-/// 
+///
 /// /* create a binding */
 /// let kb = Keybind::new(vec![ModKey::Meta], "t") // <-- use a keycode here!
-/// 
+///
 /// /* set a callback to run */
 /// keybinds.insert(|wm| {wm.run_external("xterm", &[])});
 /// ```
@@ -193,7 +193,7 @@ impl<X: XConn> WindowManager<X> {
     /// and runs any registered startup hooks.
     pub fn register<I>(&mut self, hooks: I)
     where
-        I: IntoIterator<Item = Hook<X>>
+        I: IntoIterator<Item = Hook<X>>,
     {
         info!("Registering window manager");
 
@@ -278,7 +278,7 @@ impl<X: XConn> WindowManager<X> {
     pub fn run(&mut self, mut mb: Mousebinds<X>, mut kb: Keybinds<X>) -> Result<()> {
         info!(target: "", "Grabbing any existing windows");
         // todo
-        
+
         info!(target: "", "Setup complete, beginning event loop");
         loop {
             // mark the start of an event loop
@@ -332,17 +332,14 @@ impl<X: XConn> WindowManager<X> {
 
         match result {
             Ok(_) => {}
-            Err(e) => (self.ehandler).call(
-                self.state(),
-                ToaruError::SpawnProc(e.to_string())
-            ),
+            Err(e) => (self.ehandler).call(self.state(), ToaruError::SpawnProc(e.to_string())),
         }
     }
 
     /// Set an error handler for WindowManager.
     pub fn set_error_handler<E>(&mut self, ehandler: E)
-    where 
-        E: ErrorHandler<X> + 'static
+    where
+        E: ErrorHandler<X> + 'static,
     {
         self.ehandler = Box::new(ehandler);
     }

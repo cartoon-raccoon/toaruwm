@@ -1,5 +1,5 @@
 //! # ToaruWM - A certain X WM
-//! 
+//!
 //! ToaruWM is a crate that gives you the tools you need to design
 //! and build your very own X window manager.
 //! It provides useful types and interfaces that you can use to put
@@ -8,44 +8,44 @@
 //! language (a la AwesomeWM), or a tiny, minimal window manager
 //! that is configured within the source code and requires a recompile
 //! (like dwm) each time you change the config.
-//! 
+//!
 //! ## Design
-//! 
+//!
 //! ToaruWM was designed in the style of tiling window managers, like
 //! dwm or Qtile. It maintains a main window on the left of the screen,
 //! while other windows are stacked on the side of the main window.
 //! Users can also design their own layouts and switch between each
 //! layout on the fly.
-//! 
+//!
 //! Like Qtile and dwm, ToaruWM also maintains a number of workspaces
 //! that the user can switch between using bindings. Each workspace
 //! has its own layout that can be hotswapped, as mentioned above.
-//! 
+//!
 //! ToaruWM also provides the ability to run arbitrary commands and
 //! code at almost any point in the runtime of the window manager,
 //! through hooks. This means that the user can run various commands
 //! such as an autostart script, either by invoking a shell script
 //! or directly in the window manager. Hooks can also be triggered
 //! on various events, such as mapping/unmapping of a certain window.
-//! 
+//!
 //! ## Usage
-//! 
-//! Note that this crate, as it exists on Crates.io, is not a binary 
+//!
+//! Note that this crate, as it exists on Crates.io, is not a binary
 //! that you can download and immediately run; you will have to create
 //! a separate Rust project and pull this crate as a dependency, and
 //! write a Rust program that ties everything inside this crate together
 //! the way you want it. As such, you will need a working knowledge
 //! of Rust, which the [book](https://doc.rust-lang.org/book/) will
 //! provide more than enough for you to get something up and running.
-//! 
+//!
 //! That being said, a basic window manager built with ToaruWM has
 //! the following general structure:
-//! 
+//!
 //! ```no_run
 //!# use toaruwm::x::X11RBConn;
 //!# use toaruwm::WindowManager;
 //!# use toaruwm::Initialized;
-//! 
+//!
 //!# // convenience typedef
 //!# type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
 //! use toaruwm::{
@@ -54,17 +54,17 @@
 //! };
 //! use toaruwm::keybinds::{
 //!     mb, ButtonIndex as Idx,
-//!     Keymap, Keybinds, Mousebinds, 
+//!     Keymap, Keybinds, Mousebinds,
 //!     ModKey, MouseEventKind::*,
 //! };
-//! 
+//!
 //! //todo: hide all this behind a declarative macro
 //! // defining keybinds and associated WM actions
 //! const KEYBINDS: &[(&str, fn(Wm))] = &[
 //!     ("M-q", |wm| wm.close_focused_window()),
 //!     ("M-S-q", |wm| wm.quit()),
 //! ];
-//! 
+//!
 //! //* 1: Setup X Connection and allocate new WM object
 //! let mut wm = x11rb_backed_wm(Config::default()).unwrap();
 //!
@@ -78,7 +78,7 @@
 //! let mut keybinds = Keybinds::new();
 //! for (kb, cb) in KEYBINDS {
 //!     keybinds.insert(
-//!         keymap.parse_keybinding(kb).unwrap(), 
+//!         keymap.parse_keybinding(kb).unwrap(),
 //!         Box::new(cb)
 //!     );
 //! }
@@ -108,28 +108,28 @@
 //!
 //! //* 4: We're good to go!
 //! wm.run(mousebinds, keybinds).unwrap();
-//! 
+//!
 //! ```
-//! 
+//!
 //! ## Extensions and Add-Ons
-//! 
+//!
 //! ToaruWM provides a number of extensions similar to how QTile
 //! does it. PLANNED
-//! 
+//!
 //! ## Compliance
-//! 
+//!
 //! ToaruWM is compliant with most sections of the ICCCM and EWMH,
 //! particularly the ones that were deemed most important for
 //! interoperability with various X clients, such as notification
 //! daemons, pop-up windows, full-screen clients, etc.
-//! 
+//!
 //! For the full details on compliance, see the `COMPLIANCE` file
 //! in this project's git repository.
 
 #![warn(
     missing_debug_implementations,
     missing_copy_implementations,
-    missing_docs,
+    missing_docs
 )]
 
 #[macro_use]
@@ -149,13 +149,13 @@ pub(crate) mod util;
 
 pub use crate::core::types;
 #[doc(inline)]
-pub use crate::manager::{WindowManager, Config};
+pub use crate::manager::{Config, WindowManager};
 #[doc(inline)]
 pub use crate::x::core::XConn;
 #[doc(inline)]
-pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
-#[doc(inline)]
 pub use crate::x::ConnStatus;
+#[doc(inline)]
+pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
 use crate::x::Initialized;
 use crate::x::Result as XResult;
@@ -246,7 +246,6 @@ impl From<ParseIntError> for ToaruError {
 
 /// The general result type used by ToaruWM.
 pub type Result<T> = ::core::result::Result<T, ToaruError>;
-
 
 use crate::manager::WmState;
 /// An error handler that can be used to handle an error type.

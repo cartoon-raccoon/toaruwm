@@ -21,12 +21,9 @@ use toaruwm::keybinds::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
 use toaruwm::types::Cardinal::*;
-use toaruwm::X11RBConn;
 use toaruwm::x::Initialized;
-use toaruwm::{
-    WindowManager, Config,
-    x11rb_backed_wm, hook
-};
+use toaruwm::X11RBConn;
+use toaruwm::{hook, x11rb_backed_wm, Config, WindowManager};
 
 // convenience typedef
 type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
@@ -97,7 +94,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         wm.dump_internal_state();
         println!("hello from a hook!");
     });
-    
+
     //* 3: Register the WM as a client with the X server
     //*    and initialise internal state
     //* a: Grab keys and mousebinds

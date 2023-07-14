@@ -31,7 +31,9 @@ fn test_property_retrieval_generic<X: XConn>(conn: &X) {
         let wm_hints = conn.get_property(WmHints.as_ref(), xid).expect(&err(xid));
         prop_check_stub(wm_hints, |p| p.is_wmhints(), "WM_HINTS", xid);
 
-        let wm_size_hints = conn.get_property(WmNormalHints.as_ref(), xid).expect(&err(xid));
+        let wm_size_hints = conn
+            .get_property(WmNormalHints.as_ref(), xid)
+            .expect(&err(xid));
         prop_check_stub(wm_size_hints, |p| p.is_sizehints(), "WM_NORMAL_HINTS", xid);
     }
 }

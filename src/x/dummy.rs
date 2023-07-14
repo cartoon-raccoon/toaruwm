@@ -1,21 +1,18 @@
 #![allow(unused_imports, dead_code)]
 
-use std::collections::{VecDeque, HashMap};
+use std::collections::{HashMap, VecDeque};
 
-use crate::types::Geometry;
 use crate::core::{Client, Screen};
+use crate::types::Geometry;
 use crate::x::{
-    core::{
-        XConn, XWindow, XWindowID, XError, XAtom, Result,
-        PointerQueryReply,
-    },
+    core::{PointerQueryReply, Result, XAtom, XConn, XError, XWindow, XWindowID},
     event::XEvent,
 };
 
 /// A dummy connection implementing XConn but actually
 /// does not interface with the X server at all, and
 /// should mainly be used for testing.
-/// 
+///
 /// `DummyConn` contains an internal queue that takes
 /// XEvents and dequeues them when `poll_next_event` is
 /// called, as well as an internal store of windows,
@@ -46,7 +43,7 @@ impl DummyConn {
     /// Adds multiple events to the internal queue.
     pub fn add_events<I>(&mut self, events: I)
     where
-        I: IntoIterator<Item = XEvent>
+        I: IntoIterator<Item = XEvent>,
     {
         for event in events {
             self.events.push_back(event);

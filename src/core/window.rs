@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use tracing::instrument;
-use tracing::{debug, error, warn, trace};
+use tracing::{debug, error, trace, warn};
 
 use super::{Ring, Selector};
 
@@ -19,7 +19,7 @@ use crate::x::{
 /// A Ring of type Client.
 ///
 /// Contains additional methods more specific to window management.
-/// 
+///
 /// The focused element of this ring is the window that currently
 /// has the input focus.
 pub type ClientRing = Ring<Client>;
@@ -129,7 +129,7 @@ impl Client {
         Self::new(from, conn, WinLayoutState::Floating)
     }
 
-    #[instrument(level="debug", skip(conn))]
+    #[instrument(level = "debug", skip(conn))]
     fn new<X: XConn>(from: XWindowID, conn: &X, layout: WinLayoutState) -> Self {
         let properties = conn.get_client_properties(from);
         Self {
@@ -235,7 +235,7 @@ impl Client {
     }
 
     /// Returns whether the Client is fullscreen.
-    /// 
+    ///
     /// Note that this is not the actual state of the client on
     /// the X server, this is the state as tracked by ToaruWM.
     #[inline(always)]

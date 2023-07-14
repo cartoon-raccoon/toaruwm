@@ -176,18 +176,18 @@ impl Workspace {
     }
 
     /// Unsets the master window of the workspace.
-    /// 
+    ///
     /// Is a no-op if there are still tiled windows in the workspace.
     pub fn unset_master(&mut self) {
         if self.tiled_count() > 0 {
             error!("unset_master: Workspace still has tiled windows");
-            return
+            return;
         }
         self.master = None;
     }
 
     /// Maps all the windows in the workspace.
-    /// 
+    ///
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
     #[instrument(level = "debug", skip(self, conn))]
@@ -305,7 +305,7 @@ impl Workspace {
         // if self.windows.focused().is_some() {
         //     window.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
         // }
-        
+
         // // set the internal geometry
         // //? is this line necessary?
         // window.xwindow.set_geometry_conn(conn);
@@ -313,19 +313,16 @@ impl Workspace {
         // add the window to internal client storage
         let id = window.id();
         self.windows.append(window);
-        
+
         // enable client events on the window
-        conn.change_window_attributes(
-            id, &[ClientAttrs::EnableClientEvents]
-        ).unwrap_or_else(|e| {
-            error!("change window attributes failed: {}", e)
-        });
+        conn.change_window_attributes(id, &[ClientAttrs::EnableClientEvents])
+            .unwrap_or_else(|e| error!("change window attributes failed: {}", e));
 
         // apply the relevant layout to the screen
         // this also internally updates the geometries on the server
         // as well as locally
         self.relayout(conn, scr);
-        
+
         // map window
         self.windows.lookup_mut(id).unwrap().map(conn);
 
@@ -368,11 +365,13 @@ impl Workspace {
         // set new workspace master or unset it if empty
         if self.is_master(id) {
             debug!("window to destroy is master, doing unmap checks");
-            if self.tiled_count() == 0 { // workspace is empty
+            if self.tiled_count() == 0 {
+                // workspace is empty
                 debug!("workspace is now empty, unsetting master");
                 self.unset_master(); //workspace is now empty
                 self.windows.unset_focused();
-            } else { // workspace is not empty, so set new master
+            } else {
+                // workspace is not empty, so set new master
                 debug!(
                     "workspace has {} tiled windows, setting new master",
                     self.tiled_count()
@@ -386,15 +385,18 @@ impl Workspace {
                 debug!("Window at idx 0 is {:#?}", self.windows.get(0));
                 self.focus_window(conn, new_master);
             }
-        } else { // the deleted window was not the master
+        } else {
+            // the deleted window was not the master
             debug!("window to destroy is not master, doing unmap checks");
-            if self.tiled_count() == 1 { // only master is left
+            if self.tiled_count() == 1 {
+                // only master is left
                 debug!("only master window remaining");
                 let master = self.master.unwrap();
                 self.focus_window(conn, master);
-            } else if !self.is_empty() { // no tiled, but may have floating
+            } else if !self.is_empty() {
+                // no tiled, but may have floating
                 assert!(self.tiled_count() >= 1 || self.floating_count() >= 1);
-                
+
                 // set focus to master if we have one,
                 // else set focus to next available window
                 let to_focus = if let Some(master) = self.master {
@@ -403,7 +405,6 @@ impl Workspace {
                     self.windows.get(0).unwrap().id()
                 };
                 self.focus_window(conn, to_focus);
-
             } else {
                 error!("this branch should be unreachable");
                 self.windows.unset_focused();
@@ -492,10 +493,10 @@ impl Workspace {
     }
 
     /// Convenience function that does the following:
-    /// 
+    ///
     /// - Stacks the given window above.
     /// - Sets the input focus to it.
-    /// 
+    ///
     /// Note: THE WINDOW MUST EXIST.
     fn stack_and_focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         use BorderStyle::*;
@@ -542,7 +543,7 @@ impl Workspace {
     }
 
     /// Cycles the master to the next window in the workspace.
-    /// 
+    ///
     /// Is a no-op if the layout is not tiling.
     pub fn cycle_master<X: XConn>(&mut self, conn: &X, scr: &Screen, dir: Direction) {
         if !self.is_tiling() {
@@ -684,4 +685,3 @@ impl Workspace {
         }
     }
 }
-

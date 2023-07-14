@@ -1,8 +1,8 @@
 //! Types for working with keyboard and mouse input.
-//! 
+//!
 //! Type definitions for various input types defined
 //! by the X server protocol.
-//! 
+//!
 #![allow(missing_docs)] // so bitflags stops screaming at me
 
 use std::ops::{BitAnd, BitOr};
@@ -10,7 +10,7 @@ use std::ops::{BitAnd, BitOr};
 use bitflags::bitflags;
 
 use crate::{
-    keybinds::{ButtonIndex, ModKey, Keybind, Mousebind},
+    keybinds::{ButtonIndex, Keybind, ModKey, Mousebind},
     x::core::BitMask,
 };
 

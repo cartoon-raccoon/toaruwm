@@ -14,7 +14,7 @@ use crate::x::{
 
 // todo: update as neccesary to account for ICCCM and EWMH conventions
 /// Actions that should be taken by the `WindowManager`.
-/// 
+///
 /// These are automatically translated within the `WindowManager`
 /// from [`XEvent`]s, and you generally shouldn't have to use this
 /// directly.

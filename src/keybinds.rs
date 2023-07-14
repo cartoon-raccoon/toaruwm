@@ -31,7 +31,6 @@ pub enum ModKey {
     Meta = ModMask::MOD4.bits() as isize,
 }
 
-
 // impl<I: IntoIterator<Item = ModKey>> From<I> for ModMask {
 //     fn from(from: I) -> ModMask {
 //         from.into_iter().fold(ModMask::empty(), |acc, n| match n {
@@ -225,7 +224,7 @@ impl Keymap {
 
 // macro_rules! _impl_bindings {
 //     ($inner:expr, $bind:ty) => {
-        
+
 //     };
 // }
 
@@ -233,18 +232,14 @@ impl Keymap {
 /// An ergonomic wrapper for creating a [`Keybind`].
 #[macro_export]
 macro_rules! keybind {
-    () => {
-
-    }
+    () => {};
 }
 
 //todo
 /// An ergonomic wrapper for creating a [`Mousebind`].
 #[macro_export]
 macro_rules! mousebind {
-    () => {
-
-    }
+    () => {};
 }
 
 //todo: create a macro for tying everything together.
@@ -253,7 +248,7 @@ macro_rules! mousebind {
 pub type KeyCallback<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 
 /// A function that is run when a mousebind is invoked.
-/// 
+///
 /// An additional Point is supplied to track the location of the pointer.
 pub type MouseCallback<X> = Box<dyn FnMut(&mut WindowManager<X>, Point)>;
 
@@ -262,7 +257,7 @@ pub type MouseCallback<X> = Box<dyn FnMut(&mut WindowManager<X>, Point)>;
 /// It consists of two components: A keybind, and its associated
 /// callback function. It accepts a mutable reference to a
 /// WindowManager to run associated methods.
-/// 
+///
 /// Clone is not implemented for this type since Callbacks are not Clone.
 #[derive(Default, Debug)]
 pub struct Keybinds<X>
@@ -275,8 +270,8 @@ where
 impl<X: XConn> Keybinds<X> {
     /// Creates a new Keybinds object.
     pub fn new() -> Self {
-        Self{
-            bindings: HashMap::new()
+        Self {
+            bindings: HashMap::new(),
         }
     }
 
@@ -288,7 +283,7 @@ impl<X: XConn> Keybinds<X> {
     /// Inserts a new keybind-callback mapping.
     pub fn insert<F>(&mut self, kb: Keybind, cb: F)
     where
-        F: FnMut(&mut WindowManager<X>) + 'static
+        F: FnMut(&mut WindowManager<X>) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }
@@ -316,7 +311,7 @@ impl<X: XConn> Keybinds<X> {
 /// and a [Point][1], which contains the current coordinates of the pointer.
 /// This point is used internally by the WindowManager and should not appear
 /// in the user-facing API.
-/// 
+///
 /// Clone is not implemented for this type since Callbacks are not Clone.
 ///
 /// [1]: crate::core::types::Point
@@ -325,13 +320,13 @@ pub struct Mousebinds<X>
 where
     X: XConn,
 {
-    bindings: HashMap<Mousebind, MouseCallback<X>>
+    bindings: HashMap<Mousebind, MouseCallback<X>>,
 }
 
 impl<X: XConn> Mousebinds<X> {
     pub fn new() -> Self {
-        Self{
-            bindings: HashMap::new()
+        Self {
+            bindings: HashMap::new(),
         }
     }
 
@@ -341,7 +336,7 @@ impl<X: XConn> Mousebinds<X> {
 
     pub fn insert<F>(&mut self, kb: Mousebind, cb: F)
     where
-        F: FnMut(&mut WindowManager<X>, Point) + 'static
+        F: FnMut(&mut WindowManager<X>, Point) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }

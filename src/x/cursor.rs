@@ -1,5 +1,5 @@
 //! Convenience types for cursors.
-//! 
+//!
 //! Every cursor glyph available to the user.
 // todo: abstract this out inside convert.rs
 #![allow(missing_docs)]

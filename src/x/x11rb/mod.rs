@@ -17,7 +17,6 @@ use tracing::trace;
 use strum::*;
 
 use super::{
-    ConnStatus, Initialized, Uninitialized,
     atom::Atom,
     core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
@@ -27,7 +26,7 @@ use super::{
     },
     input::KeyButMask,
     property::{Property, WmHints, WmSizeHints},
-    Atoms,
+    Atoms, ConnStatus, Initialized, Uninitialized,
 };
 use crate::keybinds::ButtonIndex;
 use crate::types::{Geometry, Point};
@@ -76,8 +75,8 @@ pub struct X11RBConn<S: ConnStatus> {
 }
 
 impl X11RBConn<Uninitialized> {
-        /// Connect to the X server and allocate a new Connection.
-        pub fn connect() -> Result<Self> {
+    /// Connect to the X server and allocate a new Connection.
+    pub fn connect() -> Result<Self> {
         // initialize xcb connection
         let (conn, idx) = x11rb::connect(None)?;
         trace!("Connected to x server, got preferred screen {}", idx);
@@ -232,10 +231,7 @@ impl<S: ConnStatus> X11RBConn<S> {
         trace!("setting cursor for {}", window);
 
         self.conn
-            .change_window_attributes(
-                window,
-                &ChangeWindowAttributesAux::new().cursor(cursor),
-            )?
+            .change_window_attributes(window, &ChangeWindowAttributesAux::new().cursor(cursor))?
             .check()?;
 
         Ok(())
@@ -315,19 +311,17 @@ impl X11RBConn<Initialized> {
             Event::RandrScreenChangeNotify(_) => Ok(XEvent::ScreenChange),
 
             //* Core X protocol events
-            Event::ConfigureNotify(event) => {
-                Ok(XEvent::ConfigureNotify(ConfigureEvent {
-                    from_root: event.event == self.root.id,
-                    id: event.window,
-                    geom: Geometry {
-                        x: event.x as i32,
-                        y: event.y as i32,
-                        height: event.height as i32,
-                        width: event.width as i32,
-                    },
-                    is_root: event.window == self.root.id,
-                }))
-            }
+            Event::ConfigureNotify(event) => Ok(XEvent::ConfigureNotify(ConfigureEvent {
+                from_root: event.event == self.root.id,
+                id: event.window,
+                geom: Geometry {
+                    x: event.x as i32,
+                    y: event.y as i32,
+                    height: event.height as i32,
+                    width: event.width as i32,
+                },
+                is_root: event.window == self.root.id,
+            })),
             Event::ConfigureRequest(req) => {
                 use xproto::{ConfigWindow as CWMask, StackMode as XStackMode};
                 use StackMode::*;
@@ -461,9 +455,7 @@ impl X11RBConn<Initialized> {
                 data: ClientMessageData::from(&event),
                 type_: event.type_,
             })),
-            unk => {
-                Ok(XEvent::Unknown(format!("{:?}", unk)))
-            }
+            unk => Ok(XEvent::Unknown(format!("{:?}", unk))),
         }
     }
 

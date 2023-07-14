@@ -1,6 +1,6 @@
 //! Types for configuring a `WindowManager`.
-//! 
-//! 
+//!
+//!
 
 /// Configuration of a window manager.
 #[derive(Debug, Clone)]

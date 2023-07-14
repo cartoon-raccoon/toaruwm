@@ -1,14 +1,11 @@
 //! Core types and traits for interfacing with the X server.
-//! 
+//!
 //! Core functionality of ToaruWM's interface with the X server.
 //!
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use core::ops::{
-    BitAnd, BitOr, Not,
-    BitAndAssign, BitOrAssign
-};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::str::FromStr;
 
 use thiserror::Error;
@@ -34,19 +31,17 @@ pub type XWindowID = u32;
 pub type XAtom = u32;
 
 /// A marker trait to signal that a type can be treated as a bitmask.
-/// 
+///
 /// This means that the type supports bitmask operations such as
 /// bitwise AND, bitwise OR, bitwise NOT, etc.
 pub trait BitMask
 where
-    Self: BitAnd + BitOr + Not + 
-    BitAndAssign + BitOrAssign + Sized {}
+    Self: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized,
+{
+}
 
 // Blanket implementation for Bitmask
-impl<T> BitMask for T
-where
-    T: BitAnd + BitOr + Not +
-       BitAndAssign + BitOrAssign + Sized {}
+impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
 
 /// Window stacking modes defined by the X Protocol.
 #[derive(Clone, Copy, Debug)]
@@ -481,7 +476,9 @@ pub trait XConn {
     ///
     /// Returns None if not set or in case of error.
     fn get_wm_size_hints(&self, window: XWindowID) -> Option<WmSizeHints> {
-        let prop = self.get_property(Atom::WmNormalHints.as_ref(), window).ok()?;
+        let prop = self
+            .get_property(Atom::WmNormalHints.as_ref(), window)
+            .ok()?;
 
         if let Some(Property::WMSizeHints(sh)) = prop {
             Some(sh)
@@ -588,7 +585,9 @@ pub trait XConn {
 
     /// Gets ICCCM's `WM_TRANSIENT_FOR` hint.
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
-        let prop = self.get_property(Atom::WmTransientFor.as_ref(), window).ok()?;
+        let prop = self
+            .get_property(Atom::WmTransientFor.as_ref(), window)
+            .ok()?;
 
         if let Some(Property::Window(ids)) = prop {
             if ids[0] == 0 {
@@ -599,7 +598,7 @@ pub trait XConn {
             }
         } else {
             debug!(
-                target: "get_wm_transient_for", 
+                target: "get_wm_transient_for",
                 "window {} did not set WM_TRANSIENT_FOR", window
             );
             None
@@ -625,7 +624,7 @@ pub trait XConn {
             None => Ok(vec![]),
             _ => Err(XError::InvalidPropertyData(
                 "Expected Atom type for get_window_type".into(),
-            ))
+            )),
         }
     }
 
@@ -638,7 +637,7 @@ pub trait XConn {
             None => Ok(vec![]),
             _ => Err(XError::InvalidPropertyData(
                 "Expected Atom type for get_window_states".into(),
-            ))
+            )),
         }
     }
 

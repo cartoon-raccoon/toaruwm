@@ -7,7 +7,7 @@ use strum::*;
 use xcb::x;
 use xcb::Xid;
 
-use super::{id, XCBConn, Initialized};
+use super::{id, Initialized, XCBConn};
 use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;

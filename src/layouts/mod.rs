@@ -74,7 +74,7 @@ pub enum LayoutAction {
 pub type LayoutFn = fn(&Workspace, &Screen, u32, f32) -> Vec<LayoutAction>;
 
 /// An object responsible for arranging layouts within a screen.
-/// 
+///
 /// Used within a [`WindowManager`](crate::WindowManager) to generate
 /// layouts on the fly.
 #[derive(Clone)]
@@ -135,7 +135,7 @@ impl LayoutEngine {
 }
 
 /// A trait for implementing layouts.
-/// 
+///
 /// This will usually be used as a trait object by the manager itself.
 pub trait Layout {
     /// The name of the Layout, used to display in some kind of status bar.
@@ -147,11 +147,13 @@ pub trait Layout {
     /// - &Screen: the screen the workspace is on.
     /// - u32: The border width.
     /// - f32: The master ratio.
-    fn layout(&mut self, 
-        ws: &Workspace, 
-        scr: &Screen, 
+    fn layout(
+        &mut self,
+        ws: &Workspace,
+        scr: &Screen,
         bwidth: u32,
-        ratio: f32) -> Vec<LayoutAction>;
+        ratio: f32,
+    ) -> Vec<LayoutAction>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
     fn boxed(&self) -> Box<dyn Layout>;

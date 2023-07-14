@@ -8,9 +8,7 @@ use crate::x::{XConn, XWindow, XWindowID};
 /// The state that the current window manager is in.
 #[non_exhaustive]
 #[derive(std::fmt::Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub enum State {
-
-}
+pub enum State {}
 
 /// Provides introspection into the state of the window manager.
 ///

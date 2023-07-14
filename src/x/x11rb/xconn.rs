@@ -9,8 +9,9 @@ use x11rb::protocol::{
 use byteorder::{LittleEndian, WriteBytesExt};
 
 use tracing::instrument;
-use tracing::{error, warn, trace};
+use tracing::{error, trace, warn};
 
+use super::Initialized;
 use crate::core::Screen;
 use crate::keybinds::{Keybind, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
@@ -22,7 +23,6 @@ use crate::x::{
     property::*,
     Atom,
 };
-use super::Initialized;
 
 use super::X11RBConn;
 

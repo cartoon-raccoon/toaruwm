@@ -14,7 +14,7 @@ pub use super::window::{Client, ClientRing};
 
 // todo: deprecate this and put inside configuration
 /// The border thickness to use on windows.
-/// 
+///
 /// NOTE: deprecation for this is planned and will become
 /// user-configurable.
 pub const BORDER_WIDTH: u32 = 2;
@@ -184,13 +184,9 @@ impl Geometry {
     pub fn contains(&self, other: &Geometry) -> bool {
         match other {
             Geometry { x, .. } if *x < self.x => false,
-            Geometry { x, width, .. } if (*x + *width) > (self.x + self.width) => {
-                false
-            }
+            Geometry { x, width, .. } if (*x + *width) > (self.x + self.width) => false,
             Geometry { y, .. } if *y < self.y => false,
-            Geometry { y, height, .. } if (*y + *height) > (self.y + self.height) => {
-                false
-            }
+            Geometry { y, height, .. } if (*y + *height) > (self.y + self.height) => false,
             _ => true,
         }
     }
@@ -499,7 +495,7 @@ pub(crate) enum WinLayoutState {
 
 /// Determines the colour that should be applied to
 /// the window border.
-/// 
+///
 /// The actual colour values are specified in `Config`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BorderStyle {
@@ -521,7 +517,7 @@ pub enum ClientConfig {
     /// Resizing the window.
     Resize {
         /// The height.
-        h: i32, 
+        h: i32,
         /// The width.
         w: i32,
     },
@@ -560,12 +556,14 @@ impl NetWindowStates {
     /// Creates a new `NetWindowStates from an iterator of types.
     pub fn from_strings<I, X: XConn>(strs: I, conn: &X) -> Self
     where
-        I: IntoIterator<Item = String>
+        I: IntoIterator<Item = String>,
     {
-        Self { states: strs.into_iter()
-            .map(|s| conn.atom(&s))
-            .filter_map(|a| a.ok()) // filter out errors
-            .collect::<Vec<XAtom>>()
+        Self {
+            states: strs
+                .into_iter()
+                .map(|s| conn.atom(&s))
+                .filter_map(|a| a.ok()) // filter out errors
+                .collect::<Vec<XAtom>>(),
         }
     }
 
@@ -593,10 +591,12 @@ impl NetWindowStates {
 
 impl<I> From<I> for NetWindowStates
 where
-    I: Iterator<Item = XAtom>
+    I: Iterator<Item = XAtom>,
 {
     fn from(from: I) -> Self {
-        Self { states: from.collect() }
+        Self {
+            states: from.collect(),
+        }
     }
 }
 

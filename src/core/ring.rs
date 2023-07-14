@@ -232,14 +232,15 @@ impl<T> Ring<T> {
     /// Panics if the Ring is empty.
     pub fn pop_front(&mut self) -> T {
         if let Some(f) = self.focused {
-            if f == 0 {self.unset_focused();}
+            if f == 0 {
+                self.unset_focused();
+            }
         }
         self.items.pop_front().unwrap()
     }
 
-
     /// Removes an element from the Ring, returning it if it exists.
-    /// 
+    ///
     /// If the item being removed is the focused element,
     /// it also unsets the focus.
     pub fn remove(&mut self, idx: usize) -> Option<T> {

@@ -5,10 +5,10 @@ use xcb::x;
 use xcb::{Xid, XidNew};
 
 use tracing::instrument;
-use tracing::{error, warn, trace};
+use tracing::{error, trace, warn};
 
-use super::{cast, id, req_and_check, req_and_reply, util};
 use super::Initialized;
+use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::core::Screen;
 use crate::keybinds::{Keybind, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};

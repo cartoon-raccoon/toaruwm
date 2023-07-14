@@ -1,5 +1,5 @@
 //! Implementation of `XConn` backed by the `x11rb` library.
-//! 
+//!
 //! This module provides an interface to the X11 protocol via the XCB
 //! backend.
 //!
@@ -24,7 +24,6 @@ use tracing::trace;
 use strum::*;
 
 use super::{
-    ConnStatus, Initialized, Uninitialized,
     atom::Atom,
     core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
@@ -33,7 +32,7 @@ use super::{
         PointerEvent, PropertyEvent, ReparentEvent, XEvent,
     },
     property::{Property, WmHints, WmSizeHints},
-    Atoms,
+    Atoms, ConnStatus, Initialized, Uninitialized,
 };
 use crate::keybinds::ButtonIndex;
 use crate::types::{Geometry, Point};
@@ -104,7 +103,7 @@ impl XCBConn<Uninitialized> {
             atoms,
             cursor,
             mousemode: Cell::new(None),
-            _marker: PhantomData
+            _marker: PhantomData,
         })
     }
 
@@ -128,18 +127,18 @@ impl XCBConn<Uninitialized> {
                 minor_version: RANDR_MIN
             }
         )?;
-    
+
         let (maj, min) = (res.major_version(), res.minor_version());
-    
+
         trace!("Got randr version {}.{}", maj, min);
-    
+
         if maj != RANDR_MAJ || min < RANDR_MIN {
             return Err(XError::RandrError(format!(
                 "Received randr version {}.{}, requires v{}.{} or higher",
                 maj, min, RANDR_MAJ, RANDR_MIN
             )));
         }
-    
+
         // get root window id
         let root = match self.conn.get_setup().roots().nth(self.idx as usize) {
             Some(screen) => {
@@ -150,19 +149,19 @@ impl XCBConn<Uninitialized> {
             None => return Err(XError::NoScreens),
         };
         trace!("Got root: {:?}", self.root);
-    
+
         // initialize randr and get its event mask
         let randr_base = randr::get_extension_data(&self.conn)
             .ok_or_else(|| XError::RandrError("could not load randr".into()))?
             .first_event;
-    
+
         trace!("Got randr_base {}", self.randr_base);
-    
+
         let atomcount = Atom::iter().count();
         let mut atomvec = Vec::with_capacity(atomcount);
-    
+
         // intern all known atoms
-    
+
         // get cookies for all first
         for atom in Atom::iter() {
             atomvec.push((
@@ -173,14 +172,14 @@ impl XCBConn<Uninitialized> {
                 }),
             ));
         }
-    
+
         let atoms = self.atoms.get_mut();
-    
+
         // then get replies
         for (name, cookie) in atomvec {
             atoms.insert(&name, id!(self.conn.wait_for_reply(cookie)?.atom()));
         }
-    
+
         // initialize cursor and set it for the root screen
         let cursor = self.create_cursor_inner(cursor::LEFT_PTR)?;
         self.set_cursor_inner(self.root.id, cursor)?;
@@ -196,7 +195,6 @@ impl XCBConn<Uninitialized> {
             _marker: PhantomData,
         })
     }
-
 }
 
 impl<S: ConnStatus> XCBConn<S> {
@@ -271,7 +269,7 @@ impl<S: ConnStatus> XCBConn<S> {
 }
 
 impl XCBConn<Initialized> {
-    /// Shortcut static method to directly connect and 
+    /// Shortcut static method to directly connect and
     /// initialize a new connection.
     pub fn new() -> Result<Self> {
         XCBConn::connect()?.init()
@@ -346,9 +344,7 @@ impl XCBConn<Initialized> {
                     REvent::ScreenChangeNotify(_) => Ok(XEvent::ScreenChange),
                 }
             }
-            unk => {
-                Ok(XEvent::Unknown(format!("{:?}", unk)))
-            }
+            unk => Ok(XEvent::Unknown(format!("{:?}", unk))),
         }
     }
 
@@ -356,19 +352,17 @@ impl XCBConn<Initialized> {
     fn process_x_event(&self, event: x::Event) -> Result<XEvent> {
         use x::Event;
         match event {
-            Event::ConfigureNotify(event) => {
-                Ok(XEvent::ConfigureNotify(ConfigureEvent {
-                    from_root: id!(event.event()) == self.root.id,
-                    id: id!(event.window()),
-                    geom: Geometry {
-                        x: event.x() as i32,
-                        y: event.y() as i32,
-                        height: event.height() as i32,
-                        width: event.width() as i32,
-                    },
-                    is_root: id!(event.window()) == self.root.id,
-                }))
-            }
+            Event::ConfigureNotify(event) => Ok(XEvent::ConfigureNotify(ConfigureEvent {
+                from_root: id!(event.event()) == self.root.id,
+                id: id!(event.window()),
+                geom: Geometry {
+                    x: event.x() as i32,
+                    y: event.y() as i32,
+                    height: event.height() as i32,
+                    width: event.width() as i32,
+                },
+                is_root: id!(event.window()) == self.root.id,
+            })),
             Event::ConfigureRequest(req) => {
                 use x::{ConfigWindowMask as CWMask, StackMode as XStackMode};
                 use StackMode::*;

@@ -16,10 +16,8 @@ macro_rules! fatal {
 //     };
 // }
 
-use crate::{
-    XConn, ToaruError, ErrorHandler
-};
 use crate::manager::WmState;
+use crate::{ErrorHandler, ToaruError, XConn};
 use tracing::error;
 
 pub(crate) struct DefaultErrorHandler;

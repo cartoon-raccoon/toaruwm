@@ -1,5 +1,5 @@
 //! Types and traits providing a unified interface with the X server.
-//! 
+//!
 //! This module provides ToaruWM's main interface to the X server.
 //! The core of this module is the `XConn` trait, which defines the
 //! interface by which the window manager retrives data from and
@@ -8,9 +8,9 @@
 //! For concrete implementation of the traits exported here, this module
 //! offers two submodules which each contain implementations using the XCB
 //! and X11RB backing libraries respectively.
-//! 
+//!
 //! ## Connection Object Initialization
-//! 
+//!
 //! The two `XConn` implementors have two states: unitialized, and
 //! initialized, marked in their type constructor. Uninitialized
 //! connections are connections that have only established a connection
@@ -33,7 +33,7 @@ pub mod x11rb;
 pub mod xcb;
 
 #[doc(inline)]
-pub use self::core::{XAtom, XConn, XError, XWindow, XWindowID, Result};
+pub use self::core::{Result, XAtom, XConn, XError, XWindow, XWindowID};
 #[doc(inline)]
 pub use atom::{Atom, Atoms};
 #[doc(inline)]
@@ -44,7 +44,9 @@ pub(crate) use property::*;
 pub use self::x11rb::X11RBConn;
 #[doc(inline)]
 pub use self::xcb::XCBConn;
-
+#[doc(inline)]
+pub use status::ConnStatus;
+pub(crate) use status::{Initialized, Uninitialized};
 
 /* since xconn implementations can only be tested
 on a system with an X server running, disable this
@@ -59,31 +61,39 @@ an actual X server, keep this enabled for standard testing */
 #[cfg(test)]
 pub(crate) mod dummy;
 
-mod private {
-    pub trait Sealed {}
+/// Types for representing connection status.
+pub mod status {
+    //! This module contains the [`ConnStatus`] sealed trait,
+    //! as well as its two implementors, [`Initialized`] and
+    //! [`Uninitialized`]. These are used to mark the state of
+    //! the two connection objects, and act as guards to only
+    //! expose [`XConn`](crate::x::XConn) methods when safe
+    //! to do so.
+    mod private {
+        pub trait Sealed {}
+    }
+
+    /// A trait defining marker types `Unitialized` and `Initialized`.
+    pub trait ConnStatus: private::Sealed {}
+
+    /// A marker struct indicating a connection is uninitialized.
+    ///
+    /// Uninitialized connections do not expose any methods.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct Uninitialized;
+
+    impl ConnStatus for Uninitialized {}
+    impl private::Sealed for Uninitialized {}
+
+    /// A marker type indicating a connection is initialized and can be used.
+    ///
+    /// Initialized connections expose all available methods.
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    pub struct Initialized;
+
+    impl ConnStatus for Initialized {}
+    impl private::Sealed for Initialized {}
 }
-
-/// A trait defining marker types `Unitialized` and `Initialized`.
-pub trait ConnStatus: private::Sealed {}
-
-/// A marker struct indicating a connection is uninitialized.
-/// 
-/// Uninitialized connections do not expose any methods.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Uninitialized;
-
-impl ConnStatus for Uninitialized {}
-impl private::Sealed for Uninitialized {}
-
-/// A marker type indicating a connection is initialized and can be used.
-/// 
-/// Initialized connections expose all available methods.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Initialized;
-
-impl ConnStatus for Initialized {}
-impl private::Sealed for Initialized {}
-
 
 // various backend-agnostic conversion implementations
 

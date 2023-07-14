@@ -1,5 +1,5 @@
 //! Core data types used by ToaruWM.
-//! 
+//!
 //! This module contains the core types used within toaruwm.
 //! It contains high-level types that are used directly by toaruwu
 //! to manage windows and clients.

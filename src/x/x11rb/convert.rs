@@ -6,6 +6,7 @@ use x11rb::protocol::xproto;
 
 use strum::*;
 
+use super::Initialized;
 use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;
@@ -15,7 +16,6 @@ use crate::x::{
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
     x11rb::X11RBConn,
 };
-use super::Initialized;
 
 //* button mask and index conversions
 #[doc(hidden)]
