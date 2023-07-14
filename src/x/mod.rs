@@ -1,3 +1,5 @@
+//! Types and traits providing a unified interface with the X server.
+//! 
 //! This module provides ToaruWM's main interface to the X server.
 //! The core of this module is the `XConn` trait, which defines the
 //! interface by which the window manager retrives data from and
@@ -7,30 +9,29 @@
 //! offers two submodules which each contain implementations using the XCB
 //! and X11RB backing libraries respectively.
 
-/// Types for dealing with atoms and their string representations.
 pub mod atom;
-/// Core types and traits for interfacing with the X server.
 pub mod core;
-/// Convenience types for cursors.
 pub mod cursor;
-/// Types for representing X events.
 pub mod event;
-/// Types for working with keyboard and mouse input.
 pub mod input;
-/// Types for working with window properties.
 pub mod property;
 
-/// Implementation of `XConn` backed by the `x11rb` library.
+/// Implementation of `XConn` backed bt the `x11rb` library.
 pub mod x11rb;
 /// Implementation of `XConn` backed by the `xcb` library.
 pub mod xcb;
 
+#[doc(inline)]
 pub use self::core::{XAtom, XConn, XError, XWindow, XWindowID};
+#[doc(inline)]
 pub use atom::{Atom, Atoms};
+#[doc(inline)]
 pub use event::XEvent;
-pub use property::*;
+pub(crate) use property::*;
 
+#[doc(inline)]
 pub use self::x11rb::X11RBConn;
+#[doc(inline)]
 pub use self::xcb::XCBConn;
 
 

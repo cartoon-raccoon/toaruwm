@@ -1,3 +1,5 @@
+//! Types for parsing and creating key and mouse bindings.
+
 use std::collections::HashMap;
 use std::process::{Command, Stdio};
 
@@ -17,12 +19,28 @@ pub use crate::x::input::MouseEventKind;
 /// A type representing a modifier key tied to a certain keybind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ModKey {
+    /// The Ctrl key.
     Ctrl = ModMask::CONTROL.bits() as isize,
+    /// The Alt key.
     Alt = ModMask::MOD1.bits() as isize,
+    /// The Shift key.
     Shift = ModMask::SHIFT.bits() as isize,
+    /// The Super/Meta key.
     Meta = ModMask::MOD4.bits() as isize,
 }
 
+
+// impl<I: IntoIterator<Item = ModKey>> From<I> for ModMask {
+//     fn from(from: I) -> ModMask {
+//         from.into_iter().fold(ModMask::empty(), |acc, n| match n {
+//             ModKey::Ctrl => acc | ModMask::CONTROL,
+//             ModKey::Alt => acc | ModMask::MOD1,
+//             ModKey::Shift => acc | ModMask::SHIFT,
+//             ModKey::Meta => acc | ModMask::MOD4,
+//         })
+//     }
+// }
+#[doc(hidden)]
 impl From<Vec<ModKey>> for ModMask {
     fn from(from: Vec<ModKey>) -> ModMask {
         from.into_iter().fold(ModMask::empty(), |acc, n| match n {
@@ -37,10 +55,15 @@ impl From<Vec<ModKey>> for ModMask {
 /// A type representing a mouse button tied to a certain mousebind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum ButtonIndex {
+    /// The left mouse button.
     Left,
+    /// The middle mouse button (clicking the scroll wheel).
     Middle,
+    /// The right mouse button.
     Right,
+    /// The scroll wheel (direction TODO).
     Button4,
+    /// The scroll wheel (direction TODO).
     Button5,
 }
 
@@ -52,6 +75,7 @@ pub struct Keybind {
 }
 
 impl Keybind {
+    /// Creates new `Keybind`.
     pub fn new<M: Into<ModMask>>(modifiers: M, code: KeyCode) -> Self {
         Self {
             modmask: modifiers.into(),
@@ -69,6 +93,7 @@ pub struct Mousebind {
 }
 
 impl Mousebind {
+    /// Creates a new Mousebind.
     pub fn new<M: Into<ModMask>>(modifiers: M, button: ButtonIndex, kind: MouseEventKind) -> Self {
         Self {
             modmask: modifiers.into(),
@@ -78,6 +103,7 @@ impl Mousebind {
     }
 }
 
+/// Convenience function for constructing a keybind.
 pub fn kb(modmask: Vec<ModKey>, code: u8) -> Keybind {
     Keybind {
         modmask: modmask.into(),
@@ -85,6 +111,7 @@ pub fn kb(modmask: Vec<ModKey>, code: u8) -> Keybind {
     }
 }
 
+/// Convenience function for constructing a mousebind.
 pub fn mb(modmask: Vec<ModKey>, button: ButtonIndex, kind: MouseEventKind) -> Mousebind {
     Mousebind {
         modmask: modmask.into(),
@@ -105,11 +132,13 @@ impl From<KeypressEvent> for Keybind {
 /// A type that maps a set of keysyms to a keycode.
 ///
 /// Requires `xmodmap` in order to work. Returns SpawnProc error otherwise.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Keymap {
     map: HashMap<Vec<String>, KeyCode>,
 }
 
 impl Keymap {
+    /// Creates a new keymap.
     pub fn new() -> Result<Keymap> {
         let mut map = HashMap::new();
 
@@ -139,6 +168,8 @@ impl Keymap {
 
         Ok(Keymap { map })
     }
+
+    // todo: create a keymap that doesn't rely on xmodmap
 
     /// Parses a string as a keybinding.
     ///
@@ -209,6 +240,9 @@ pub type MouseCallback<X> = Box<dyn FnMut(&mut WindowManager<X>, Point)>;
 /// It consists of two components: A keybind, and its associated
 /// callback function. It accepts a mutable reference to a
 /// WindowManager to run associated methods.
+/// 
+/// Clone is not implemented for this type since Callbacks are not Clone.
+#[derive(Default)]
 pub struct Keybinds<X>
 where
     X: XConn,
@@ -217,6 +251,7 @@ where
 }
 
 impl<X: XConn> Keybinds<X> {
+    /// Creates a new Keybinds object.
     pub fn new() -> Self {
         Self{
             bindings: HashMap::new()
@@ -229,8 +264,11 @@ impl<X: XConn> Keybinds<X> {
     }
 
     /// Inserts a new keybind-callback mapping.
-    pub fn insert(&mut self, kb: Keybind, cb: KeyCallback<X>) {
-        self.bindings.insert(kb, cb);
+    pub fn insert<F>(&mut self, kb: Keybind, cb: F)
+    where
+        F: FnMut(&mut WindowManager<X>) + 'static
+    {
+        self.bindings.insert(kb, Box::new(cb));
     }
 
     /// Removes the callback associated with the given keybind.
@@ -238,10 +276,12 @@ impl<X: XConn> Keybinds<X> {
         self.bindings.remove(kb)
     }
 
+    /// Gets a reference to the callback associated with the keybind.
     pub fn get(&self, kb: &Keybind) -> Option<&KeyCallback<X>> {
         self.bindings.get(kb)
     }
 
+    /// Gets a mutable reference to the callback associated with the keybind.
     pub fn get_mut(&mut self, kb: &Keybind) -> Option<&mut KeyCallback<X>> {
         self.bindings.get_mut(kb)
     }
@@ -254,8 +294,11 @@ impl<X: XConn> Keybinds<X> {
 /// and a [Point][1], which contains the current coordinates of the pointer.
 /// This point is used internally by the WindowManager and should not appear
 /// in the user-facing API.
+/// 
+/// Clone is not implemented for this type since Callbacks are not Clone.
 ///
 /// [1]: crate::core::types::Point
+#[derive(Default)]
 pub struct Mousebinds<X>
 where
     X: XConn,
@@ -274,8 +317,11 @@ impl<X: XConn> Mousebinds<X> {
         self.bindings.keys()
     }
 
-    pub fn insert(&mut self, kb: Mousebind, cb: MouseCallback<X>) {
-        self.bindings.insert(kb, cb);
+    pub fn insert<F>(&mut self, kb: Mousebind, cb: F)
+    where
+        F: FnMut(&mut WindowManager<X>, Point) + 'static
+    {
+        self.bindings.insert(kb, Box::new(cb));
     }
 
     pub fn remove(&mut self, kb: &Mousebind) -> Option<MouseCallback<X>> {

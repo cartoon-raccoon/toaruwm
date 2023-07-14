@@ -71,6 +71,7 @@ impl ClientRing {
         }
     }
 
+    /// Sets the focused element by its index in the underlying Ring.
     pub fn set_focused_by_idx(&mut self, idx: usize) {
         self.set_focused(idx);
     }
@@ -190,6 +191,8 @@ impl Client {
         self.xwindow.geom
     }
 
+    /// Returns the initial geometry of the window, as set by the
+    /// program that created it.
     #[inline(always)]
     pub fn initial_geom(&self) -> Geometry {
         self.initial_geom
@@ -231,6 +234,10 @@ impl Client {
         self.urgent
     }
 
+    /// Returns whether the Client is fullscreen.
+    /// 
+    /// Note that this is not the actual state of the client on
+    /// the X server, this is the state as tracked by ToaruWM.
     #[inline(always)]
     pub fn is_fullscreen(&self) -> bool {
         self.fullscreen
@@ -473,6 +480,8 @@ impl Client {
         // );
     }
 
+    /// Sets the position of the window on the root window with respect to
+    /// its gravity.
     pub fn set_position<X: XConn>(&mut self, conn: &X, x: i32, y: i32) {
         self.xwindow.set_pos_x(x);
         self.xwindow.set_pos_y(y);
@@ -487,6 +496,7 @@ impl Client {
         .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
     }
 
+    /// Sets the size of the window.
     pub fn set_size<X: XConn>(&mut self, conn: &X, height: i32, width: i32) {
         self.xwindow.set_height(height);
         self.xwindow.set_width(width);

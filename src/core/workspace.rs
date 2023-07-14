@@ -150,6 +150,9 @@ impl Workspace {
         self.layoutter.layout()
     }
 
+    /// Returns the `Some(idx)` where `idx` is the index of the
+    /// Client in its underlying ring, or `None` if the Client
+    /// does not exist.
     #[inline]
     pub fn contains(&self, window: XWindowID) -> Option<usize> {
         self.windows.get_idx(window)

@@ -18,12 +18,14 @@ use crate::x::{
 };
 
 //* mouse button and button index conversions
+#[doc(hidden)]
 impl From<ButtonMask> for x::ButtonMask {
     fn from(from: ButtonMask) -> x::ButtonMask {
         x::ButtonMask::from_bits_truncate(from.bits() as u32)
     }
 }
 
+#[doc(hidden)]
 impl From<ButtonIndex> for x::ButtonIndex {
     fn from(from: ButtonIndex) -> x::ButtonIndex {
         use ButtonIndex::*;
@@ -39,6 +41,7 @@ impl From<ButtonIndex> for x::ButtonIndex {
 }
 
 //* modifier key conversions
+#[doc(hidden)]
 impl From<ModKey> for x::ModMask {
     fn from(from: ModKey) -> x::ModMask {
         use ModKey::*;
@@ -52,30 +55,35 @@ impl From<ModKey> for x::ModMask {
     }
 }
 
+#[doc(hidden)]
 impl From<ModMask> for x::ModMask {
     fn from(from: ModMask) -> x::ModMask {
         x::ModMask::from_bits_truncate(from.bits() as u32)
     }
 }
 
+#[doc(hidden)]
 impl From<x::ModMask> for ModMask {
     fn from(from: x::ModMask) -> ModMask {
         ModMask::from_bits_truncate(from.bits() as u16)
     }
 }
 
+#[doc(hidden)]
 impl From<KeyButMask> for x::KeyButMask {
     fn from(from: KeyButMask) -> x::KeyButMask {
         x::KeyButMask::from_bits_truncate(from.bits() as u32)
     }
 }
 
+#[doc(hidden)]
 impl From<x::KeyButMask> for KeyButMask {
     fn from(from: x::KeyButMask) -> KeyButMask {
         KeyButMask::from_bits_truncate(from.bits() as u16)
     }
 }
 
+#[doc(hidden)]
 impl From<x::KeyButMask> for ModMask {
     fn from(from: x::KeyButMask) -> ModMask {
         KeyButMask::from(from).modmask()

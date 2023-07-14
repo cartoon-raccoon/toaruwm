@@ -13,8 +13,14 @@ use crate::x::{
 pub use super::window::{Client, ClientRing};
 
 // todo: deprecate this and put inside configuration
+/// The border thickness to use on windows.
+/// 
+/// NOTE: deprecation for this is planned and will become
+/// user-configurable.
 pub const BORDER_WIDTH: u32 = 2;
 
+/// Specifies a direction.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
     Forward,
@@ -22,6 +28,7 @@ pub enum Direction {
 }
 
 /// A cardinal direction.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Cardinal {
     Up,
@@ -35,7 +42,8 @@ pub enum Cardinal {
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Point.
 ///
-/// [1]: std::cmp::PartialEq
+/// [1]: std::cmp::PartialEq\
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
     pub x: i32,
@@ -91,13 +99,13 @@ impl Point {
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Geometry {
-    // The x coordinate of the top left corner.
+    /// The x coordinate of the top left corner.
     pub x: i32,
-    // The y coordinate of the top left corner.
+    /// The y coordinate of the top left corner.
     pub y: i32,
-    // The height of the geometry.
+    /// The height of the geometry.
     pub height: i32,
-    // The width of the geometry.
+    /// The width of the geometry.
     pub width: i32,
 }
 
@@ -473,7 +481,8 @@ impl Geometry {
     }
 }
 
-// Whether the mouse button is pressed.
+/// Whether the mouse button is pressed, and what state the mouse is in
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy)]
 pub enum MouseMode {
     None,
@@ -490,10 +499,15 @@ pub(crate) enum WinLayoutState {
 
 /// Determines the colour that should be applied to
 /// the window border.
+/// 
+/// The actual colour values are specified in `Config`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BorderStyle {
+    /// The colour to be applied to the focused window.
     Focused,
+    /// The colour to be applied to an unfocused window.
     Unfocused,
+    /// The colour to applied when a window is marked as urgent.
     Urgent,
 }
 
@@ -505,8 +519,14 @@ pub enum ClientConfig {
     /// Position of the window.
     Position(Geometry),
     /// Resizing the window.
-    Resize { h: i32, w: i32 },
+    Resize {
+        /// The height.
+        h: i32, 
+        /// The width.
+        w: i32,
+    },
     /// Moving the window.
+    #[allow(missing_docs)]
     Move { x: i32, y: i32 },
     /// Stacking mode of the window.
     StackingMode(StackMode),
@@ -525,33 +545,41 @@ pub enum ClientAttrs {
     RootEventMask,
 }
 
-/// Convenience wrapper around a Vec of NetWindowStates.
+/// Convenience wrapper around a list of NetWindowStates.
 #[derive(Debug, Clone, Default)]
 pub struct NetWindowStates {
     states: Vec<XAtom>,
 }
 
 impl NetWindowStates {
+    /// Creates a new `NetWindowStates`.
     pub fn new() -> Self {
         Self { states: Vec::new() }
     }
 
-    pub fn from_strings<X: XConn>(strs: Vec<String>, conn: &X) -> Self {
-        strs.into_iter()
+    /// Creates a new `NetWindowStates from an iterator of types.
+    pub fn from_strings<I, X: XConn>(strs: I, conn: &X) -> Self
+    where
+        I: IntoIterator<Item = String>
+    {
+        Self { states: strs.into_iter()
             .map(|s| conn.atom(&s))
             .filter_map(|a| a.ok()) // filter out errors
             .collect::<Vec<XAtom>>()
-            .into()
+        }
     }
 
+    /// Checks whether `self` contains the given atom.
     pub fn contains(&self, prop: XAtom) -> bool {
         self.states.contains(&prop)
     }
 
+    /// Adds a new atom to `self`.
     pub fn add(&mut self, prop: XAtom) {
         self.states.push(prop)
     }
 
+    /// Removes a given atom.
     pub fn remove(&mut self, prop: XAtom) -> XAtom {
         for (idx, atom) in self.states.iter().enumerate() {
             if *atom == prop {
@@ -563,9 +591,12 @@ impl NetWindowStates {
     }
 }
 
-impl From<Vec<XAtom>> for NetWindowStates {
-    fn from(from: Vec<XAtom>) -> Self {
-        Self { states: from }
+impl<I> From<I> for NetWindowStates
+where
+    I: Iterator<Item = XAtom>
+{
+    fn from(from: I) -> Self {
+        Self { states: from.collect() }
     }
 }
 
@@ -574,6 +605,15 @@ impl Deref for NetWindowStates {
 
     fn deref(&self) -> &Self::Target {
         self.states.as_slice()
+    }
+}
+
+impl IntoIterator for NetWindowStates {
+    type Item = XAtom;
+    type IntoIter = std::vec::IntoIter<XAtom>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.states.into_iter()
     }
 }
 
@@ -590,6 +630,7 @@ impl From<LayoutType> for WinLayoutState {
 
 /// ICCCM-defined window properties.
 //todo: make all fields private, accessible with methods.
+#[derive(Clone, Debug)]
 pub struct XWinProperties {
     pub(crate) wm_name: String,
     pub(crate) wm_icon_name: String,

@@ -17,18 +17,21 @@ use crate::x::{
 };
 
 //* button mask and index conversions
+#[doc(hidden)]
 impl From<ButtonMask> for xproto::ButtonMask {
     fn from(from: ButtonMask) -> xproto::ButtonMask {
         xproto::ButtonMask::from(from.bits())
     }
 }
 
+#[doc(hidden)]
 impl From<xproto::ButtonMask> for ButtonMask {
     fn from(from: xproto::ButtonMask) -> ButtonMask {
         ButtonMask::from_bits_truncate(from.bits())
     }
 }
 
+#[doc(hidden)]
 impl From<ButtonIndex> for xproto::ButtonIndex {
     fn from(from: ButtonIndex) -> xproto::ButtonIndex {
         use ButtonIndex::*;
@@ -44,6 +47,7 @@ impl From<ButtonIndex> for xproto::ButtonIndex {
 }
 
 //* modifier key conversions
+#[doc(hidden)]
 impl From<ModKey> for xproto::ModMask {
     fn from(from: ModKey) -> xproto::ModMask {
         use ModKey::*;
@@ -57,12 +61,14 @@ impl From<ModKey> for xproto::ModMask {
     }
 }
 
+#[doc(hidden)]
 impl From<ModMask> for xproto::ModMask {
     fn from(from: ModMask) -> xproto::ModMask {
         xproto::ModMask::from(from.bits())
     }
 }
 
+#[doc(hidden)]
 impl From<xproto::ModMask> for ModMask {
     fn from(from: xproto::ModMask) -> ModMask {
         ModMask::from_bits_truncate(from.bits())
@@ -70,12 +76,14 @@ impl From<xproto::ModMask> for ModMask {
 }
 
 //* conversions for keybutmask
+#[doc(hidden)]
 impl From<KeyButMask> for xproto::KeyButMask {
     fn from(from: KeyButMask) -> xproto::KeyButMask {
         xproto::KeyButMask::from(from.bits())
     }
 }
 
+#[doc(hidden)]
 impl From<xproto::KeyButMask> for KeyButMask {
     fn from(from: xproto::KeyButMask) -> KeyButMask {
         KeyButMask::from_bits_truncate(from.bits())

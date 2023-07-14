@@ -1,8 +1,10 @@
+//! The window manager itself, and associated modules.
+
 //#![allow(unused_variables, unused_imports, dead_code)]
 use std::fmt;
 use std::iter::FromIterator;
+use std::ffi::OsStr;
 use std::process::{Command, Stdio};
-use std::collections::HashMap;
 
 //use std::marker::PhantomData;
 
@@ -22,16 +24,23 @@ use crate::x::{
 };
 use crate::{ErrorHandler, Result, ToaruError};
 
+/// The central configuration object for the window manager.
 pub mod config;
+/// A translation layer for converting X events into `WindowManager` actions.
 pub mod event;
+/// Types for introspection into the WindowManager's state.
 pub mod state;
+/// Macros and storage types for window manager hooks.
+pub mod hooks;
 
+#[doc(inline)]
 pub use event::EventAction;
-pub(crate) use state::WMState;
-
+#[doc(inline)]
+pub use state::WMState;
+#[doc(inline)]
 pub use config::Config;
-
-use state::State;
+#[doc(inline)]
+pub use hooks::{Hook, Hooks};
 
 //static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
 
@@ -42,23 +51,6 @@ macro_rules! handle_err {
         }
     };
 }
-
-/// Arbitrary code that can be run by the window manager.
-pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
-
-/// Macro for creating a hook that can be run by the window manager.
-#[macro_export]
-macro_rules! hook {
-    (|$wm:ident| $code:tt) => {
-        Box::new(|$wm: &mut WindowManager<_>| $code)
-    };
-    (move |$wm:ident| $code:tt) => {
-        Box::new(move |$wm: &mut WindowManager<_>| $code)
-    }
-}
-
-/// Hooks that can be run by the window manager.
-pub type Hooks<X> = HashMap<State, Vec<Hook<X>>>;
 
 /// The main window manager object that owns the event loop,
 /// and receives and responds to events.
@@ -76,17 +68,38 @@ pub type Hooks<X> = HashMap<State, Vec<Hook<X>>>;
 /// and mousebindings and register those with the X server as well.
 /// After that, then it can initiate the event loop.
 ///
-/// ```ignore
-/// use std::collections::HashMap;
-/// use toaruwm::{XCBConn, WindowManager};
+/// ```no_run
+/// use toaruwm::{XCBConn, Config, WindowManager};
+/// use toaruwm::keybinds::{Keybinds, Mousebinds};
 ///
 /// let conn = XCBConn::new().unwrap();
 ///
-/// let mut wm = WindowManager::new(conn);
+/// let mut wm = WindowManager::new(conn, Config::default());
 ///
+/// /* register the windowmanager with the x server */
 /// wm.register(Vec::new());
-///
-/// wm.grab_and_run(HashMap::new(), HashMap::new());
+/// 
+/// /* run the windowmanager, ideally grabbing your keybinds first! */
+/// wm.run(Keybinds::new(), Mousebinds::new());
+/// ```
+/// 
+/// The WindowManager has a few methods defined on it that allow you
+/// to control its behaviour. These methods are usually invoked through
+/// a callback triggered by a keybind or mousebind.
+/// 
+/// ## Example
+/// 
+/// ```ignore
+/// use toaruwm::keybinds::{ModKey, Keybind, Keybinds, Mousebinds};
+/// 
+/// /* create a new keybinds object */
+/// let mut keybinds = Keybinds::new();
+/// 
+/// /* create a binding */
+/// let kb = Keybind::new(vec![ModKey::Meta], "t") // <-- use a keycode here!
+/// 
+/// /* set a callback to run */
+/// keybinds.insert(|wm| {wm.run_external("xterm", &[])});
 /// ```
 ///
 /// # Defaults
@@ -178,7 +191,10 @@ impl<X: XConn> WindowManager<X> {
     /// Selects for subtructure redirect and notify,
     /// grabs required keys for keybinds,
     /// and runs any registered startup hooks.
-    pub fn register(&mut self, hooks: Vec<Hook<X>>) {
+    pub fn register<I>(&mut self, hooks: I)
+    where
+        I: IntoIterator<Item = Hook<X>>
+    {
         info!("Registering window manager");
 
         let root = self.conn.get_root();
@@ -236,11 +252,13 @@ impl<X: XConn> WindowManager<X> {
         }
     }
 
+    /// Grabs bindings and runs the window manager.
     pub fn grab_and_run(&mut self, mb: Mousebinds<X>, kb: Keybinds<X>) -> Result<()> {
         self.grab_bindings(&mb, &kb)?;
         self.run(mb, kb)
     }
 
+    /// Grabs the given key and mouse bindings.
     pub fn grab_bindings(&mut self, mb: &Mousebinds<X>, kb: &Keybinds<X>) -> Result<()> {
         info!(target: "", "Grabbing mouse bindings");
         let root_id = self.conn.get_root().id;
@@ -304,10 +322,9 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Run an external command.
-    pub fn run_external<S: Into<String>>(&mut self, cmd: S, args: &[&str]) {
-        let cmd = cmd.into();
-        debug!("Running command [{}] with args {:?}", cmd, args);
-        let result = Command::new(cmd)
+    pub fn run_external<S: AsRef<OsStr>>(&mut self, cmd: S, args: &[S]) {
+        debug!("Running command [{:?}]", <S as AsRef<OsStr>>::as_ref(&cmd));
+        let result = Command::new(&cmd)
             .args(args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -322,7 +339,7 @@ impl<X: XConn> WindowManager<X> {
     /// Set an error handler for WindowManager.
     pub fn set_error_handler<F>(&mut self, f: F)
     where
-        F: for<'a> FnMut(ToaruError) + 'static,
+        F: FnMut(ToaruError) + 'static,
     {
         self.ehandler = Box::new(f);
     }

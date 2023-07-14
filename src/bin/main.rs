@@ -64,7 +64,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .try_init()?;
 
     //* 1: Setup X Connection and allocate new WM object
-    let mut wm = x11rb_backed_wm(Config::default())?;
+    let mut manager = x11rb_backed_wm(Config::default())?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here
@@ -98,11 +98,11 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     //* 3: Register the WM as a client with the X server
     //*    and initialise internal state
     //* a: Grab keys and mousebinds
-    wm.register(vec![test_hook]);
-    wm.grab_bindings(&mousebinds, &keybinds)?;
+    manager.register(vec![test_hook]);
+    manager.grab_bindings(&mousebinds, &keybinds)?;
 
     //* 4: We're good to go!
-    wm.run(mousebinds, keybinds)?;
+    manager.run(mousebinds, keybinds)?;
 
     Ok(())
 }

@@ -195,6 +195,7 @@ impl X11RBConn {
         &self.conn
     }
 
+    /// Allocates a new cursor in the X server.
     pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
         trace!("creating cursor");
 
@@ -222,6 +223,7 @@ impl X11RBConn {
         Ok(())
     }
 
+    /// Sets a cursor for the given window.
     pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
         use x11rb::protocol::xproto::ChangeWindowAttributesAux;
 

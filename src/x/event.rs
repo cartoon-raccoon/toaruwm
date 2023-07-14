@@ -1,3 +1,5 @@
+//! Types for working with X events.
+
 use super::{
     core::{StackMode, XAtom},
     input::{KeyCode, ModMask},
@@ -148,6 +150,7 @@ pub struct MouseEvent {
 /// A trait for converting backend types to a MouseEvent type.
 pub(crate) trait ButtonEvent {}
 
+/// A ClientMessageEvent sent by the X server.
 #[derive(Debug, Clone, Copy)]
 pub struct ClientMessageEvent {
     /// The window receiving the message.
@@ -162,11 +165,15 @@ pub struct ClientMessageEvent {
 /// as specified by ICCCM.
 #[derive(Clone, Copy, Debug)]
 pub enum ClientMessageData {
+    /// The data should be interpreted as bytes.
     U8([u8; 20]),
+    /// The data should be interpreted as words.
     U16([u16; 10]),
+    /// The data should be interpreted as doublewords.
     U32([u32; 5]),
 }
 
+#[allow(missing_docs)]
 impl ClientMessageData {
     #[inline(always)]
     pub fn is_u8(&self) -> bool {

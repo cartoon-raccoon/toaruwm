@@ -36,6 +36,7 @@ pub enum InsertPoint {
 }
 
 /// A type to select items from a Ring.
+// todo: implement debug
 #[derive(Clone, Copy)]
 pub enum Selector<'a, T> {
     /// Any item.

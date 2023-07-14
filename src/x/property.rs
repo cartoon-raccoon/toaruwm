@@ -1,3 +1,5 @@
+//! Types for working with window properties.
+
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -73,6 +75,7 @@ impl Property {
 macro_rules! derive_is {
     ($name:ident, $var:pat) => {
         impl Property {
+            /// Checks whether the property is indeed the variant.
             pub fn $name(&self) -> bool {
                 matches!(self, $var)
             }
@@ -169,8 +172,11 @@ impl fmt::Display for Property {
 /// The ICCCM-defined window states.
 #[derive(Clone, Copy, Debug)]
 pub enum WindowState {
+    /// The window is shown as normal.
     Normal = 1,
+    /// The window has been "iconified".
     Iconic = 3,
+    /// The window is withdrawn (unmapped).
     Withdrawn = 0,
 }
 
@@ -262,6 +268,7 @@ pub struct WmHints {
 }
 
 impl WmHints {
+    /// Returns an empty `WMHints`.
     pub fn new() -> Self {
         Default::default()
     }
@@ -393,6 +400,7 @@ pub struct WmSizeHints {
 }
 
 impl WmSizeHints {
+    /// Returns an empty `WMSizeHints`.
     pub fn new() -> Self {
         Default::default()
     }

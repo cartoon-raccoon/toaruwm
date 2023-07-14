@@ -121,21 +121,23 @@
 //! For the full details on compliance, see the `COMPLIANCE` file
 //! in this project's git repository.
 
+#![warn(
+    missing_debug_implementations,
+    missing_copy_implementations,
+    missing_docs,
+)]
+
 #[macro_use]
 extern crate bitflags;
 
 #[macro_use]
 mod log;
 
-/// Core data types not used by ToaruWM.
 pub mod core;
-/// Types for parsing and creating key and mouse bindings.
 pub mod keybinds;
 /// Types and traits for defining and generating window layouts.
 pub mod layouts;
-/// The window manager itself, and associated modules.
 pub mod manager;
-/// Types and traits providing a unified interface with the X server.
 pub mod x;
 
 pub(crate) mod util;
@@ -150,7 +152,7 @@ use std::io;
 use std::num::ParseIntError;
 use std::ops::FnMut;
 
-/// Convenience function for creating a XCB-backed WindowManager.
+/// Convenience function for creating an `xcb`-backed `WindowManager`.
 pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn>> {
     let mut conn = XCBConn::connect()?;
     conn.init()?;
@@ -160,7 +162,7 @@ pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn>> {
     Ok(wm)
 }
 
-/// Convenience function for creating a XCB-backed WindowManager.
+/// Convenience function for creating an `x11rb`-backed `WindowManager`.
 pub fn x11rb_backed_wm(config: Config) -> XResult<WindowManager<X11RBConn>> {
     let mut conn = X11RBConn::connect()?;
     conn.init()?;
@@ -188,6 +190,7 @@ pub enum ToaruError {
     #[error("Could not parse X data type from integer")]
     ParseInt,
 
+    /// An error occurred when parsing a keybind specification.
     #[error("Could not parse keybind \"{0}\"")]
     ParseKeybind(String),
 

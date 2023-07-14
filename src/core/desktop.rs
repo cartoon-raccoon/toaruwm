@@ -71,6 +71,7 @@ pub struct Desktop {
 }
 
 impl Desktop {
+    /// Creates a new `Desktop`.
     pub fn new(layout: LayoutType, lfn: Option<LayoutFn>, wksps: Vec<String>) -> Self {
         let mut desktop = Self {
             workspaces: {

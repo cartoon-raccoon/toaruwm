@@ -1,3 +1,5 @@
+//! Types for dealing with atoms and their string representations.
+
 //use std::convert::TryFrom;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -176,6 +178,8 @@ pub enum Atom {
     NetWindowTypeNormal,
 }
 
+/// An error generated when an `XAtom` could not be converted
+/// into a known `Atom` variant.
 #[derive(Clone, Copy, Debug, Error)]
 #[error("Could not get known atom from given atom {0}")]
 pub struct TryFromAtomError(XAtom);
@@ -233,7 +237,11 @@ pub struct Atoms {
     interned: HashMap<String, XAtom>,
 }
 
+/* note: none of the methods here use generics since it should
+be easy to coerce into a &str from most things, and we also want
+to avoid bloat when the compiler monomorphizes everything */
 impl Atoms {
+    /// Creates a new `Atoms` store.
     pub fn new() -> Self {
         Self {
             known: HashMap::new(),
@@ -241,6 +249,7 @@ impl Atoms {
         }
     }
 
+    /// Inserts an `XAtom` and its associated string.
     pub fn insert(&mut self, atom: &str, val: XAtom) {
         if let Ok(known) = Atom::from_str(atom) {
             self.known.insert(known, val);
@@ -249,6 +258,8 @@ impl Atoms {
         }
     }
 
+    /// Retrieves the atom associated with the given string,
+    /// if it exists.
     pub fn retrieve(&self, atom: &str) -> Option<XAtom> {
         if let Ok(known) = Atom::from_str(atom) {
             self.known.get(&known).copied()
@@ -257,6 +268,8 @@ impl Atoms {
         }
     }
 
+    /// Retrieves the atom's associated string with the given value,
+    /// if it exists.
     pub fn retrieve_by_value(&self, atom: XAtom) -> Option<String> {
         if let Some((known, _)) = self.known.iter().find(|(_, v)| **v == atom) {
             Some(known.to_string())

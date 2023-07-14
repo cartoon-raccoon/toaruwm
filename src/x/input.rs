@@ -1,17 +1,23 @@
+//! Types for working with keyboard and mouse input.
+//! 
 //! Type definitions for various input types defined
 //! by the X server protocol.
+//! 
+#![allow(missing_docs)] // so bitflags stops screaming at me
 
 use std::ops::{BitAnd, BitOr};
 
 use bitflags::bitflags;
 
 use crate::{
-    keybinds::{ButtonIndex, ModKey, Mousebind},
+    keybinds::{ButtonIndex, ModKey, Keybind, Mousebind},
     x::core::BitMask,
 };
 
 //* Re-exports
+/// Keysyms used by the X xerver.
 pub mod keysym {
+    /// A keysym, as defined by the X protocol specification.
     pub type KeySym = u32;
     pub use x11::keysym::*;
 }
@@ -46,18 +52,25 @@ pub struct ModMask: u16 {
     const MOD1    = 1 << 3;
     /// The Numlock key.
     const MOD2    = 1 << 4;
+    /// The MOD3 key, whatever the X server has assigned it to.
     const MOD3    = 1 << 5;
     /// The Super/Meta/Windows key.
     const MOD4    = 1 << 6;
+    /// The MOD5 key, same as the MOD3 key.
     const MOD5    = 1 << 7;
 }
 
 /// Bitmask representing one or a combination of mouse buttons.
 pub struct ButtonMask: u16 {
+    /// Mouse button left.
     const M1 = 1 << 8;
+    /// Mouse button center.
     const M2 = 1 << 9;
+    /// Mouse button right.
     const M3 = 1 << 10;
+    /// Mouse scroll wheel (up?)
     const M4 = 1 << 11;
+    /// Mouse scroll wheel (down?)
     const M5 = 1 << 12;
 }
 
@@ -82,6 +95,7 @@ pub struct ButtonMask: u16 {
 ///
 /// assert_eq!(combined, (KeyButMask::SHIFT|KeyButMask::M1));
 /// ```
+#[allow(missing_docs)]
 pub struct KeyButMask: u16 {
     const SHIFT   = ModMask::SHIFT.bits();
     const LOCK    = ModMask::LOCK.bits();
@@ -180,9 +194,19 @@ _impl_bitwise!(Or: ModMask, ButtonMask => KeyButMask);
 _impl_bitwise!(And: ButtonMask, ModMask => KeyButMask);
 _impl_bitwise!(Or: ButtonMask, ModMask => KeyButMask);
 
+impl Keybind {
+    /// Express the modifier mask as a generic type.
+    pub fn modmask<T>(&self) -> T
+    where
+        T: BitMask + From<ModMask>,
+    {
+        self.modmask.into()
+    }
+}
+
 impl Mousebind {
     /// Express the modifier mask as an generic type.
-    pub(crate) fn modmask<T>(&self) -> T
+    pub fn modmask<T>(&self) -> T
     where
         T: BitMask + From<ModMask>,
     {

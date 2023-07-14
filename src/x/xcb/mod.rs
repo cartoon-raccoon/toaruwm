@@ -1,3 +1,5 @@
+//! Implementation of `XConn` backed by the `x11rb` library.
+//! 
 //! This module provides an interface to the X11 protocol via the XCB
 //! backend.
 //!
@@ -206,6 +208,7 @@ impl XCBConn {
         &self.conn
     }
 
+    /// Allocates a new cursor on the X server.
     pub fn create_cursor(&mut self, glyph: u16) -> Result<()> {
         trace!("creating cursor");
 
@@ -240,6 +243,7 @@ impl XCBConn {
         Ok(())
     }
 
+    /// Sets the cursor for the given window.
     pub fn set_cursor(&self, window: XWindowID) -> Result<()> {
         trace!("setting cursor for {}", window);
 

@@ -1,3 +1,5 @@
+//! Core types and traits for interfacing with the X server.
+//! 
 //! Core functionality of ToaruWM's interface with the X server.
 //!
 //! This module defines core types and traits used throughout this
@@ -33,7 +35,8 @@ pub type XAtom = u32;
 
 /// A marker trait to signal that a type can be treated as a bitmask.
 /// 
-/// This means that the type supports bitmask
+/// This means that the type supports bitmask operations such as
+/// bitwise AND, bitwise OR, bitwise NOT, etc.
 pub trait BitMask
 where
     Self: BitAnd + BitOr + Not + 
@@ -48,14 +51,20 @@ where
 /// Window stacking modes defined by the X Protocol.
 #[derive(Clone, Copy, Debug)]
 pub enum StackMode {
+    /// Stack the window above all its siblings.
     Above,
+    /// Stack the window below all its siblings.
     Below,
+    /// TODO
     TopIf,
+    /// TODO
     BottomIf,
+    /// TODO
     Opposite,
 }
 
 /// Reply to a pointer query.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PointerQueryReply {
     /// If the pointer is on the current screen.
     pub same_screen: bool,
@@ -78,11 +87,14 @@ pub struct PointerQueryReply {
 /// Representation of an X window with additional data (geometry).
 #[derive(Debug, Clone, Copy)]
 pub struct XWindow {
+    /// The X ID assigned to the window.
     pub id: XWindowID,
+    /// The geometry of the window as stored on the X server.
     pub geom: Geometry,
 }
 
 impl XWindow {
+    /// Creates an `XWindow` with all fields zeroed.
     pub fn zeroed() -> Self {
         XWindow {
             id: 0,
@@ -90,6 +102,7 @@ impl XWindow {
         }
     }
 
+    /// Creates an `XWindow` with the given data.
     pub fn with_data(id: XWindowID, geom: Geometry) -> Self {
         XWindow { id, geom }
     }
@@ -116,6 +129,7 @@ impl From<XWindowID> for XWindow {
     }
 }
 
+/// The type of window that you want to create.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowClass {
     /// An invisible window to make API calls
@@ -201,21 +215,26 @@ impl XWindow {
 }
 
 /// Possible errors returned by the X connection.
+#[non_exhaustive]
 #[derive(Debug, Error, Clone)]
 pub enum XError {
     /// An error when establishing a connection with the server.
     #[error("X connection error: {0}")]
     Connection(String),
 
+    /// An error caused by a malformed protocol request.
     #[error("protocol error: {0}")]
     Protocol(String),
 
+    /// No screens were found by the window manager.
     #[error("Could not find screens from X server")]
     NoScreens,
 
+    /// An invalid screen was selected.
     #[error("Unknown screen selected")]
     InvalidScreen,
 
+    /// Some error caused by a malformed RandR request.
     #[error("RandR error: {0}")]
     RandrError(String),
 
@@ -227,6 +246,7 @@ pub enum XError {
     #[error("Error converting client message data")]
     ConversionError,
 
+    /// A request for window properties returned malformed data.
     #[error("Invalid property data: {0}")]
     InvalidPropertyData(String),
 
@@ -234,6 +254,7 @@ pub enum XError {
     #[error("Could not complete specified request: {0}")]
     RequestError(&'static str),
 
+    /// Some error not tracked by ToaruWM.
     #[error("{0}")]
     OtherError(String),
 }
@@ -484,6 +505,8 @@ pub trait XConn {
         }
     }
 
+    /// Checks whether the the `WM_HINTS` property has the accepts-input
+    /// flag set.
     fn accepts_input(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
             hints.accepts_input
@@ -539,6 +562,7 @@ pub trait XConn {
             .unwrap_or(false)
     }
 
+    /// Gets ICCCM's `WM_STATE` hint.
     fn get_wm_state(&self, window: XWindowID) -> Option<WindowState> {
         let prop = self.get_property(Atom::WmState.as_ref(), window).ok()?;
 
@@ -562,6 +586,7 @@ pub trait XConn {
         }
     }
 
+    /// Gets ICCCM's `WM_TRANSIENT_FOR` hint.
     fn get_wm_transient_for(&self, window: XWindowID) -> Option<XWindowID> {
         let prop = self.get_property(Atom::WmTransientFor.as_ref(), window).ok()?;
 
@@ -581,6 +606,7 @@ pub trait XConn {
         }
     }
 
+    /// Checks whether the `URGENCY` flag in `WM_HINTS` is set.
     fn get_urgency(&self, window: XWindowID) -> bool {
         if let Some(hints) = self.get_wm_hints(window) {
             hints.urgent()
@@ -590,6 +616,7 @@ pub trait XConn {
     }
 
     // EWMH-related operations
+    /// Gets EWMH's `_NET_WM_WINDOW_TYPE`.
     fn get_window_type(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmWindowType.as_ref();
 
@@ -602,6 +629,7 @@ pub trait XConn {
         }
     }
 
+    /// Gets EWMH's `_NET_WM_STATE`.
     fn get_window_states(&self, window: XWindowID) -> Result<Vec<String>> {
         let atom = Atom::NetWmState.as_ref();
 
@@ -616,7 +644,7 @@ pub trait XConn {
 
     /// Sets the _NET_SUPPORTED property on the root window.
     ///
-    /// This indicated the protocols supported by the window manager.
+    /// This indicates the protocols supported by the window manager.
     fn set_supported(&self, atoms: &[Atom]) -> Result<()> {
         self.set_property(
             self.get_root().id,
@@ -625,6 +653,7 @@ pub trait XConn {
         )
     }
 
+    /// Sets `_NET_WM_STATE` to the given atoms on the selected window.
     fn set_wm_state(&self, window: XWindowID, atoms: &[XAtom]) {
         let atoms = atoms
             .iter()

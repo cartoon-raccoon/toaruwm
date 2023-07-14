@@ -4,9 +4,12 @@ use crate::core::{Screen, Workspace};
 use crate::types::Geometry;
 use crate::x::XWindowID;
 
+/// Dynamically tiled layouts.
 pub mod dtiled;
+/// Floating layouts.
 pub mod floating;
 
+/// The type of layout being used.
 #[derive(Clone, Debug, PartialEq)]
 pub enum LayoutType {
     /// A simple floating layout style that
@@ -25,7 +28,8 @@ pub enum LayoutType {
 }
 
 impl LayoutType {
-    pub fn other(name: &str) -> LayoutType {
+    /// Construct the `LayoutType::Other` variant.
+    pub fn other<S: Into<String>>(name: S) -> LayoutType {
         LayoutType::Other(name.into())
     }
 

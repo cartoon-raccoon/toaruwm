@@ -1,5 +1,8 @@
+//! Convenience types for cursors.
+//! 
 //! Every cursor glyph available to the user.
 // todo: abstract this out inside convert.rs
+#![allow(missing_docs)]
 
 pub const NUM_GLYPHS: u16 = 154;
 pub const X_CURSOR: u16 = 0;
