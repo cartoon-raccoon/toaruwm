@@ -14,7 +14,7 @@
 
 use core::ops::{Index, IndexMut};
 
-use std::collections::VecDeque;
+use std::collections::{VecDeque, vec_deque::IntoIter};
 use std::iter::FromIterator;
 
 use custom_debug_derive::Debug;
@@ -453,5 +453,14 @@ impl<T> FromIterator<T> for Ring<T> {
             items: iter.into_iter().collect(),
             focused: None,
         }
+    }
+}
+
+impl<T> IntoIterator for Ring<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
     }
 }
