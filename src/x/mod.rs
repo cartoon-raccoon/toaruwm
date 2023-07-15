@@ -116,7 +116,7 @@ impl From<TFSError> for XError {
 
 use std::convert::TryFrom;
 
-use crate::keybinds::ButtonIndex;
+use crate::bindings::ButtonIndex;
 
 impl TryFrom<u8> for ButtonIndex {
     type Error = XError;

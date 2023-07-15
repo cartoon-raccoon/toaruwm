@@ -14,7 +14,7 @@ use tracing::instrument;
 use tracing::{debug, error, info, span, trace, warn, Level};
 
 use crate::core::{Desktop, Screen};
-use crate::keybinds::{Keybind, Keybinds, Mousebind, Mousebinds};
+use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
 use crate::layouts::LayoutType;
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};

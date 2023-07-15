@@ -5,7 +5,7 @@ use super::{
     input::{KeyCode, ModMask},
     XWindowID,
 };
-use crate::keybinds::Mousebind;
+use crate::bindings::Mousebind;
 use crate::types::{Geometry, Point};
 
 /// Low-level wrapper around actual X server events.

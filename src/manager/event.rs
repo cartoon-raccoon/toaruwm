@@ -3,7 +3,7 @@ use std::str::FromStr;
 use tracing::{debug, info};
 
 use crate::core::types::Point;
-use crate::keybinds::{Keybind, Mousebind};
+use crate::bindings::{Keybind, Mousebind};
 use crate::manager::WmState;
 use crate::x::{
     event::{

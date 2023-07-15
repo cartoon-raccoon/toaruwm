@@ -17,7 +17,7 @@ use std::error::Error;
 use tracing::Level;
 use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
 
-use toaruwm::keybinds::{
+use toaruwm::bindings::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
 use toaruwm::types::Cardinal::*;

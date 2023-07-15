@@ -11,7 +11,7 @@ use std::str::FromStr;
 use thiserror::Error;
 use tracing::{debug, error, warn};
 
-use crate::keybinds::{Keybind, Mousebind};
+use crate::bindings::{Keybind, Mousebind};
 
 use super::{
     atom::{Atom, AUTO_FLOAT_WINDOW_TYPES, UNMANAGED_WINDOW_TYPES},

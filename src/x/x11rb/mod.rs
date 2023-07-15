@@ -28,7 +28,7 @@ use super::{
     property::{Property, WmHints, WmSizeHints},
     Atoms, ConnStatus, Initialized, Uninitialized,
 };
-use crate::keybinds::ButtonIndex;
+use crate::bindings::ButtonIndex;
 use crate::types::{Geometry, Point};
 
 mod convert;

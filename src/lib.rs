@@ -139,7 +139,7 @@ extern crate bitflags;
 mod log;
 
 pub mod core;
-pub mod keybinds;
+pub mod bindings;
 /// Types and traits for defining and generating window layouts.
 pub mod layouts;
 pub mod manager;

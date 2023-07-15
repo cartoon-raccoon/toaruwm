@@ -10,7 +10,7 @@ use std::ops::{BitAnd, BitOr};
 use bitflags::bitflags;
 
 use crate::{
-    keybinds::{ButtonIndex, Keybind, ModKey, Mousebind},
+    bindings::{ButtonIndex, Keybind, ModKey, Mousebind},
     x::core::BitMask,
 };
 

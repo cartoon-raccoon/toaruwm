@@ -13,7 +13,7 @@ use tracing::{error, trace, warn};
 
 use super::Initialized;
 use crate::core::Screen;
-use crate::keybinds::{Keybind, Mousebind};
+use crate::bindings::{Keybind, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
 use crate::util;
 use crate::x::{

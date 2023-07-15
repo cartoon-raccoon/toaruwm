@@ -8,7 +8,7 @@ use xcb::x;
 use xcb::Xid;
 
 use super::{id, Initialized, XCBConn};
-use crate::keybinds::{ButtonIndex, ModKey, Mousebind};
+use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::util;
 use crate::x::{
