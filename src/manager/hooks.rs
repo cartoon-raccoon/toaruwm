@@ -16,12 +16,15 @@ pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 /// It accepts closure syntax, for example:
 ///
 /// ## Example
-/// ```rust
+/// ```ignore
+/// # use toaruwm::WindowManager;
+/// # //todo: implement dummy connection for this to work
 /// use toaruwm::hook;
 ///
 /// let dump_state = hook!(|wm| {
 ///     wm.dump_internal_state();
 /// });
+/// # //todo: insert this into a window manager for type inference
 /// ```
 ///
 /// And you can then insert this hook into a `Hooks`, which

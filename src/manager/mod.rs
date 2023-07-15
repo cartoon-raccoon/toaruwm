@@ -253,13 +253,13 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Grabs bindings and runs the window manager.
-    pub fn grab_and_run(&mut self, mb: Mousebinds<X>, kb: Keybinds<X>) -> Result<()> {
-        self.grab_bindings(&mb, &kb)?;
-        self.run(mb, kb)
+    pub fn grab_and_run(&mut self, kb: Keybinds<X>, mb: Mousebinds<X>) -> Result<()> {
+        self.grab_bindings(&kb, &mb)?;
+        self.run(kb, mb)
     }
 
     /// Grabs the given key and mouse bindings.
-    pub fn grab_bindings(&mut self, mb: &Mousebinds<X>, kb: &Keybinds<X>) -> Result<()> {
+    pub fn grab_bindings(&mut self, kb: &Keybinds<X>, mb: &Mousebinds<X>) -> Result<()> {
         info!(target: "", "Grabbing mouse bindings");
         let root_id = self.conn.get_root().id;
         for binding in mb.keys() {
@@ -275,7 +275,7 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Runs the main event loop.
-    pub fn run(&mut self, mut mb: Mousebinds<X>, mut kb: Keybinds<X>) -> Result<()> {
+    pub fn run(&mut self, mut kb: Keybinds<X>, mut mb: Mousebinds<X>) -> Result<()> {
         info!(target: "", "Grabbing any existing windows");
         // todo
 
@@ -345,7 +345,7 @@ impl<X: XConn> WindowManager<X> {
     }
 
     /// Goes to the specified workspace.
-    #[instrument(level = "debug")]
+    #[instrument(level = "debug", skip(self))]
     pub fn goto_workspace(&mut self, name: &str) {
         handle_err!(
             self.desktop

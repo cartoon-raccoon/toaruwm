@@ -44,7 +44,7 @@
 //! ```no_run
 //!# use toaruwm::x::X11RBConn;
 //!# use toaruwm::WindowManager;
-//!# use toaruwm::Initialized;
+//!# use toaruwm::x::status::Initialized;
 //!
 //!# // convenience typedef
 //!# type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
@@ -104,10 +104,10 @@
 //! //*    and initialise internal state
 //! //* a: Grab keys and mousebinds
 //! wm.register(vec![test_hook]);
-//! wm.grab_bindings(&mousebinds, &keybinds).unwrap();
+//! wm.grab_bindings(&keybinds, &mousebinds).unwrap();
 //!
 //! //* 4: We're good to go!
-//! wm.run(mousebinds, keybinds).unwrap();
+//! wm.run(keybinds, mousebinds).unwrap();
 //!
 //! ```
 //!

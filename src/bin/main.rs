@@ -21,9 +21,9 @@ use toaruwm::keybinds::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
 use toaruwm::types::Cardinal::*;
-use toaruwm::x::Initialized;
+use toaruwm::x::status::Initialized;
 use toaruwm::X11RBConn;
-use toaruwm::{hook, x11rb_backed_wm, Config, WindowManager};
+use toaruwm::{hook, Config, WindowManager};
 
 // convenience typedef
 type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
@@ -64,7 +64,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .try_init()?;
 
     //* 1: Setup X Connection and allocate new WM object
-    let mut manager = x11rb_backed_wm(Config::default())?;
+    let mut manager = toaruwm::x11rb_backed_wm(Config::default())?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here
@@ -99,10 +99,10 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     //*    and initialise internal state
     //* a: Grab keys and mousebinds
     manager.register(vec![test_hook]);
-    manager.grab_bindings(&mousebinds, &keybinds)?;
+    manager.grab_bindings(&keybinds, &mousebinds)?;
 
     //* 4: We're good to go!
-    manager.run(mousebinds, keybinds)?;
+    manager.run(keybinds, mousebinds)?;
 
     Ok(())
 }

@@ -53,9 +53,8 @@ const RANDR_MIN: u32 = 4;
 /// ```no_run
 /// use toaruwm::x::x11rb::X11RBConn;
 ///
-/// let mut conn = X11RBConn::connect().expect("Connection error");
-///
-/// conn.init().expect("Could not initialize");
+/// let conn = X11RBConn::connect().expect("Connection error");
+/// let mut conn = conn.init().expect("Could not initialize");
 ///
 /// /* or: */
 /// let mut conn = X11RBConn::new().expect("Connection error");
@@ -169,7 +168,7 @@ impl X11RBConn<Uninitialized> {
 
         // initialize cursor and set it for the root screen
         let cursor = self.create_cursor_inner(cursor::LEFT_PTR)?;
-        self.set_cursor_inner(self.root.id, cursor)?;
+        self.set_cursor_inner(root.id, cursor)?;
 
         Ok(X11RBConn {
             conn: self.conn,
