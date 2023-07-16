@@ -71,10 +71,22 @@ impl WorkspaceSpec {
 /// Most Workspace methods involve adding or removing windows, swapping
 /// layouts, or modifying layouts.
 /// 
+/// # Layout
+/// 
+/// Workspaces have no notion of layout or layout-specific details,
+/// such as the main and secondary windows on a dynamically tiled layout,
+/// or for what reason certain windows are unmapped on a monocle-based
+/// layout. They simply query the current focused layout and apply it,
+/// or update the layouts as necessary.
+/// 
+/// See [`Layout`] for more information.
+/// 
 /// # Panics
 /// 
-/// Any of `Workspace`'s layout-related methods may panic if the 
-/// Layout invariants are not upheld.
+/// Any of `Workspace`'s layout-related methods may panic if any of 
+/// `Layouts`' invariants are not upheld.
+/// 
+/// See [`Layouts`] for more information.
 pub struct Workspace {
     pub(crate) name: String,
     pub(crate) windows: ClientRing,

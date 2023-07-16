@@ -22,8 +22,30 @@ pub use floating::Floating;
 use update::Update;
 
 /// A trait for implementing layouts.
+/// 
+/// A `Layout` is an object that enforces the layout of the windows
+/// that are managed by the workspace.
+/// 
+/// # Components and Usage
+/// 
+/// A layout has two main components: A name and a policy. The name is
+/// self-explanatory, and the policy is simply how the windows are
+/// arranged on the screen. This policy is implemented by the
+/// `layout` method, which is called by the managing workspace.
+/// This method returns a set of `LayoutActions` which the workspace
+/// must carry out in order to enforce the policy.
+/// 
+/// Layouts can also receive [`Update`]s, which tell the layout to modify
+/// its behaviour or policy in some way. Since not all updates are
+/// applicable to a particular layout (e.g. an update to shrink the
+/// main window is not applicable to a floating layout), Layouts are
+/// not required to comply with all updates.
+/// 
+/// # Usage by a `WindowManager`
 ///
-/// This will usually be used as a trait object by the manager itself.
+/// Layouts will usually be used as a trait object by the window manager.
+/// Since trait objects cannot be based on `Clone`, `Layout` requires
+/// a `boxed` method that clones the object as needed.
 pub trait Layout {
     /// The name of the Layout, used to display in some kind of status bar.
     fn name(&self) -> &str;
@@ -48,6 +70,9 @@ pub trait Layout {
 
 /// A Ring of layouts applied on a workspace.
 /// 
+/// A set of layouts that a workspace can use to apply on its
+/// managed windows.
+/// 
 /// ## A Note to Programmers
 /// 
 /// `Layouts` has some unique invariants that normal
@@ -60,7 +85,10 @@ pub trait Layout {
 /// 
 /// To this end, there are runtime checks on startup
 /// and initialization to ensure that these invariants
-/// are upheld at the start of runtime.
+/// are upheld at the start of runtime. However, these
+/// checks are not always carried out in normal operation,
+/// which means if they are violated in some way at this
+/// point, your code may panic!
 pub type Layouts = Ring<Box<dyn Layout>>;
 
 impl Layouts {
