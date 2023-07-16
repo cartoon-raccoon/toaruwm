@@ -1,8 +1,38 @@
-use super::LayoutAction;
+use super::{Layout, LayoutAction, LayoutType, update::Update};
 
 use crate::core::{Screen, Workspace};
 
-// Ws and scr are only included to satisfy the function signature.
-pub(super) fn gen_layout(_: &Workspace, _: &Screen, _: u32, _: f32) -> Vec<LayoutAction> {
-    Vec::new()
+
+/// A simple floating layout that does not
+/// enforce any specific layout.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Floating {}
+
+impl Floating {
+    /// Creates a new floating layout.
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Layout for Floating {
+    fn name(&self) -> &str {
+        "Floating"
+    }
+
+    fn boxed(&self) -> Box<dyn Layout> {
+        Box::new(*self)
+    }
+
+    fn layout(&self, _: &Workspace, _: &Screen) -> Vec<LayoutAction> {
+        vec![]
+    }
+
+    fn receive_update(&self, _: &Update) {
+        ()
+    }
+
+    fn style(&self) -> LayoutType {
+        LayoutType::Floating
+    }
 }

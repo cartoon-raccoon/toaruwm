@@ -1,138 +1,25 @@
-use std::fmt;
+use std::collections::HashSet;
 
-use crate::core::{Screen, Workspace};
+use tracing::debug;
+
+use crate::core::{Screen, Workspace, Ring};
 use crate::types::Geometry;
 use crate::x::XWindowID;
+use crate::{ToaruError, Result};
 
-/// Dynamically tiled layouts.
-pub mod dtiled;
-/// Floating layouts.
+/// A simple manually-tiled layout.
+pub mod tiled;
+/// A simple no-frills floating layout.
 pub mod floating;
+/// Types to be used to update layouts.
+pub mod update;
 
-/// The type of layout being used.
-#[derive(Clone, Debug, PartialEq)]
-pub enum LayoutType {
-    /// A simple floating layout style that
-    /// does not enforce any rules.
-    Floating,
-    /// A dynamically tiled layout style that
-    /// enforces a master region and satellite windows.
-    ///
-    /// Similar to XMonad or Qtile.
-    DTiled,
-    /// User-specified layout.
-    Other(String),
-}
+#[doc(inline)]
+pub use tiled::DynamicTiled;
+#[doc(inline)]
+pub use floating::Floating;
 
-impl LayoutType {
-    /// Construct the `LayoutType::Other` variant.
-    pub fn other<S: Into<String>>(name: S) -> LayoutType {
-        LayoutType::Other(name.into())
-    }
-
-    /// Check whether self is floating.
-    ///
-    /// Returns false if it is Self::Other(_), even if other is
-    /// a floating layout.
-    pub fn is_floating(&self) -> bool {
-        matches!(self, Self::Floating)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LayoutAction {
-    SetMaster(XWindowID),
-    UnsetMaster,
-    Resize { id: XWindowID, geom: Geometry },
-}
-
-// impl LayoutAction {
-//     #[inline]
-//     pub fn new(id: XWindowID, geom: Geometry) -> Self {
-//         Self {
-//             id, geom,
-//         }
-//     }
-
-//     #[inline(always)]
-//     pub fn id(&self) -> XWindowID {
-//         self.id
-//     }
-
-//     #[inline(always)]
-//     pub fn geometry(&self) -> Geometry {
-//         self.geom
-//     }
-// }
-
-/// A function that can lay out windows in a user-specified way.
-/// Parameters:
-/// - &Workspace: the workspace to layout.
-/// - &Screen: the screen the workspace is on.
-/// - u32: The border width.
-/// - f32: The master ratio.
-pub type LayoutFn = fn(&Workspace, &Screen, u32, f32) -> Vec<LayoutAction>;
-
-/// An object responsible for arranging layouts within a screen.
-///
-/// Used within a [`WindowManager`](crate::WindowManager) to generate
-/// layouts on the fly.
-#[derive(Clone)]
-pub struct LayoutEngine {
-    layout: LayoutType,
-
-    _layoutgen: LayoutFn,
-}
-
-impl fmt::Debug for LayoutEngine {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("LayoutEngine")
-            .field("layout:", &self.layout)
-            .finish()
-    }
-}
-
-impl LayoutEngine {
-    /// Create a LayoutEngine with the given layout.
-    pub fn with_layout(layout: LayoutType, layoutfn: Option<LayoutFn>) -> Self {
-        match layout {
-            LayoutType::Floating => Self {
-                layout,
-                _layoutgen: floating::gen_layout,
-            },
-            LayoutType::DTiled => Self {
-                layout,
-                _layoutgen: dtiled::gen_layout,
-            },
-            LayoutType::Other(_) => Self {
-                layout,
-                _layoutgen: layoutfn.expect("no LayoutFn given"),
-            },
-        }
-    }
-
-    /// Sets the layout being used for the engine.
-    /// Does not generate new layouts.
-    pub fn set_layout(&mut self, layout: LayoutType, lfn: Option<LayoutFn>) {
-        self.layout = layout.clone();
-        match layout {
-            LayoutType::Floating => self._layoutgen = floating::gen_layout,
-            LayoutType::DTiled => self._layoutgen = dtiled::gen_layout,
-            LayoutType::Other(_) => self._layoutgen = lfn.expect("no LayoutFn given"),
-        }
-    }
-
-    /// Returns the current layout being used by the layout engine.
-    pub fn layout(&self) -> &LayoutType {
-        &self.layout
-    }
-
-    /// Generate the layout for the given workspace.
-    pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
-        //todo: pass in proper border width and ratio numbers
-        (self._layoutgen)(ws, scr, crate::types::BORDER_WIDTH, 0.5)
-    }
-}
+use update::Update;
 
 /// A trait for implementing layouts.
 ///
@@ -141,20 +28,160 @@ pub trait Layout {
     /// The name of the Layout, used to display in some kind of status bar.
     fn name(&self) -> &str;
 
+    /// Return the style of the layout.
+    fn style(&self) -> LayoutType;
+
     /// Generates the actions to be taken to lay out the windows.
     /// Parameters:
     /// - &Workspace: the workspace to layout.
     /// - &Screen: the screen the workspace is on.
-    /// - u32: The border width.
-    /// - f32: The master ratio.
-    fn layout(
-        &mut self,
-        ws: &Workspace,
-        scr: &Screen,
-        bwidth: u32,
-        ratio: f32,
-    ) -> Vec<LayoutAction>;
+    fn layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
     fn boxed(&self) -> Box<dyn Layout>;
+
+    /// Receive an update to modify its current settings.
+    /// This type does not need to respond to all possible updates,
+    /// only the ones that specifically apply to it.
+    fn receive_update(&self, update: &Update);
 }
+
+/// A Ring of layouts applied on a workspace.
+/// 
+/// ## A Note to Programmers
+/// 
+/// `Layouts` has some unique invariants that normal
+/// `Rings` do not have: 
+/// 
+/// 1. It must _never_ be empty.
+/// 2. It must _always_ have something in focus.
+/// 3. There must be _no_ name conflicts
+/// (i.e. no two layouts can have the same name).
+/// 
+/// To this end, there are runtime checks on startup
+/// and initialization to ensure that these invariants
+/// are upheld at the start of runtime.
+pub type Layouts = Ring<Box<dyn Layout>>;
+
+impl Layouts {
+    /// Returns Self with the given layouts and
+    /// the focused item set to the first item in the Ring.
+    /// 
+    /// Use this over `Ring::new` as it ensures that
+    /// the invariants on Layouts are upheld.
+    /// 
+    /// # Panics
+    /// 
+    /// This method panics if any of the invariants are not upheld.
+    pub fn with_layouts_validated<I>(layouts: I) -> Result<Self>
+    where
+        I: IntoIterator<Item = Box<dyn Layout>>
+    {
+        let ret = unsafe {Self::with_layouts_unchecked(layouts)};
+
+        ret.validate()?;
+
+        Ok(ret)
+    }
+
+    /// Returns Self with the given layouts and the focused
+    /// item set to the first item in the Ring.
+    /// 
+    /// ## Safety
+    /// 
+    /// The caller must ensure that invariants 1 and 3 are upheld.
+    pub unsafe fn with_layouts_unchecked<I>(layouts: I) -> Self
+    where
+        I: IntoIterator<Item = Box<dyn Layout>>
+    {
+        let mut ret = Ring::new();
+        layouts.into_iter().for_each(|l| ret.append(l));
+        ret.set_focused(0);
+        ret
+    }
+
+    /// Validates the namespace and ensures there are no name conflicts.
+    pub fn validate(&self) -> Result<()> {
+        if self.focused.is_none() {
+            return Err(ToaruError::OtherError("no focused item".into()))
+        }
+        if self.len() < 1 {
+            return Err(ToaruError::OtherError("layouts is empty".into()))
+        }
+
+        let set: HashSet<&str> = self
+            .iter()
+            .map(|l| l.name())
+            .collect();
+
+        if set.len() == self.len() {
+            return Ok(())
+        } else {
+            let mut all: Vec<&str> = self.iter().map(|l| l.name()).collect();
+            let uniques: Vec<&str> = set.into_iter().collect();
+
+            debug_assert!(uniques.len() < self.len());
+
+            uniques.into_iter().for_each(|s1| all.retain(|s2| s1 != *s2));
+
+            Err(ToaruError::LayoutConflict(all.join(", ")))
+        }
+    }
+
+    /// Generates the layout for the currently focused layout.
+    pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
+        debug!("self.focused is {:?}", self.focused);
+        debug_assert!(self.focused().is_some(), "no focused layout");
+        self.focused().unwrap().layout(ws, scr)
+    }
+
+    /// Sends an update to the current layout.
+    pub fn send_update(&self, update: Update) {
+        self.focused().unwrap().receive_update(&update)
+    }
+
+    /// Sends an update to every layout within.
+    pub fn broadcast_update(&self, update: Update) {
+        self.iter().for_each(|ly| ly.receive_update(&update))
+    }
+}
+
+/// The type of layout being used.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LayoutType {
+    /// A simple floating layout style that
+    /// does not enforce any rules.
+    Floating,
+    /// A layout style that controls windows to hold to a certain
+    /// layout, such as dynamic or manual tiling.
+    Tiled,
+}
+
+#[allow(missing_docs)]
+impl LayoutType {
+    pub fn is_floating(&self) -> bool {
+        matches!(self, Self::Floating)
+    }
+
+    pub fn is_tiled(&self) -> bool {
+        matches!(self, Self::Tiled)
+    }
+}
+
+/// An action to resize a window in order to enforce the
+/// layout currently in effect.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LayoutAction {
+    /// Resize a given client.
+    Resize {
+        /// The Client to apply the geometry to.
+        id: XWindowID,
+        /// The geometry to apply to the Client.
+        geom: Geometry,
+    },
+    /// Map the given window.
+    Map(XWindowID),
+    /// Unmap the given window.
+    Unmap(XWindowID),
+}
+

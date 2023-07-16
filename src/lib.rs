@@ -158,27 +158,39 @@ pub use crate::x::ConnStatus;
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
 use crate::x::Initialized;
-use crate::x::Result as XResult;
+use crate::manager::config::traits::*;
+use crate::layouts::Layout;
+use crate::core::WorkspaceSpec;
 
 use std::io;
 use std::num::ParseIntError;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm(config: Config) -> XResult<WindowManager<XCBConn<Initialized>>> {
+pub fn xcb_backed_wm<W, L, F>(config: Config<W, L, F>) -> Result<WindowManager<XCBConn<Initialized>>>
+where
+    W: IntoIterator<Item = WorkspaceSpec> + Length,
+    L: IntoIterator<Item = Box<dyn Layout>> + Length,
+    F: IntoIterator<Item = String>,
+{
     let conn = XCBConn::connect()?;
     let conn = conn.init()?;
 
-    let wm = WindowManager::new(conn, config);
+    let wm = WindowManager::new(conn, config)?;
 
     Ok(wm)
 }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
-pub fn x11rb_backed_wm(config: Config) -> XResult<WindowManager<X11RBConn<Initialized>>> {
+pub fn x11rb_backed_wm<W, L, F>(config: Config<W, L, F>) -> Result<WindowManager<X11RBConn<Initialized>>>
+where
+    W: IntoIterator<Item = WorkspaceSpec> + Length,
+    L: IntoIterator<Item = Box<dyn Layout>> + Length,
+    F: IntoIterator<Item = String>,
+{
     let conn = X11RBConn::connect()?;
     let conn = conn.init()?;
 
-    let wm = WindowManager::new(conn, config);
+    let wm = WindowManager::new(conn, config)?;
 
     Ok(wm)
 }
@@ -187,6 +199,7 @@ use crate::x::core::{XError, XWindowID};
 use thiserror::Error;
 
 /// Everything that could possibly go wrong while ToaruWM is running.
+#[non_exhaustive]
 #[derive(Debug, Error, Clone)]
 pub enum ToaruError {
     /// An error with the underlying X connection.
@@ -220,6 +233,14 @@ pub enum ToaruError {
     /// An invalid point on the root window.
     #[error("Invalid point ({0}, {1})")]
     InvalidPoint(i32, i32),
+
+    /// A name conflict in the given set of layouts.
+    #[error("Layout name conflict: {0}")]
+    LayoutConflict(String),
+
+    /// One or more configuration invariants was not upheld.
+    #[error("Invalid configuration: {0}")]
+    InvalidConfig(String),
 
     /// An error not covered by ToaruWM.
     #[error("Error: {0}")]

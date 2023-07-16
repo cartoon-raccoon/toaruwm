@@ -20,7 +20,7 @@ use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
 use toaruwm::bindings::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
-use toaruwm::types::Cardinal::*;
+use toaruwm::types::{Cardinal::*, Direction::*};
 use toaruwm::x::status::Initialized;
 use toaruwm::X11RBConn;
 use toaruwm::{hook, Config, WindowManager};
@@ -30,21 +30,32 @@ type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
 
 //* defining keybinds and associated WM actions
 const KEYBINDS: &[(&str, fn(Wm))] = &[
-    ("M-Return", |wm| wm.run_external("alacritty", &[])),
-    ("M-r", |wm| wm.run_external("dmenu_run", &["-b"])),
-    ("M-q", |wm| wm.close_focused_window()),
-    ("M-S-d", |wm| wm.dump_internal_state()),
-    ("M-S-q", |wm| wm.quit()),
-    ("M-S-Up", |wm| wm.warp_window(5, Up)),
-    ("M-S-Down", |wm| wm.warp_window(5, Down)),
-    ("M-S-Left", |wm| wm.warp_window(5, Left)),
+    ("M-Return",  |wm| wm.run_external("alacritty", &[])),
+    ("M-r",       |wm| wm.run_external("dmenu_run", &["-b"])),
+    ("M-q",       |wm| wm.close_focused_window()),
+    ("M-S-d",     |wm| wm.dump_internal_state()),
+    ("M-S-q",     |wm| wm.quit()),
+
+    ("M-k",       |wm| wm.cycle_focus(Forward)),
+    ("M-j",       |wm| wm.cycle_focus(Backward)),
+
+    ("M-S-Up",    |wm| wm.warp_window(5, Up)),
+    ("M-S-Down",  |wm| wm.warp_window(5, Down)),
+    ("M-S-Left",  |wm| wm.warp_window(5, Left)),
     ("M-S-Right", |wm| wm.warp_window(5, Right)),
-    ("M-1", |wm| wm.goto_workspace("1")),
-    ("M-2", |wm| wm.goto_workspace("2")),
-    ("M-3", |wm| wm.goto_workspace("3")),
-    ("M-S-1", |wm| wm.send_focused_to("1")),
-    ("M-S-2", |wm| wm.send_focused_to("2")),
-    ("M-S-3", |wm| wm.send_focused_to("3")),
+
+    ("M-Left",    |wm| wm.cycle_workspace(Backward)),
+    ("M-Right",   |wm| wm.cycle_workspace(Forward)),
+
+    ("M-1",       |wm| wm.goto_workspace("1")),
+    ("M-2",       |wm| wm.goto_workspace("2")),
+    ("M-3",       |wm| wm.goto_workspace("3")),
+
+    ("M-S-1",     |wm| wm.send_focused_to("1")),
+    ("M-S-2",     |wm| wm.send_focused_to("2")),
+    ("M-S-3",     |wm| wm.send_focused_to("3")),
+
+    ("M-Tab",     |wm| wm.cycle_layout(Forward)),
 ];
 
 pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

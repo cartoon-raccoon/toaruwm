@@ -12,22 +12,30 @@
 use tracing::debug;
 
 use crate::core::{Client, Workspace};
-use crate::layouts::{LayoutFn, LayoutType};
+use crate::layouts::{Layout, Layouts};
 use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
 use crate::x::{Atom, Property, XConn, XWindowID};
 use crate::{Result, ToaruError::*};
 
+use super::WorkspaceSpec;
+
 /// Represents a physical monitor.
 #[derive(Clone, Debug)]
 pub struct Screen {
+    /// The ID of the root window.
     pub(crate) root_id: XWindowID,
+    /// The usable geometry of the Screen.
     pub(crate) effective_geom: Geometry,
+    /// The actual geometry of the Screen.
     pub(crate) true_geom: Geometry,
+    /// The index of the Screen.
     pub(crate) idx: i32,
+    /// The set of workspaces managed under the screen.
     pub(crate) wix: Vec<String>,
 }
 
 impl Screen {
+    /// Creates a new Screen.
     pub fn new(screen_idx: i32, geom: Geometry, root_id: XWindowID, wix: Vec<String>) -> Self {
         Self {
             root_id,
@@ -37,19 +45,20 @@ impl Screen {
             wix,
         }
     }
-
+    /// Adds a new workspace to the Screen.
     pub fn add_workspace<S: Into<String>>(&mut self, wsname: S) {
         self.wix.push(wsname.into());
     }
-
+    /// Updates the effective area of the screen by trimming off
+    /// a section in the given direction.
     pub fn update_effective(&mut self, dir: Cardinal, trim: i32) {
         self.true_geom = self.true_geom.trim(trim, dir);
     }
-
+    /// Returns the true geometry of the Screen.
     pub fn true_geom(&self) -> Geometry {
         self.true_geom
     }
-
+    /// Returns the effective Geometry of the Screen.
     pub fn effective_geom(&self) -> Geometry {
         self.effective_geom
     }
@@ -63,7 +72,7 @@ impl Screen {
 * manager itself, and the workspace handling logic can be implemented
 * separately.
 */
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Desktop {
     // * focused should never be none
     pub(crate) workspaces: Ring<Workspace>,
@@ -72,13 +81,21 @@ pub struct Desktop {
 
 impl Desktop {
     /// Creates a new `Desktop`.
-    pub fn new(layout: LayoutType, lfn: Option<LayoutFn>, wksps: Vec<String>) -> Self {
+    pub fn new<N, R, L>(wksps: N, layouts: L) -> Result<Self>
+    where
+        N: IntoIterator<IntoIter = R>,
+        R: DoubleEndedIterator<Item = WorkspaceSpec>,
+        L: IntoIterator<Item = Box<dyn Layout>>
+    {
         let mut desktop = Self {
             workspaces: {
-                let mut workspaces = Ring::with_capacity(wksps.len());
+                let mut workspaces = Ring::new();
 
-                for name in wksps.into_iter().rev() {
-                    workspaces.push(Workspace::with_layout(layout.clone(), lfn, &name));
+                let ins = Layouts::with_layouts_validated(layouts)?;
+                for spec in wksps.into_iter().rev() {
+                    workspaces.push(
+                        Workspace::from_spec(spec, &ins)?
+                    );
                 }
 
                 workspaces.set_focused(0);
@@ -89,13 +106,13 @@ impl Desktop {
 
         desktop.workspaces.set_focused(0);
 
-        desktop
+        Ok(desktop)
     }
 
     //* Retrieval and Convenience Methods *//
 
     /// The layout of the current workspace.
-    pub fn current_layout(&self) -> &LayoutType {
+    pub fn current_layout(&self) -> &str {
         self.current().layout()
     }
 
@@ -207,7 +224,7 @@ impl Desktop {
     //* Mutator and Manipulation Methods *//
 
     /// Cycle workspaces in given direction.
-    pub fn cycle_workspace<X: XConn>(
+    pub fn cycle_to<X: XConn>(
         &mut self,
         conn: &X,
         scr: &Screen,
@@ -223,11 +240,11 @@ impl Desktop {
         } else {
             return Err(OtherError("Focused should be Some".into()));
         }
-        self.goto(&name, conn, scr)
+        self.go_to(&name, conn, scr)
     }
 
     /// Switch to a given workspace by its name.
-    pub fn goto<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
+    pub fn go_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Going to workspace with name '{}'", name);
 
         let new_idx = self
@@ -261,7 +278,7 @@ impl Desktop {
 
         Ok(())
     }
-
+    /// Sends the currently focused window to the specified workspace.
     pub fn send_focused_to<X: XConn>(&mut self, name: &str, conn: &X, scr: &Screen) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
         let winid = if let Some(window) = self.current().focused_client() {
@@ -282,14 +299,16 @@ impl Desktop {
         scr: &Screen,
     ) -> Result<()> {
         debug!("Attempting to send window to workspace {}", name);
-        let Some(window) = self.current_mut().del_window(conn, scr, id)? else {
+        let Some(window) = self.current_mut().take_window(id, conn) else {
             return Err(UnknownClient(id))
         };
         debug!("Sending window {} to workspace {}", window.id(), name);
         let Some(ws) = self.find_mut(name) else {
+            // if workspace was not found, put it back
+            self.current_mut().put_window(window);
             return Err(UnknownWorkspace(name.into()))
         };
-        ws.push_window(window);
+        ws.put_window(window);
         self.current_mut().relayout(conn, scr);
         Ok(())
     }

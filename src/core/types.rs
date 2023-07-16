@@ -2,8 +2,6 @@ use std::ops::Deref;
 
 use tracing::error;
 
-use crate::layouts::LayoutType;
-
 pub use crate::core::{Ring, Selector};
 use crate::x::{
     core::{StackMode, XAtom, XConn},
@@ -477,6 +475,60 @@ impl Geometry {
     }
 }
 
+/// A representation of a color, following the RGBA model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Color {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+impl Color {
+    /// Creates the Color from a 32-bit integer.
+    pub fn from_hex(hex: u32) -> Self {
+        let bytes = u32::to_be_bytes(hex);
+        Self {
+            r: bytes[0],
+            g: bytes[1],
+            b: bytes[2],
+            a: bytes[3],
+        }
+    }
+
+    /// Expresses the Color as a hex string.
+    pub fn as_string(&self) -> String {
+        format!("{:#x}", self.as_u32())
+    }
+
+    /// Returns the (R, G, B) values of the Color.
+    pub fn rgb(&self) -> (u8, u8, u8) {
+        (self.r, self.g, self.b)
+    }
+
+    /// Returns the (R, G, B, A) values of the Color.
+    pub fn rgba(&self) -> (u8, u8, u8, u8) {
+        (self.r, self.g, self.b, self.a)
+    }
+
+    /// Returns the color as a u32.
+    pub fn as_u32(&self) -> u32 {
+        let comps: [u8; 4] = [
+            self.r,
+            self.g,
+            self.b,
+            self.a
+        ];
+        u32::from_be_bytes(comps)
+    }
+}
+
+impl From<u32> for Color {
+    fn from(from: u32) -> Self {
+        Self::from_hex(from)
+    }
+}
+
 /// Whether the mouse button is pressed, and what state the mouse is in
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy)]
@@ -484,13 +536,6 @@ pub enum MouseMode {
     None,
     Move,
     Resize,
-}
-
-/// The layout state of the Window.
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum WinLayoutState {
-    Tiled,
-    Floating,
 }
 
 /// Determines the colour that should be applied to
@@ -617,17 +662,6 @@ impl IntoIterator for NetWindowStates {
     }
 }
 
-impl From<LayoutType> for WinLayoutState {
-    #[inline]
-    fn from(from: LayoutType) -> WinLayoutState {
-        if let LayoutType::Floating = from {
-            return Self::Floating;
-        }
-
-        Self::Tiled
-    }
-}
-
 /// ICCCM-defined window properties.
 //todo: make all fields private, accessible with methods.
 #[derive(Clone, Debug)]
@@ -642,31 +676,32 @@ pub struct XWinProperties {
 }
 
 impl XWinProperties {
+    /// Returns `WM_NAME`.
     pub fn wm_name(&self) -> &str {
         &self.wm_name
     }
-
+    /// Returns `WM_ICON_NAME`.
     pub fn wm_icon_name(&self) -> &str {
         &self.wm_icon_name
     }
-
+    /// Returns `WM_SIZE_HINTS`, if set.
     #[inline]
     pub fn wm_size_hints(&self) -> Option<&WmSizeHints> {
         self.wm_size_hints.as_ref()
     }
-
+    /// Returns `WM_HINTS`, if set.
     pub fn wm_hints(&self) -> Option<&WmHints> {
         self.wm_hints.as_ref()
     }
-
+    /// Returns `WM_CLASS`, it set.
     pub fn wm_class(&self) -> (&str, &str) {
         (&self.wm_class.0, &self.wm_class.1)
     }
-
+    /// Returns a list of window types.
     pub fn window_type(&self) -> Option<&[XAtom]> {
         self.wm_protocols.as_deref()
     }
-
+    /// Returns the state of the window.
     pub fn wm_state(&self) -> Option<WindowState> {
         self.wm_state
     }

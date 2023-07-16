@@ -22,4 +22,4 @@ pub use ring::{Ring, Selector};
 #[doc(inline)]
 pub use window::{Client, ClientRing};
 #[doc(inline)]
-pub use workspace::Workspace;
+pub use workspace::{Workspace, WorkspaceSpec};

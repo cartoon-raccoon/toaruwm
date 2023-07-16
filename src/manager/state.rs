@@ -2,8 +2,20 @@ use super::WindowManager;
 
 use custom_debug_derive::Debug;
 
-use crate::core::{Client, Desktop, Ring, Workspace};
+use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
+
+/// The internal configuration of the [`WindowManager`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct WmConfig {
+    pub(crate) gap_px: u32,
+    pub(crate) main_ratio_inc: f64,
+    pub(crate) float_classes: Vec<String>,
+    pub(crate) border_px: u32,
+    pub(crate) unfocused: Color,
+    pub(crate) focused: Color,
+    pub(crate) urgent: Color,
+}
 
 /// The state that the current window manager is in.
 #[non_exhaustive]
@@ -19,6 +31,8 @@ pub struct WmState<'wm, X: XConn> {
     /// The `XConn` implementation currently being used.
     #[debug(skip)]
     pub conn: &'wm X,
+    /// The inner configuration of the WindowManager.
+    pub config: &'wm WmConfig,
     /// The workspaces maintained by the window manager.
     pub workspaces: &'wm Ring<Workspace>,
     /// The root window.
@@ -37,6 +51,7 @@ impl<X: XConn> WindowManager<X> {
     pub fn state(&self) -> WmState<'_, X> {
         WmState {
             conn: &self.conn,
+            config: &self.config,
             workspaces: &self.desktop.workspaces,
             desktop: &self.desktop,
             root: self.root,

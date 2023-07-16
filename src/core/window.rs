@@ -9,7 +9,7 @@ use tracing::{debug, error, trace, warn};
 use super::{Ring, Selector};
 
 use crate::core::types::{
-    BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates, WinLayoutState,
+    BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates,
 };
 use crate::x::{
     core::{XAtom, XConn, XWindow, XWindowID},
@@ -105,10 +105,12 @@ pub struct Client {
     initial_geom: Geometry,
     urgent: bool,
     fullscreen: bool,
+
+    /* indicates whether a client count as part of the current layout */
+    inside_layout: bool,
     transient_for: Option<XWindowID>,
     mapped_state: WindowState,
     net_states: NetWindowStates,
-    layout_state: WinLayoutState,
     protocols: HashSet<XAtom>,
 }
 
@@ -119,18 +121,9 @@ impl PartialEq for Client {
 }
 
 impl Client {
-    /// Creates a new tiled Client.
-    pub fn tiled<X: XConn>(from: XWindowID, conn: &X) -> Self {
-        Self::new(from, conn, WinLayoutState::Tiled)
-    }
-
-    /// Creates a new floating Client.
-    pub fn floating<X: XConn>(from: XWindowID, conn: &X) -> Self {
-        Self::new(from, conn, WinLayoutState::Floating)
-    }
-
+    /// Creates a new Client.
     #[instrument(level = "debug", skip(conn))]
-    fn new<X: XConn>(from: XWindowID, conn: &X, layout: WinLayoutState) -> Self {
+    pub fn new<X: XConn>(from: XWindowID, conn: &X) -> Self {
         let properties = conn.get_client_properties(from);
         Self {
             xwindow: XWindow::from(from),
@@ -148,11 +141,19 @@ impl Client {
             transient_for: conn.get_wm_transient_for(from),
             urgent: false,
             fullscreen: false,
+            inside_layout: true,
             mapped_state: WindowState::Normal,
             net_states: NetWindowStates::new(),
-            layout_state: layout,
             protocols: HashSet::new(),
         }
+    }
+
+    /// Returns a Client that should float.
+    pub fn outside_layout<X: XConn>(from: XWindowID, conn: &X) -> Self {
+        let mut new = Self::new(from, conn);
+        new.inside_layout = false;
+
+        new
     }
 
     /// Returns the X ID of the client.
@@ -216,18 +217,6 @@ impl Client {
         (&self.class.0, &self.class.1)
     }
 
-    /// Tests whether the client is tiled.
-    #[inline]
-    pub fn is_tiled(&self) -> bool {
-        !self.is_floating()
-    }
-
-    /// Tests whether the client is floating.
-    #[inline]
-    pub fn is_floating(&self) -> bool {
-        matches!(self.layout_state, WinLayoutState::Floating)
-    }
-
     /// Tests whether the client's urgent flag is set.
     #[inline(always)]
     pub fn is_urgent(&self) -> bool {
@@ -243,32 +232,21 @@ impl Client {
         self.fullscreen
     }
 
-    /// Sets the client's state to tiled.
-    ///
-    /// No-op if the client is already tiled.
-    #[inline]
-    pub fn set_tiled(&mut self) {
-        self.layout_state = WinLayoutState::Tiled
+    /// Returns whether the Client should be floated regardless
+    /// of the current layout.
+    #[inline(always)]
+    pub fn is_off_layout(&self) -> bool {
+        !self.inside_layout
     }
 
-    /// Sets the client's state to floating.
-    ///
-    /// No-op if the client is already floating.
-    #[inline]
-    pub fn set_floating(&mut self) {
-        self.layout_state = WinLayoutState::Floating
+    /// Mark a Client as outside of the layout.
+    pub fn set_off_layout(&mut self) {
+        self.inside_layout = false;
     }
 
-    /// Toggles the state of the client.
-    #[inline]
-    pub fn toggle_state(&mut self) {
-        if let WinLayoutState::Floating = self.layout_state {
-            debug!("Toggling window {} to tiled", self.id());
-            self.layout_state = WinLayoutState::Tiled
-        } else if let WinLayoutState::Tiled = self.layout_state {
-            debug!("Toggling window {} to floating", self.id());
-            self.layout_state = WinLayoutState::Floating
-        }
+    /// Mark a Client as inside of the layout.
+    pub fn set_on_layout(&mut self) {
+        self.inside_layout = true;
     }
 
     /// Updates all the internal properties of the client.
