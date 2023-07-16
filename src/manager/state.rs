@@ -39,8 +39,6 @@ pub struct WmState<'wm, X: XConn> {
     pub root: XWindow,
     /// The selected window, if any.
     pub selected: Option<XWindowID>,
-    /// The currently focused window, if any.
-    pub focused: Option<XWindowID>,
     pub(crate) desktop: &'wm Desktop,
 }
 
@@ -56,7 +54,6 @@ impl<X: XConn> WindowManager<X> {
             desktop: &self.desktop,
             root: self.root,
             selected: self.selected,
-            focused: self.focused,
         }
     }
 }
@@ -65,5 +62,10 @@ impl<'wm, X: XConn> WmState<'wm, X> {
     /// Looks up a client with the given X ID.
     pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
         self.desktop.current().windows.lookup(id)
+    }
+
+    /// Checks whether the window `id` is currently managed.
+    pub fn is_managing(&self, id: XWindowID) -> bool {
+        self.desktop.is_managing(id)
     }
 }
