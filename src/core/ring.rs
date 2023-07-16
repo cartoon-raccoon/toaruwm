@@ -1,4 +1,5 @@
-//! This module defines Ring, a data structure inspired by Penrose.
+//! This module defines Ring, a data structure that presents a
+//! ringbuffer-like interface.
 //!
 //! A `Ring` abstracts over an internal buffer and presents an interface
 //! that resembles a ring-buffer, with one element in focus, or none.
@@ -404,11 +405,13 @@ impl<T> Ring<T> {
         }
     }
 
-    pub(crate) fn element_by(&self, cond: impl Fn(&T) -> bool) -> Option<(usize, &T)> {
+    /// Gets a reference to an element that satisfies a given closure.
+    pub fn element_by(&self, cond: impl Fn(&T) -> bool) -> Option<(usize, &T)> {
         self.iter().enumerate().find(|(_, e)| cond(*e))
     }
 
-    pub(crate) fn element_by_mut(&mut self, cond: impl Fn(&T) -> bool) -> Option<(usize, &mut T)> {
+    /// Gets a mutable reference to an element that satisfies a given closure.
+    pub fn element_by_mut(&mut self, cond: impl Fn(&T) -> bool) -> Option<(usize, &mut T)> {
         self.iter_mut().enumerate().find(|(_, e)| cond(*e))
     }
 
