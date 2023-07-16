@@ -44,6 +44,8 @@ const KEYBINDS: &[(&str, fn(Wm))] = &[
     ("M-S-Left",  |wm| wm.warp_window(5, Left)),
     ("M-S-Right", |wm| wm.warp_window(5, Right)),
 
+    ("M-t",       |wm| wm.toggle_focused_state()),
+
     ("M-Left",    |wm| wm.cycle_workspace(Backward)),
     ("M-Right",   |wm| wm.cycle_workspace(Forward)),
 
