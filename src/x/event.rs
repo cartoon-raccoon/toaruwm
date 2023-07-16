@@ -20,9 +20,9 @@ pub enum XEvent {
     /// A Client is requesting to be mapped.
     MapRequest(XWindowID, bool), // bool: override_redirect
     /// A Client has mapped a window.
-    MapNotify(XWindowID),
+    MapNotify(XWindowID, bool), // bool: from root
     /// A Client has unmapped a window.
-    UnmapNotify(XWindowID),
+    UnmapNotify(XWindowID, bool), // bool: from root
     /// A Client has destroyed a window.
     DestroyNotify(XWindowID),
     /// The pointer has entered a window.

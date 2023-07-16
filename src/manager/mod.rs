@@ -81,17 +81,18 @@ macro_rules! handle_err {
 ///
 /// ```no_run
 /// use toaruwm::{XCBConn, Config, WindowManager};
-/// use toaruwm::keybinds::{Keybinds, Mousebinds};
+/// use toaruwm::bindings::{Keybinds, Mousebinds};
 ///
 /// let conn = XCBConn::new().unwrap();
 ///
-/// let mut wm = WindowManager::new(conn, Config::default());
+/// let mut wm = WindowManager::new(conn, Config::default())
+///     .expect("could not create WindowManager");
 ///
 /// /* register the windowmanager with the x server */
 /// wm.register(Vec::new());
 ///
 /// /* run the windowmanager, ideally grabbing your keybinds first! */
-/// wm.run(Keybinds::new(), Mousebinds::new());
+/// wm.run(Keybinds::new(), Mousebinds::new()).unwrap();
 /// ```
 ///
 /// The WindowManager has a few methods defined on it that allow you
@@ -134,8 +135,6 @@ pub struct WindowManager<X: XConn> {
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
     selected: Option<XWindowID>,
-    /// The window currently in focus.
-    focused: Option<XWindowID>,
     /// Used when window is moved to track pointer location.
     last_mouse_pos: Point,
     // If the wm is running.
@@ -152,7 +151,7 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
             .field("screens", &self.screens)
             .field("root", &self.root)
             .field("selected", &self.selected)
-            .field("focused", &self.focused)
+            //.field("focused", &self.focused)
             .finish()
     }
 }
@@ -160,12 +159,6 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
 /// General `WindowManager`-level commands.
 impl<X: XConn> WindowManager<X> {
     /// Constructs a new WindowManager object.
-    /// 
-    /// # Panics
-    /// 
-    /// This method panics if any of the invariants on
-    /// [`Config`] and [`Layouts`] are not upheld, see their
-    /// documentation for more details.
     pub fn new<W, L, F>(conn: X, config: Config<W, L, F>) -> Result<WindowManager<X>>
     where
         W: IntoIterator<Item = WorkspaceSpec> + Length,
@@ -220,7 +213,7 @@ impl<X: XConn> WindowManager<X> {
             root,
             ehandler: Box::new(DefaultErrorHandler),
             selected: None,
-            focused: None,
+            //focused: None,
             last_mouse_pos: Point { x: 0, y: 0 },
             running: true,
             restart: false,
@@ -589,14 +582,11 @@ impl<X: XConn> WindowManager<X> {
 //* Private Methods *//
 impl<X: XConn> WindowManager<X> {
 
+    /// Receive the next event from the connection and process it
+    /// into a actions to be taken by the window manager.
     fn process_next_event(&mut self) -> Result<Option<Vec<EventAction>>> {
         let Some(event) = self.conn.poll_next_event()? else {return Ok(None)};
-        let actions = EventAction::from_xevent(event, self.state());
-        if actions.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(actions))
-        }
+        Ok(EventAction::from_xevent(event, self.state()))
     }
 
     #[instrument(level = "debug", skip(self, actions, mousebinds, keybinds))]
@@ -653,12 +643,10 @@ impl<X: XConn> WindowManager<X> {
                 }
             }
         };
-        self.focused = Some(target);
         self.desktop.current_mut().focus_window(&self.conn, target);
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
     fn focused_client_id(&self) -> Option<XWindowID> {
         self.desktop.current_client().map(|c| c.id())
     }
@@ -666,8 +654,6 @@ impl<X: XConn> WindowManager<X> {
     /// Unfocuses a client
     #[instrument(level = "debug", skip(self))]
     fn client_unfocus(&mut self, id: XWindowID) -> Result<()> {
-        self.desktop.current_mut().unfocus_window(&self.conn, id);
-        self.focused = self.desktop.current_client().map(|c| c.id());
         Ok(())
     }
 
@@ -731,6 +717,7 @@ impl<X: XConn> WindowManager<X> {
 
     #[instrument(level = "debug", skip(self))]
     fn configure_client(&mut self, data: ConfigureRequestData) -> Result<()> {
+        //todo
         Ok(())
     }
 
@@ -745,13 +732,9 @@ impl<X: XConn> WindowManager<X> {
             .send_window_to(id, &name, &self.conn, self.screens.focused().unwrap())
     }
 
+    /// Runs the keybind.
     #[instrument(level = "debug", skip(self, bdgs))]
     fn run_keybind(&mut self, kb: Keybind, bdgs: &mut Keybinds<X>, id: XWindowID) {
-        if let Some(focused) = self.focused {
-            if focused != id {
-                warn!("Keypress event and focused window are different");
-            }
-        }
         if let Some(cb) = bdgs.get_mut(&kb) {
             cb(self);
         } else {
@@ -779,11 +762,6 @@ impl<X: XConn> WindowManager<X> {
             MouseEventKind::Motion => {}
         }
 
-        if let Some(focused) = self.focused {
-            if focused != id {
-                warn!("Mouse event and focused window are different");
-            }
-        }
         if let Some(cb) = bdgs.get_mut(&mb) {
             cb(self, pt);
         } else {

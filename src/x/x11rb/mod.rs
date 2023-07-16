@@ -394,8 +394,12 @@ impl X11RBConn<Initialized> {
 
                 Ok(XEvent::MapRequest(req.window, override_redirect))
             }
-            Event::MapNotify(event) => Ok(XEvent::MapNotify(event.window)),
-            Event::UnmapNotify(event) => Ok(XEvent::UnmapNotify(event.window)),
+            Event::MapNotify(event) => Ok(XEvent::MapNotify(
+                event.window, event.event == self.root.id
+            )),
+            Event::UnmapNotify(event) => Ok(XEvent::UnmapNotify(
+                event.window, event.event == self.root.id
+            )),
             Event::DestroyNotify(event) => Ok(XEvent::DestroyNotify(event.window)),
             Event::EnterNotify(event) => {
                 let grab = event.mode == xproto::NotifyMode::GRAB;

@@ -60,7 +60,7 @@ impl WorkspaceSpec {
 
 /// A grouped collection of windows arranged according to a Layout.
 /// 
-/// ## General Usage
+/// # General Usage
 /// 
 /// Workspaces manage windows in two classes; within the layout
 /// or outside the layout, marked by an attribute on the window.
@@ -71,6 +71,10 @@ impl WorkspaceSpec {
 /// Most Workspace methods involve adding or removing windows, swapping
 /// layouts, or modifying layouts.
 /// 
+/// # Panics
+/// 
+/// Any of `Workspace`'s layout-related methods may panic if the 
+/// Layout invariants are not upheld.
 pub struct Workspace {
     pub(crate) name: String,
     pub(crate) windows: ClientRing,
@@ -136,6 +140,8 @@ impl Workspace {
     }
 
     /// Sets the layout to use and applies it to all currently mapped windows.
+    /// 
+    /// Is a no-op if no such layout exists.
     pub fn set_layout<X: XConn>(
         &mut self,
         layout: &str,
@@ -216,22 +222,6 @@ impl Workspace {
         self.windows.iter_mut().filter(|w| !w.is_off_layout())
     }
 
-    /// Returns the number of windows managed by the layout.
-    ///
-    /// Since a workspace can contain both floating and tiled windows,
-    /// this returns the number of tiled windows only.
-    pub fn managed_count(&self) -> usize {
-        self.windows.iter().filter(|win| !win.is_off_layout()).count()
-    }
-
-    /// Returns the number of floating windows in the workspace.
-    ///
-    /// Since a workspace can contain both floating and tiled windows,
-    /// this returns the number of floating windows only.
-    pub fn floating_count(&self) -> usize {
-        self.windows.iter().filter(|win| win.is_off_layout()).count()
-    }
-
     /// Tests whether the workspace is empty.`
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
@@ -247,30 +237,25 @@ impl Workspace {
     /// Tests whether the workspace is floating.
     #[inline]
     pub fn is_floating(&self) -> bool {
-        let Some(layout) = self.layouts.focused() else {
-            warn!("No currently focused layout in workspace `{}`", self.name);
-            return false
-        };
-        matches!(layout.style(), LayoutType::Floating)
+        // just assume the invariants hold
+        matches!(self.layouts
+            .focused().expect("layout focus should not be None")
+            .style(), LayoutType::Floating)
     }
 
     /// Returns the name of the workspace's current layout.
     #[inline]
     pub fn layout(&self) -> &str {
-        let Some(layout) = self.layouts.focused() else {
-            warn!("No currently focused layout in workspace `{}`", self.name);
-            return ""
-        };
+        let layout = self.layouts
+            .focused().expect("layout focus should not be None");
         layout.name()
     }
 
     /// Returns the style of the workspace's current layout.
     #[inline]
     pub fn layout_style(&self) -> LayoutType {
-        let Some(layout) = self.layouts.focused() else {
-            warn!("No currently focused layout in workspace `{}`", self.name);
-            return LayoutType::Tiled
-        };
+        let layout = self.layouts
+            .focused().expect("layout focus should not be None");
         layout.style()
     }
 
@@ -286,17 +271,15 @@ impl Workspace {
     ///
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
-    #[instrument(level = "debug", skip(self, conn))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, conn, scr)))]
     pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
         if self.windows.is_empty() {
             return;
         }
 
-        //todo: change this to account for all layouts
-        //* currently does not re-apply layouts when done
-
         self.relayout(conn, scr);
 
+        // for each window, update i
         for window in self.windows.iter_rev() {
             // disable events
             window.change_attributes(conn, &[ClientAttrs::DisableClientEvents]);
@@ -308,6 +291,13 @@ impl Workspace {
                 .unwrap_or_else(|e| error!("{}", e));
             // re-enable events
             window.change_attributes(conn, &[ClientAttrs::EnableClientEvents]);
+        }
+
+        if let Some(win) = self.focused_client() {
+            self.focus_window(conn, win.id());
+        } else {
+            debug!("no focused window, focusing by ptr");
+            self.focus_window_by_ptr(conn, scr);
         }
     }
 
@@ -359,12 +349,14 @@ impl Workspace {
             }
         } else {
             // fail silently (this accounts for spurious unmap events)
+            debug!("could not find window to delete, failing silently");
             Ok(None)
         }
     }
 
     /// Sets the input focus, internally and on the server, to the given ID.
-    //#[instrument(level = "debug", skip(self, conn))]
+    /// 
+    /// Also calls `Self::unfocus_window` internally.
     pub fn focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         let Some(_) = self.windows.get_idx(window) else {
             warn!("focus_window: no window {} found in workspace", window);
@@ -382,6 +374,9 @@ impl Workspace {
     }
 
     /// Unfocuses the given window ID.
+    /// 
+    /// You generally shouldn't have to call this directly, as it is also
+    /// called by `Self::focus_window`.
     pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
         // remove focus if window to unfocus is currently focused
         if self.windows.lookup(window).is_some() {
@@ -475,6 +470,22 @@ impl Workspace {
         self.relayout(conn, scr);
     }
 
+    /// Returns the number of windows managed by the layout.
+    ///
+    /// Since a workspace can contain both floating and tiled windows,
+    /// this returns the number of tiled windows only.
+    pub fn managed_count(&self) -> usize {
+        self.windows.iter().filter(|win| !win.is_off_layout()).count()
+    }
+
+    /// Returns the number of floating windows in the workspace.
+    ///
+    /// Since a workspace can contain both floating and tiled windows,
+    /// this returns the number of floating windows only.
+    pub fn floating_count(&self) -> usize {
+        self.windows.iter().filter(|win| win.is_off_layout()).count()
+    }
+
     // * PRIVATE METHODS * //
 
     #[instrument(level = "debug", skip(self, conn, scr, window))]
@@ -554,6 +565,16 @@ impl Workspace {
         Some(window)
     }
 
+    /// Updates the focus to the window under the pointer.
+    pub(crate) fn focus_window_by_ptr<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+        //todo: make all methods return Result
+        let Ok(reply) = conn.query_pointer(scr.root_id) else {
+            warn!("could not query pointer");
+            return
+        };
+        self.focus_window(conn, reply.child);
+    }
+
     fn apply_layout<X: XConn>(&mut self, conn: &X, layouts: Vec<LayoutAction>) {
         // get all off_layout windows and stack them above all tiled
         for floater in self.clients_mut().filter(|c| c.is_off_layout()) {
@@ -567,11 +588,13 @@ impl Workspace {
                     let window = self.windows.lookup_mut(id).unwrap();
                     window.set_and_update_geometry(conn, geom);
                 }
-                LayoutAction::Map(_) => {
-                    //todo
+                LayoutAction::Map(id) => {
+                    let window = self.windows.lookup_mut(id).unwrap();
+                    window.map(conn);
                 }
-                LayoutAction::Unmap(_) => {
-                    //todo
+                LayoutAction::Unmap(id) => {
+                    let window = self.windows.lookup_mut(id).unwrap();
+                    window.unmap(conn);
                 }
             }
         }

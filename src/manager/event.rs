@@ -61,85 +61,93 @@ pub enum EventAction {
 }
 
 impl EventAction {
-    pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WmState<'_, X>) -> Vec<EventAction> {
+    pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WmState<'_, X>) -> Option<Vec<EventAction>> {
         use EventAction::*;
         use XEvent::*;
         match event {
             ConfigureNotify(event) => {
                 debug!(target: "manager::event","configure notify for window {}", event.id);
                 if event.id == state.root.id {
-                    vec![ScreenReconfigure]
+                    Some(vec![ScreenReconfigure])
                 } else {
-                    vec![]
+                    None
                 }
             }
             ConfigureRequest(event) => {
                 debug!(target: "manager::event","configure request for window {}", event.id);
-                vec![ConfigureClient(event)]
+                Some(vec![ConfigureClient(event)])
             }
             MapRequest(id, override_redirect) => {
                 debug!(target: "manager::event","map request for window {}", id);
                 process_map_request(id, override_redirect, state)
             }
-            MapNotify(_id) => {
+            MapNotify(_id, _from_root) => {
                 debug!(target: "manager::event","map notify for window {}", _id);
-                vec![] //* ideally, tell the WM to validate
+                None //* ideally, tell the WM to validate
             }
-            UnmapNotify(id) => {
+            UnmapNotify(id, from_root) => {
                 debug!(target: "manager::event","unmap notify for window {}", id);
-                vec![UnmapClient(id)]
+                if from_root {
+                    None
+                } else {
+                    Some(vec![UnmapClient(id)])
+                }
             }
             DestroyNotify(id) => {
                 debug!(target: "manager::event","destroy notify for window {}", id);
-                vec![DestroyClient(id)]
+                Some(vec![DestroyClient(id)])
             }
             // if pointer is not grabbed, tell WM to focus on client
             EnterNotify(ev, grab) => {
                 debug!(target: "manager::event","enter notify for window {}; grab: {}", ev.id, grab);
-                if !grab {
+                if !grab && state.is_managing(ev.id) {
                     process_enter_notify(ev, state)
                 } else {
-                    vec![]
+                    None
                 }
             }
             LeaveNotify(ev, grab) => {
                 debug!(target: "manager::event","leave notify for window {}; grab: {}", ev.id, grab);
-                if !grab {
-                    vec![ClientUnfocus(ev.id), SetFocusedScreen(Some(ev.abs))]
+                if !grab && state.is_managing(ev.id) {
+                    Some(vec![ClientUnfocus(ev.id), SetFocusedScreen(Some(ev.abs))])
                 } else {
-                    vec![]
+                    None
                 }
             }
             // This doesn't do anything for now
             ReparentNotify(_event) => {
                 debug!(target: "manager::event","reparent notify for window {}", _event.child);
-                vec![]
+                None
             }
             PropertyNotify(event) => {
+                // ignore if window that changed was the root
+                if event.id == state.root.id {
+                    return None
+                }
                 debug!(target: "manager::event","property notify for window {}", event.id);
                 process_property_notify(event, state)
             }
             KeyPress(id, event) => {
                 debug!(target: "manager::event","keypress notify for window {}", id);
-                vec![RunKeybind(event.into(), id)]
+                Some(vec![RunKeybind(event.into(), id)])
             }
             KeyRelease => {
                 debug!(target: "manager::event","key release notify");
-                vec![]
+                None
             }
             MouseEvent(event) => {
                 debug!(target: "manager::event","mouse event for window {}", event.id);
-                vec![RunMousebind(event.state, event.id, event.location)]
+                Some(vec![RunMousebind(event.state, event.id, event.location)])
             }
             ClientMessage(event) => {
                 info!("Client message received: {:#?}", event);
                 process_client_message(event, state)
             }
-            RandrNotify => vec![ScreenReconfigure],
-            ScreenChange => vec![SetFocusedScreen(None)],
+            RandrNotify => Some(vec![ScreenReconfigure]),
+            ScreenChange => Some(vec![SetFocusedScreen(None)]),
             Unknown(smth) => {
-                info!("Unrecognised event: code {}", smth);
-                vec![]
+                info!("Unrecognised event: {}", smth);
+                None
             }
         }
     }
@@ -149,31 +157,33 @@ fn process_map_request<X: XConn>(
     id: XWindowID,
     ovrd: bool,
     state: WmState<'_, X>,
-) -> Vec<EventAction> {
+) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
     // if window is override-redirect or we already have the window,
     // ignore the request.
     if ovrd || state.desktop.is_managing(id) {
-        return Vec::new();
+        return None;
     }
 
     if !state.conn.should_manage(id) {
-        return vec![MapUntrackedClient(id)];
+        return Some(vec![MapUntrackedClient(id)]);
     }
 
-    vec![MapTrackedClient(id)]
+    Some(vec![MapTrackedClient(id)])
 }
 
-fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WmState<'_, X>) -> Vec<EventAction> {
+fn process_enter_notify<X: XConn>(
+    pt: PointerEvent, state: WmState<'_, X>
+) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
     let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
 
-    if let Some(focused) = state.focused {
+    if let Some(focused) = state.desktop.current_client() {
         // unfocus previous client
-        if focused != pt.id {
-            actions.insert(0, ClientUnfocus(focused))
+        if focused.id() != pt.id {
+            actions.insert(0, ClientUnfocus(focused.id()))
         }
         // if next client is set to urgent, unset its urgent flag
         if let Some(c) = state.lookup_client(pt.id) {
@@ -183,19 +193,19 @@ fn process_enter_notify<X: XConn>(pt: PointerEvent, state: WmState<'_, X>) -> Ve
         }
     }
 
-    actions
+    Some(actions)
 }
 
 fn process_property_notify<X: XConn>(
     event: PropertyEvent,
     state: WmState<'_, X>,
-) -> Vec<EventAction> {
+) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
     let atom = if let Ok(atom) = state.conn.lookup_atom(event.atom) {
         atom
     } else {
-        return vec![];
+        return None
     };
 
     let hints = Atom::WmHints.as_ref();
@@ -204,22 +214,22 @@ fn process_property_notify<X: XConn>(
         let wmhints = if let Ok(Some(h)) = state.conn.get_property(hints, event.id) {
             h
         } else {
-            return vec![];
+            return None;
         };
 
         if let Property::WMHints(wmhints) = wmhints {
             if wmhints.is_set(WmHintsFlags::URGENCY_HINT) {
-                return vec![ToggleUrgency(event.id)];
+                return Some(vec![ToggleUrgency(event.id)]);
             }
         }
     }
-    vec![]
+    None
 }
 
 fn process_client_message<X: XConn>(
     event: ClientMessageEvent,
     state: WmState<'_, X>,
-) -> Vec<EventAction> {
+) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
     let is_fullscreen = |data: &[u32]| {
@@ -230,27 +240,27 @@ fn process_client_message<X: XConn>(
 
     let atom = match state.conn.lookup_atom(event.type_) {
         Ok(atom) => atom,
-        Err(_) => return vec![],
+        Err(_) => return None
     };
 
     if let ClientMessageData::U32(data) = event.data {
         match Atom::from_str(&atom) {
             Ok(Atom::NetActiveWindow) => {
-                vec![]
+                None
             } //todo
-            Ok(Atom::NetWmDesktop) => vec![ClientToWorkspace(event.window, data[0] as usize)],
+            Ok(Atom::NetWmDesktop) => Some(vec![ClientToWorkspace(event.window, data[0] as usize)]),
             Ok(Atom::NetWmState) if is_fullscreen(&data[1..3]) => {
                 let should_fullscreen = [1, 2].contains(&data[0]);
 
-                vec![ToggleClientFullscreen(event.window, should_fullscreen)]
+                Some(vec![ToggleClientFullscreen(event.window, should_fullscreen)])
             }
             _ => {
                 debug!(target: "manager::event","Got client message of type {}, data {:?}", atom, data);
-                vec![]
+                None
             }
         }
     } else {
         debug!(target: "manager::event","Got client message of type {}, data {:?}", atom, event.data);
-        vec![]
+        None
     }
 }
