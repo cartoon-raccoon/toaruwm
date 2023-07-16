@@ -1,7 +1,7 @@
-use super::{Layout, LayoutAction, LayoutType, update::Update};
-
-use crate::core::{Screen, Workspace};
-
+use super::{
+    Layout, LayoutAction, LayoutType, LayoutCtxt,
+    update::Update
+};
 
 /// A simple floating layout that does not
 /// enforce any specific layout.
@@ -24,7 +24,7 @@ impl Layout for Floating {
         Box::new(*self)
     }
 
-    fn layout(&self, _: &Workspace, _: &Screen) -> Vec<LayoutAction> {
+    fn layout(&self, _: LayoutCtxt) -> Vec<LayoutAction> {
         vec![]
     }
 

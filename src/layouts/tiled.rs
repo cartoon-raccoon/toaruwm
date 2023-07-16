@@ -2,10 +2,10 @@ use std::cell::Cell;
 
 use tracing::debug;
 
-use super::LayoutAction;
-use super::{Layout, LayoutType, update::{Update, ResizeMain}};
+use super::{
+    Layout, LayoutType, LayoutAction, LayoutCtxt,
+    update::{Update, ResizeMain}};
 
-use crate::core::{Screen, Workspace};
 use crate::types::Geometry;
 use crate::x::XWindowID;
 
@@ -38,8 +38,10 @@ impl Layout for DynamicTiled {
         "DTiled"
     }
 
-    fn layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
-        let geom = scr.effective_geom();
+    fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction> {
+        let geom = ctxt.screen.effective_geom();
+
+        let ws = ctxt.workspace;
 
         /* we have a main window */
         if let Some(main_id) = self.main.get() {
@@ -101,7 +103,7 @@ impl Layout for DynamicTiled {
                 /* now that we have a main window set,
                 call back into ourselves, we should
                 not recurse infinitely */
-                self.layout(ws, scr)
+                self.layout(ctxt)
             }
         }
     }

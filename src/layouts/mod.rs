@@ -1,3 +1,8 @@
+//! Traits and types for implementing layouts.
+//! 
+//! The core of this module is the [`Layout`] trait, you should
+//! read its documentation before looking at anything else.
+
 use std::collections::HashSet;
 
 use tracing::debug;
@@ -5,7 +10,7 @@ use tracing::debug;
 use crate::core::{Screen, Workspace, Ring};
 use crate::types::Geometry;
 use crate::x::XWindowID;
-use crate::{ToaruError, Result};
+use crate::{ToaruError, Result, XConn};
 
 /// A simple manually-tiled layout.
 pub mod tiled;
@@ -41,6 +46,17 @@ use update::Update;
 /// main window is not applicable to a floating layout), Layouts are
 /// not required to comply with all updates.
 /// 
+/// # Layout Types and Styles
+/// 
+/// Layouts are generally organized into two main styles: Floating
+/// and Tiled, where floating layouts have their windows free floating
+/// and and have little, if any, enforcement over window positioning.
+/// Tiled layouts, on the other hand, enforce window positioning in
+/// various ways.
+/// 
+/// A type implementing `Layout` reports its style through the `style`
+/// method in the `Layout` trait.
+/// 
 /// # Usage by a `WindowManager`
 ///
 /// Layouts will usually be used as a trait object by the window manager.
@@ -54,10 +70,10 @@ pub trait Layout {
     fn style(&self) -> LayoutType;
 
     /// Generates the actions to be taken to lay out the windows.
-    /// Parameters:
-    /// - &Workspace: the workspace to layout.
-    /// - &Screen: the screen the workspace is on.
-    fn layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction>;
+    /// 
+    /// A `LayoutCtxt` is provided to give the layout any additional
+    /// information it might need to enforce its policy.
+    fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
     fn boxed(&self) -> Box<dyn Layout>;
@@ -66,6 +82,20 @@ pub trait Layout {
     /// This type does not need to respond to all possible updates,
     /// only the ones that specifically apply to it.
     fn receive_update(&self, update: &Update);
+}
+
+use custom_debug_derive::Debug;
+/// The context providing any information that the layout may need
+/// to enforce its layout policy.
+#[derive(Debug)]
+pub struct LayoutCtxt<'wm> {
+    /// A Connection to the X server to make queries if needed.
+    #[debug(skip)]
+    pub conn: &'wm dyn XConn,
+    /// The workspace that called the Layout.
+    pub workspace: &'wm Workspace,
+    /// The current screen the workspace is on.
+    pub screen: &'wm Screen,
 }
 
 /// A Ring of layouts applied on a workspace.
@@ -157,10 +187,15 @@ impl Layouts {
     }
 
     /// Generates the layout for the currently focused layout.
-    pub fn gen_layout(&self, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
+    pub fn gen_layout<X: XConn>(&self, conn: &X, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
-        self.focused().unwrap().layout(ws, scr)
+        self.focused().expect("focused layout should not be none")
+            .layout(LayoutCtxt {
+                workspace: ws,
+                conn,
+                screen: scr,
+            })
     }
 
     /// Sends an update to the current layout.

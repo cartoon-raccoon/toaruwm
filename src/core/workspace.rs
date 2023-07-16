@@ -330,7 +330,7 @@ impl Workspace {
 
     /// Calls the layout function and applies it to the workspace.
     pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        let layouts = self.layouts.gen_layout(self, scr);
+        let layouts = self.layouts.gen_layout(conn, self, scr);
         self.apply_layout(conn, layouts);
     }
 
