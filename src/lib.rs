@@ -52,7 +52,7 @@
 //!     Config,
 //!     x11rb_backed_wm, hook
 //! };
-//! use toaruwm::keybinds::{
+//! use toaruwm::bindings::{
 //!     mb, ButtonIndex as Idx,
 //!     Keymap, Keybinds, Mousebinds,
 //!     ModKey, MouseEventKind::*,
