@@ -40,9 +40,7 @@ pub use event::EventAction;
 #[doc(inline)]
 pub use hooks::{Hook, Hooks};
 #[doc(inline)]
-pub use state::WmState;
-
-use state::WmConfig;
+pub use state::{RuntimeConfig, WmState, WmConfig};
 
 //static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
 
@@ -158,10 +156,15 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
 /// General `WindowManager`-level commands.
 impl<X: XConn> WindowManager<X> {
     /// Constructs a new WindowManager object.
+    /// 
+    /// # Assumptions
+    /// 
+    /// This method assumes `config` has already been validated.
+    /// It is on you to prevalidate your configuration and ensure
+    /// all your invariants are upheld.
+    /// 
+    /// See [`Config`] for more details.
     pub fn new(conn: X, config: Config) -> Result<WindowManager<X>> {
-
-        config.validate()?;
-        info!(target: "", "Config successfully validated");
 
         let root = conn.get_root();
         let mut screens = Ring::from_iter(
@@ -193,13 +196,12 @@ impl<X: XConn> WindowManager<X> {
         Ok(Self {
             conn,
             config: WmConfig {
-                gap_px: config.gap_px,
-                main_ratio_inc: config.main_ratio_inc,
                 float_classes,
                 border_px: config.border_px,
                 unfocused: config.unfocused,
                 focused: config.focused,
                 urgent: config.urgent,
+                keys: config.keys,
 
             },
             desktop: Desktop::new(just_workspaces, layouts)?,

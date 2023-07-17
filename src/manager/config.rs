@@ -1,6 +1,9 @@
 //! Types for configuring a `WindowManager`.
 use custom_debug_derive::Debug;
 
+use std::any::Any;
+use std::collections::HashMap;
+
 use crate::{ToaruError::*, Result};
 use crate::types::Color;
 use crate::core::WorkspaceSpec;
@@ -9,41 +12,47 @@ use crate::layouts::{Layout, Floating, DynamicTiled};
 
 /// Configuration of a window manager.
 /// 
-/// There are a few invariants related to a Configuration
-/// that must always be upheld:
-/// - `workspace` and `layouts` must never be empty.
-/// - `main_ratio_inc` should always be > 0.
+/// `Config` stores several key attributes that are required
+/// by the window manager to run, but it can also store
+/// any arbitrary key-value pair.
 /// 
-/// To this end, runtime checks are in place to ensure that
-/// these invariants are upheld.
+/// # Configuration Keys
 /// 
-/// To build a Config, use the `ConfigBuilder` type.
+/// The required configuration keys are:
+/// 
+/// - Layouts: the set of layouts used by the window manager.
+/// - Workspaces: the workspaces to be created by the window
+/// manager.
+/// - Float Classes: the set of window classes that the window
+/// manager will not place under layout.
+/// - Border Pixel: The thickness of the window border.
+/// - Unfocused: The border color of unfocused windows.
+/// - Focused: The border color of focused windows.
+/// - Urgent: The border color of focused windows.
+/// 
+/// # Validation
+/// 
+/// While user-defined keys may have their own invariants that
+/// should not violated, `Config` also has one invariant of its own,
+/// that its Layouts and Workspaces must contain at least one member,
+/// i.e. they cannot be empty.
+/// 
+/// `Config` provides a validation method that ensures it is valid
+/// and can be used in a `WindowManager`. While this checks the
+/// predefined invariants on the Config, it can also run user-defined
+/// code to ensure that user-defined invariants are also upheld.
+/// 
+/// # Construction
+/// 
+/// To build a Config, use the [`ConfigBuilder`] type.
 /// 
 /// # Example
 /// 
-/// ```ignore //fixme
-/// # use toaruwm::layouts::Layouts;
-/// # use toaruwm::types::Color;
+/// ```rust
 /// use toaruwm::Config;
 /// 
-/// let config = Config {
-///    workspaces: vec![
-///        WorkspaceSpec::new("1", 0, layouts.clone()),
-///        WorkspaceSpec::new("2", 0, layouts.clone()),
-///        WorkspaceSpec::new("3", 0, layouts.clone()),
-///    ],
-///    gap_px: 0,
-///    main_ratio_inc: 0.05,
-///    layouts: vec![
-///        Box::new(DynamicTiled::new(0.5, 2)) as Box<dyn Layout>,
-///        Box::new(Floating::new()) as Box<dyn Layout>,
-///    ],
-///    float_classes: Vec::new(),
-///    border_px: 2,
-///    unfocused: Color::from(0x555555ff),
-///    focused: Color::from(0xddddddff),
-///    urgent: Color::from(0xee0000ff),
-/// };
+/// // create a default config that upholds all invariants
+/// let config = Config::new();
 /// 
 /// config.validate().expect("invalid config");
 /// ```
@@ -53,10 +62,6 @@ pub struct Config {
     /// The workspaces and the screen it should be sent to.
     /// (Name, Screen)
     pub(crate) workspaces: Vec<WorkspaceSpec>,
-    /// The gap between windows.
-    pub(crate) gap_px: u32,
-    /// When the main ratio is changed, by what increment?
-    pub(crate) main_ratio_inc: f64,
     /// The set of layouts being used.
     #[debug(skip)]
     pub(crate) layouts: Vec<Box<dyn Layout>>,
@@ -70,6 +75,8 @@ pub struct Config {
     pub(crate) focused: Color,
     /// The color to apply to the borders of a window marked as urgent.
     pub(crate) urgent: Color,
+    /// Storage for any user-defined keys.
+    pub(crate) keys: HashMap<String, Box<dyn Any>>,
 }
 
 impl Config {
@@ -84,35 +91,138 @@ impl Config {
     }
 
     /// Checks the configuration to verify that all invariants are upheld.
-    pub fn validate(&self) -> Result<()> {
+    /// 
+    /// You can insert additional code to check that your user-added keys
+    /// are valid.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::Config;
+    /// use toaruwm::{Result, ToaruError::*};
+    /// 
+    /// let mut config = Config::new();
+    /// 
+    /// // insert a user-defined key into the Config
+    /// config.insert_key("foo", 1i32);
+    /// 
+    /// config.validate(Some(|config| {
+    ///     if config.get_key::<i32>("foo").is_none() {
+    ///         Err(InvalidConfig("missing foo".into()))
+    ///     } else {
+    ///         Ok(())
+    ///     }
+    /// })).expect("config was invalid!");
+    /// ```
+    pub fn validate<F>(&self, checks: Option<F>) -> Result<()>
+    where
+        F: FnOnce(&Config) -> Result<()>
+    {
         if self.workspaces.len() < 1 {
             return Err(InvalidConfig("workspaces is empty".into()))
         }
         if self.layouts.len() < 1 {
             return Err(InvalidConfig("layouts is empty".into()))
         }
-        if self.main_ratio_inc < 0.0 {
-            return Err(InvalidConfig(
-                format!("main_ratio_inc < 0: = {}", self.main_ratio_inc)
-            ))
+        if let Some(check) = checks {
+            check(self)?;
         }
         Ok(())
     }
 
-    // todo: add methods to view inner fields
+    /// Inserts an arbitrary key-value pair into the Config.
+    pub fn insert_key<K, V>(&mut self, key: K, value: V)
+    where
+        K: Into<String>,
+        V: Any,
+    {
+        self.keys.insert(key.into(), Box::new(value) as Box<V>);
+    }
+
+    /// Remove a key-value pair from the Config.
+    /// 
+    /// Returns None if the value doesn't exist or is not of
+    /// the specified type.
+    /// 
+    /// Since this function is so generic, it is likely
+    /// you will often have to use Rust's 'turbofish'
+    /// notation (`::<T>`) to specify the type of the value
+    /// you want to retrieve.
+    pub fn remove_key<K, V>(&mut self, key: K) -> Option<V>
+    where
+        K: Into<String>,
+        V: Any,
+    {
+        self.keys.remove(&key.into())
+            .map(|v| v.downcast().ok())
+            .flatten()
+            .map(|v| *v)
+    }
+
+    /// Introspection into the workspaces set on the Config.
+    pub fn workspaces(&self) -> &[WorkspaceSpec] {
+        &self.workspaces
+    }
+
+    /// All layouts available to the windowmanager to use.
+    pub fn layouts(&self) -> &[Box<dyn Layout>] {
+        &self.layouts
+    }
+
+    /// All the window classes that should not be set under layout.
+    pub fn float_classes(&self) -> &[String] {
+        &self.float_classes
+    }
+
+    /// The thickness of the window borders, in pixels.
+    pub fn border_px(&self) -> u32 {
+        self.border_px
+    }
+
+    /// The border color of unfocused windows.
+    pub fn unfocused(&self) -> Color {
+        self.unfocused
+    }
+
+    /// The border color of focused windows.
+    pub fn focused(&self) -> Color {
+        self.focused
+    }
+
+    /// The border colour of urgent windows.
+    pub fn urgent(&self) -> Color {
+        self.urgent
+    }
+
+    /// Get a generic key from the `Config`'s internal store.
+    /// 
+    /// Returns `None` if the key does not exist or is not
+    /// in the type specified.
+    /// 
+    /// Since this function is so generic, it is likely
+    /// you will often have to use Rust's 'turbofish'
+    /// notation (`::<T>`) to specify the type of the value
+    /// you want to retrieve.
+    pub fn get_key<K, V>(&self, key: K) -> Option<&V>
+    where
+        K: Into<String>,
+        V: Any
+    {
+        self.keys.get(&key.into())
+            .map(|i| i.downcast_ref::<V>())
+            .flatten()
+    }
 }
 
 impl Default for Config {
     fn default() -> Config {
-        let layouts = vec![String::from("DTiled"), String::from("Floating"), ];
+        let layouts = vec![String::from("DTiled"), String::from("Floating")];
         Config {
             workspaces: vec![
                 WorkspaceSpec::new("1", 0, layouts.clone()),
                 WorkspaceSpec::new("2", 0, layouts.clone()),
                 WorkspaceSpec::new("3", 0, layouts.clone()),
             ],
-            gap_px: 0,
-            main_ratio_inc: 0.05,
             layouts: vec![
                 Box::new(DynamicTiled::new(0.5, 2)) as Box<dyn Layout>,
                 Box::new(Floating::new()) as Box<dyn Layout>,
@@ -122,6 +232,15 @@ impl Default for Config {
             unfocused: Color::from(0x555555ff),
             focused: Color::from(0xddddddff),
             urgent: Color::from(0xee0000ff),
+            keys: {
+                let mut keys = HashMap::new();
+                keys.insert("gap_px".into(), 
+                    Box::new(0u32) as Box<dyn Any>);
+                keys.insert("main_ratio_inc".into(), 
+                    Box::new(0.05f32) as Box<dyn Any>);
+
+                keys
+            }
         }
     }
 }
@@ -168,18 +287,6 @@ impl ConfigBuilder {
         self
     }
 
-    /// Sets the width of the gap between windows, if any.
-    pub fn gap_px(mut self, gap_px: u32) -> Self {
-        self.inner.gap_px = gap_px;
-        self
-    }
-
-    /// Sets the main ratio increment.
-    pub fn main_ratio_inc(mut self, main_ratio_inc: f64) -> Self {
-        self.inner.main_ratio_inc = main_ratio_inc;
-        self
-    }
-
     /// Sets the border thickness, in pixels.
     pub fn border_px(mut self, border_px: u32) -> Self {
         self.inner.border_px = border_px;
@@ -204,14 +311,28 @@ impl ConfigBuilder {
         self
     }
 
+    /// Inserts any additional keys the user may want.
+    pub fn other_key<K, V>(mut self, key: K, value: V) -> Self
+    where
+        K: Into<String>,
+        V: Any
+    {
+        self.inner.keys.insert(key.into(), Box::new(value) as Box<dyn Any>);
+        self
+    }
+
     /// Finishes Config construction, validates it and returns
     /// a completed config if validation is successful.
-    pub fn finish(self) -> Result<Config> {
+    /// 
+    /// You can supply an additional `check` to run
+    /// additional code to validate your config.
+    pub fn finish<F>(self, check: Option<F>) -> Result<Config>
+    where
+        F: FnOnce(&Config) -> Result<()>
+    {
         let config = self.inner;
-        config.validate()?;
+        config.validate(check)?;
         Ok(config)
     }
 
 }
-
-//todo: add validation, builder, etc
