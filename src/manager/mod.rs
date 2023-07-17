@@ -15,7 +15,7 @@ use tracing::{debug, error, info, span, trace, warn, Level};
 
 use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
-use crate::layouts::{Layout, Layouts};
+use crate::layouts::Layouts;
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};
 use crate::x::{
@@ -42,7 +42,6 @@ pub use hooks::{Hook, Hooks};
 #[doc(inline)]
 pub use state::WmState;
 
-use config::traits::Length;
 use state::WmConfig;
 
 //static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
@@ -159,12 +158,7 @@ impl<X: XConn> fmt::Debug for WindowManager<X> {
 /// General `WindowManager`-level commands.
 impl<X: XConn> WindowManager<X> {
     /// Constructs a new WindowManager object.
-    pub fn new<W, L, F>(conn: X, config: Config<W, L, F>) -> Result<WindowManager<X>>
-    where
-        W: IntoIterator<Item = WorkspaceSpec> + Length,
-        L: IntoIterator<Item = Box<dyn Layout>> + Length,
-        F: IntoIterator<Item = String>,
-    {
+    pub fn new(conn: X, config: Config) -> Result<WindowManager<X>> {
 
         config.validate()?;
         info!(target: "", "Config successfully validated");

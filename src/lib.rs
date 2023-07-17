@@ -140,7 +140,6 @@ mod log;
 
 pub mod core;
 pub mod bindings;
-/// Types and traits for defining and generating window layouts.
 pub mod layouts;
 pub mod manager;
 pub mod x;
@@ -158,20 +157,12 @@ pub use crate::x::ConnStatus;
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
 use crate::x::Initialized;
-use crate::manager::config::traits::*;
-use crate::layouts::Layout;
-use crate::core::WorkspaceSpec;
 
 use std::io;
 use std::num::ParseIntError;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm<W, L, F>(config: Config<W, L, F>) -> Result<WindowManager<XCBConn<Initialized>>>
-where
-    W: IntoIterator<Item = WorkspaceSpec> + Length,
-    L: IntoIterator<Item = Box<dyn Layout>> + Length,
-    F: IntoIterator<Item = String>,
-{
+pub fn xcb_backed_wm(config: Config) -> Result<WindowManager<XCBConn<Initialized>>> {
     let conn = XCBConn::connect()?;
     let conn = conn.init()?;
 
@@ -181,12 +172,7 @@ where
 }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
-pub fn x11rb_backed_wm<W, L, F>(config: Config<W, L, F>) -> Result<WindowManager<X11RBConn<Initialized>>>
-where
-    W: IntoIterator<Item = WorkspaceSpec> + Length,
-    L: IntoIterator<Item = Box<dyn Layout>> + Length,
-    F: IntoIterator<Item = String>,
-{
+pub fn x11rb_backed_wm(config: Config) -> Result<WindowManager<X11RBConn<Initialized>>> {
     let conn = X11RBConn::connect()?;
     let conn = conn.init()?;
 
