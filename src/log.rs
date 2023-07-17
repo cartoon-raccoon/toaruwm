@@ -16,14 +16,18 @@ macro_rules! fatal {
 //     };
 // }
 
-use crate::manager::WmState;
+use crate::manager::{WmState, RuntimeConfig};
 use crate::{ErrorHandler, ToaruError, XConn};
 use tracing::error;
 
 pub(crate) struct DefaultErrorHandler;
 
-impl<X: XConn> ErrorHandler<X> for DefaultErrorHandler {
-    fn call(&self, _: WmState<'_, X>, err: ToaruError) {
+impl<X, C> ErrorHandler<X, C> for DefaultErrorHandler
+where
+    X: XConn,
+    C: RuntimeConfig
+{
+    fn call(&self, _: WmState<'_, X, C>, err: ToaruError) {
         error!("{}", err)
     }
 }

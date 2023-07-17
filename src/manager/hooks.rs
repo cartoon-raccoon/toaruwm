@@ -9,7 +9,7 @@ use super::WindowManager;
 /// implementing [`FnMut`].
 /// You would generally use this through the [`hook`](crate::hook)
 /// macro's much more ergonomic interface.
-pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
+pub type Hook<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;
 
 /// Macro for creating a hook that can be run by the window manager.
 ///
@@ -33,13 +33,17 @@ pub type Hook<X> = Box<dyn FnMut(&mut WindowManager<X>)>;
 #[macro_export]
 macro_rules! hook {
     (|$wm:ident| $code:tt) => {
-        Box::new(|$wm: &mut WindowManager<_>| $code) as Box<dyn FnMut(&mut WindowManager<_>)>
+        Box::new(
+            |$wm: &mut WindowManager<_,_>| $code
+        ) as Box<dyn FnMut(&mut WindowManager<_,_>)>
     };
     (move |$wm:ident| $code:tt) => {
-        Box::new(move |$wm: &mut WindowManager<_>| $code) as Box<dyn FnMut(&mut WindowManager<_>)>
+        Box::new(
+            move |$wm: &mut WindowManager<_,_>| $code
+        ) as Box<dyn FnMut(&mut WindowManager<_,_>)>
     };
 }
 
 /// Hooks that can be run by the window manager.
-pub type Hooks<X> = HashMap<State, Vec<Hook<X>>>;
+pub type Hooks<X, C> = HashMap<State, Vec<Hook<X, C>>>;
 //todo: make this actually wrap the hashmap

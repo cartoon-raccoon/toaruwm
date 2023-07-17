@@ -21,12 +21,11 @@ use toaruwm::bindings::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
 use toaruwm::types::{Cardinal::*, Direction::*};
-use toaruwm::x::status::Initialized;
-use toaruwm::X11RBConn;
-use toaruwm::{hook, Config, WindowManager};
+use toaruwm::{hook, ToaruConfig, WindowManager};
+use toaruwm::{ToaruWM, InitX11RB};
 
 // convenience typedef
-type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
+type Wm<'a> = &'a mut ToaruWM<InitX11RB>;
 
 //* defining keybinds and associated WM actions
 const KEYBINDS: &[(&str, fn(Wm))] = &[
@@ -77,7 +76,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .try_init()?;
 
     //* 1: Setup X Connection and allocate new WM object
-    let mut manager = toaruwm::x11rb_backed_wm(Config::default())?;
+    let mut manager = toaruwm::x11rb_backed_wm(ToaruConfig::default())?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here

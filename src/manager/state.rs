@@ -10,8 +10,9 @@ use std::any::Any;
 
 use custom_debug_derive::Debug;
 
-use super::WindowManager;
-use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
+use crate::core::{
+    types::Color, Client, Desktop, Ring, Workspace,
+};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// An object that can provide information about window manager state
@@ -24,6 +25,20 @@ use crate::x::{XConn, XWindow, XWindowID};
 /// 
 /// As this trait is used as a trait object during the window manager
 /// runtime, its methods cannot be generic.
+/// 
+/// # Retrieving Arbitrary Values
+/// 
+/// One of `RuntimeConfig`'s required methods is `get_key`, which
+/// returns a dynamically typed trait object (i.e. `&dyn Any`).
+/// 
+/// It is then up to the caller to see if this object is of the
+/// needed type, by calling `downcast_ref` on it.
+/// 
+/// ## Example
+/// 
+/// ```rust
+/// //todo
+/// ```
 pub trait RuntimeConfig {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
@@ -41,10 +56,14 @@ pub trait RuntimeConfig {
     fn urgent(&self) -> Color;
 
     /// Retrieve arbitrary key value pairs from storage.
+    /// 
+    /// Should return None if the key does not exist in
+    /// storage.
     fn get_key(&self, key: &str) -> Option<&dyn Any>;
 }
 
-/// The runtime configuration of the [`WindowManager`].
+/// The runtime configuration of the 
+/// [`WindowManager`](super::WindowManager).
 /// 
 /// Since a user-created [`Config`](crate::manager::Config)
 /// has several fields moved out of it during window manager
@@ -69,41 +88,27 @@ pub struct WmConfig {
 }
 
 impl RuntimeConfig for WmConfig {
-    /// Get floating classes.
     fn float_classes(&self) -> &[String] {
         &self.float_classes
     }
 
-    /// Get the border thickness.
     fn border_px(&self) -> u32 {
         self.border_px
     }
 
-    /// Get the border color of unfocused windows.
     fn unfocused(&self) -> Color {
         self.unfocused
     }
 
-    /// Get the border color of focused windows.
     fn focused(&self) -> Color {
         self.focused
     }
 
-    /// Get the border color of urgent windows.
     fn urgent(&self) -> Color {
         self.urgent
     }
 
-    /// Get an arbitrary key-value pair.
-    /// 
-    /// Returns None if the value does not exist or
-    /// is not of the type specified.
-    /// 
-    /// See the `get_key` method
-    /// in [`Config`](crate::manager::Config)
-    /// for more details on how to use this function.
-    fn get_key(&self, key: &str) -> Option<&dyn Any>
-    {
+    fn get_key(&self, key: &str) -> Option<&dyn Any> {
         self.keys.get(&String::from(key)).map(|v| &*v as &dyn Any)
     }
 }
@@ -119,12 +124,16 @@ pub enum State {}
 /// `WindowManager` type.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
-pub struct WmState<'wm, X: XConn> {
+pub struct WmState<'wm, X, C>
+where
+    X: XConn,
+    C: RuntimeConfig
+{
     /// The `XConn` implementation currently being used.
     #[debug(skip)]
     pub conn: &'wm X,
     /// The inner configuration of the WindowManager.
-    pub config: &'wm WmConfig,
+    pub config: &'wm C,
     /// The workspaces maintained by the window manager.
     pub workspaces: &'wm Ring<Workspace>,
     /// The root window.
@@ -134,23 +143,11 @@ pub struct WmState<'wm, X: XConn> {
     pub(crate) desktop: &'wm Desktop,
 }
 
-//todo: implement debug!
-
-impl<X: XConn> WindowManager<X> {
-    /// Provides a WMState for introspection.
-    pub fn state(&self) -> WmState<'_, X> {
-        WmState {
-            conn: &self.conn,
-            config: &self.config,
-            workspaces: &self.desktop.workspaces,
-            desktop: &self.desktop,
-            root: self.root,
-            selected: self.selected,
-        }
-    }
-}
-
-impl<'wm, X: XConn> WmState<'wm, X> {
+impl<'wm, X, C> WmState<'wm, X, C>
+where
+    X: XConn,
+    C: RuntimeConfig,
+{
     /// Looks up a client with the given X ID.
     pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
         self.desktop.current().windows.lookup(id)

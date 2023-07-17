@@ -148,21 +148,32 @@ pub(crate) mod util;
 
 pub use crate::core::types;
 #[doc(inline)]
-pub use crate::manager::{Config, WindowManager};
+pub use crate::manager::{Config, ToaruConfig, WindowManager};
 #[doc(inline)]
 pub use crate::x::core::XConn;
 #[doc(inline)]
-pub use crate::x::ConnStatus;
-#[doc(inline)]
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
+use crate::manager::state::{WmConfig, RuntimeConfig};
 use crate::x::Initialized;
 
 use std::io;
 use std::num::ParseIntError;
 
+/// Convenience type definition for a WindowManager
+/// using a WmConfig as its RuntimeConfig.
+pub type ToaruWM<X> = WindowManager<X, WmConfig>;
+
+/// Convenience type definition for an Initialized
+/// XCBConn.
+pub type InitXCB = XCBConn<Initialized>;
+
+/// Convenience type definition for an Initialized
+/// X11RBConn.
+pub type InitX11RB = X11RBConn<Initialized>;
+
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm(config: Config) -> Result<WindowManager<XCBConn<Initialized>>> {
+pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
     let conn = XCBConn::connect()?;
     let conn = conn.init()?;
 
@@ -172,7 +183,7 @@ pub fn xcb_backed_wm(config: Config) -> Result<WindowManager<XCBConn<Initialized
 }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
-pub fn x11rb_backed_wm(config: Config) -> Result<WindowManager<X11RBConn<Initialized>>> {
+pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
     let conn = X11RBConn::connect()?;
     let conn = conn.init()?;
 
@@ -233,6 +244,13 @@ pub enum ToaruError {
     OtherError(String),
 }
 
+//todo
+/// Quickly construct a ToaruError.
+#[macro_export]
+macro_rules! error {
+    () => {}
+}
+
 impl From<XError> for ToaruError {
     fn from(e: XError) -> ToaruError {
         ToaruError::XConnError(e)
@@ -259,7 +277,11 @@ use crate::manager::WmState;
 ///
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
-pub trait ErrorHandler<X: XConn> {
+pub trait ErrorHandler<X, C>
+where
+    X: XConn,
+    C: RuntimeConfig
+{
     /// Calls the error handler.
-    fn call(&self, state: WmState<'_, X>, err: ToaruError);
+    fn call(&self, state: WmState<'_, X, C>, err: ToaruError);
 }

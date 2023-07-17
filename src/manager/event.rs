@@ -4,7 +4,7 @@ use tracing::{debug, info};
 
 use crate::core::types::Point;
 use crate::bindings::{Keybind, Mousebind};
-use crate::manager::WmState;
+use crate::manager::{WmState, RuntimeConfig};
 use crate::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
@@ -61,7 +61,11 @@ pub enum EventAction {
 }
 
 impl EventAction {
-    pub(crate) fn from_xevent<X: XConn>(event: XEvent, state: WmState<'_, X>) -> Option<Vec<EventAction>> {
+    pub(crate) fn from_xevent<X, C>(event: XEvent, state: WmState<'_, X, C>) -> Option<Vec<EventAction>>
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         use EventAction::*;
         use XEvent::*;
         match event {
@@ -153,10 +157,10 @@ impl EventAction {
     }
 }
 
-fn process_map_request<X: XConn>(
+fn process_map_request<X: XConn, C: RuntimeConfig>(
     id: XWindowID,
     ovrd: bool,
-    state: WmState<'_, X>,
+    state: WmState<'_, X, C>,
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
@@ -173,8 +177,8 @@ fn process_map_request<X: XConn>(
     Some(vec![MapTrackedClient(id)])
 }
 
-fn process_enter_notify<X: XConn>(
-    pt: PointerEvent, state: WmState<'_, X>
+fn process_enter_notify<X: XConn, C: RuntimeConfig>(
+    pt: PointerEvent, state: WmState<'_, X, C>
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
@@ -196,9 +200,9 @@ fn process_enter_notify<X: XConn>(
     Some(actions)
 }
 
-fn process_property_notify<X: XConn>(
+fn process_property_notify<X: XConn, C: RuntimeConfig>(
     event: PropertyEvent,
-    state: WmState<'_, X>,
+    state: WmState<'_, X, C>,
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
@@ -226,9 +230,9 @@ fn process_property_notify<X: XConn>(
     None
 }
 
-fn process_client_message<X: XConn>(
+fn process_client_message<X: XConn, C: RuntimeConfig>(
     event: ClientMessageEvent,
-    state: WmState<'_, X>,
+    state: WmState<'_, X, C>,
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
