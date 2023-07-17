@@ -40,7 +40,9 @@ pub use event::EventAction;
 #[doc(inline)]
 pub use hooks::{Hook, Hooks};
 #[doc(inline)]
-pub use state::{RuntimeConfig, WmState, WmConfig};
+pub use state::{RuntimeConfig, WmState};
+
+use state::WmConfig;
 
 //static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
 
@@ -408,7 +410,12 @@ impl<X: XConn> WindowManager<X> {
     pub fn goto_workspace(&mut self, name: &str) {
         handle_err!(
             self.desktop
-                .go_to(name, &self.conn, self.screens.focused().unwrap()),
+                .go_to(
+                    name, 
+                    &self.conn, 
+                    self.screens.focused().unwrap(),
+                    &self.config
+                ),
             self
         );
     }
@@ -417,7 +424,12 @@ impl<X: XConn> WindowManager<X> {
     pub fn cycle_workspace(&mut self, direction: Direction) {
         handle_err!(
             self.desktop
-                .cycle_to(&self.conn, self.screens.focused().unwrap(), direction),
+                .cycle_to(
+                    &self.conn, 
+                    self.screens.focused().unwrap(), 
+                    &self.config,
+                    direction
+                ),
             self
         );
     }
@@ -426,7 +438,12 @@ impl<X: XConn> WindowManager<X> {
     pub fn send_focused_to(&mut self, name: &str) {
         handle_err!(
             self.desktop
-                .send_focused_to(name, &self.conn, self.screens.focused().unwrap()),
+                .send_focused_to(
+                    name, 
+                    &self.conn, 
+                    self.screens.focused().unwrap(),
+                    &self.config
+                ),
             self
         );
     }
@@ -435,12 +452,22 @@ impl<X: XConn> WindowManager<X> {
     pub fn send_window_and_switch(&mut self, name: &str) {
         handle_err!(
             self.desktop
-                .send_focused_to(name, &self.conn, self.screens.focused().unwrap()),
+                .send_focused_to(
+                    name, 
+                    &self.conn, 
+                    self.screens.focused().unwrap(),
+                    &self.config
+                ),
             self
         );
         handle_err!(
             self.desktop
-                .go_to(name, &self.conn, self.screens.focused().unwrap()),
+                .go_to(
+                    name, 
+                    &self.conn, 
+                    self.screens.focused().unwrap(),
+                    &self.config
+                ),
             self
         );
     }
@@ -459,28 +486,44 @@ impl<X: XConn> WindowManager<X> {
     pub fn cycle_layout(&mut self, direction: Direction) {
         self.desktop
             .current_mut()
-            .cycle_layout(direction, &self.conn, self.screens.focused().unwrap())
+            .cycle_layout(
+                direction, 
+                &self.conn, 
+                self.screens.focused().unwrap(),
+                &self.config
+            )
     }
 
     /// Seitches to the given layout on the current workspace.
     pub fn switch_layout<S: AsRef<str>>(&mut self, name: S) {
         self.desktop
             .current_mut()
-            .switch_layout(name, &self.conn, &self.screens.focused().unwrap())
+            .switch_layout(
+                name, 
+                &self.conn, 
+                &self.screens.focused().unwrap(),
+                &self.config
+            )
     }
 
     /// Toggles the state of the focused window to floating or vice versa.
     pub fn toggle_focused_state(&mut self) {
         self.desktop
             .current_mut()
-            .toggle_focused_state(&self.conn, self.screens.focused().unwrap());
+            .toggle_focused_state(
+                &self.conn, 
+                self.screens.focused().unwrap(),
+                &self.config
+            );
     }
 
     /// Toggles the focused window to fullscreen.
     pub fn toggle_focused_fullscreen(&mut self) {
         self.desktop
             .current_mut()
-            .toggle_focused_fullscreen(&self.conn, self.screens.focused().unwrap());
+            .toggle_focused_fullscreen(
+                &self.conn, self.screens.focused().unwrap()
+            );
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
@@ -493,6 +536,7 @@ impl<X: XConn> WindowManager<X> {
                 &self.conn,
                 win,
                 self.screens.focused().unwrap(),
+                &self.config
             );
         }
 
@@ -523,6 +567,7 @@ impl<X: XConn> WindowManager<X> {
                 &self.conn,
                 win,
                 self.screens.focused().unwrap(),
+                &self.config
             );
         }
 
@@ -549,6 +594,7 @@ impl<X: XConn> WindowManager<X> {
                 &self.conn,
                 id,
                 self.screens.focused().unwrap(),
+                &self.config
             );
         }
 
@@ -692,9 +738,13 @@ impl<X: XConn> WindowManager<X> {
     fn map_tracked_client(&mut self, id: XWindowID) -> Result<()> {
         let current = self.desktop.current_mut();
         if self.conn.should_float(id, &self.config.float_classes) || current.is_floating() {
-            current.add_window_off_layout(&self.conn, self.screens.focused().unwrap(), id)
+            current.add_window_off_layout(
+                &self.conn, self.screens.focused().unwrap(), id, &self.config
+            )
         } else {
-            current.add_window_on_layout(&self.conn, self.screens.focused().unwrap(), id)
+            current.add_window_on_layout(
+                &self.conn, self.screens.focused().unwrap(), id, &self.config
+            )
         }
         Ok(())
     }
@@ -707,7 +757,9 @@ impl<X: XConn> WindowManager<X> {
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
         self.desktop
             .current_mut()
-            .del_window(&self.conn, self.screens.focused().unwrap(), id)?;
+            .del_window(
+                &self.conn, self.screens.focused().unwrap(), id, &self.config
+            )?;
         Ok(())
     }
 
@@ -725,7 +777,12 @@ impl<X: XConn> WindowManager<X> {
         };
 
         self.desktop
-            .send_window_to(id, &name, &self.conn, self.screens.focused().unwrap())
+            .send_window_to(
+                id, &name, 
+                &self.conn, 
+                self.screens.focused().unwrap(),
+                &self.config
+            )
     }
 
     /// Runs the keybind.

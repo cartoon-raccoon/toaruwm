@@ -1,3 +1,10 @@
+//! Types for working with the internal state of a `WindowManager`.
+//! 
+//! This module contains types and expose the internal state of a
+//! `WindowManager`, and also provides traits to allow you
+//! to call [`Workspace`] and [`Desktop`] methods with your own
+//! types.
+
 use std::collections::HashMap;
 use std::any::Any;
 
@@ -7,8 +14,16 @@ use super::WindowManager;
 use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
-/// An object that can provide information about the current configuration
-/// about a window manager at runtime.
+/// An object that can provide information about window manager state
+/// at runtime.
+/// 
+/// This trait allows you to create objects representing current
+/// `WindowManager` state and configuration. It is passed to various
+/// [`Workspace`] and [`Desktop`] methods to allow then to account for
+/// various configuration details when executing their functionality.
+/// 
+/// As this trait is used as a trait object during the window manager
+/// runtime, its methods cannot be generic.
 pub trait RuntimeConfig {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
@@ -26,9 +41,7 @@ pub trait RuntimeConfig {
     fn urgent(&self) -> Color;
 
     /// Retrieve arbitrary key value pairs from storage.
-    fn get_key<K, V>(&self, key: K) -> Option<&V>
-    where
-        K: Into<String>, V: Any;
+    fn get_key(&self, key: &str) -> Option<&dyn Any>;
 }
 
 /// The runtime configuration of the [`WindowManager`].
@@ -89,14 +102,9 @@ impl RuntimeConfig for WmConfig {
     /// See the `get_key` method
     /// in [`Config`](crate::manager::Config)
     /// for more details on how to use this function.
-    fn get_key<K, V>(&self, key: K) -> Option<&V>
-    where
-        K: Into<String>,
-        V: Any
+    fn get_key(&self, key: &str) -> Option<&dyn Any>
     {
-        self.keys.get(&key.into())
-            .map(|v| v.downcast_ref())
-            .flatten()
+        self.keys.get(&String::from(key)).map(|v| &*v as &dyn Any)
     }
 }
 
@@ -109,6 +117,7 @@ pub enum State {}
 ///
 /// The `'wm` lifetime refers to the lifetime of the parent
 /// `WindowManager` type.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 pub struct WmState<'wm, X: XConn> {
     /// The `XConn` implementation currently being used.

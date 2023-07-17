@@ -10,6 +10,7 @@ use tracing::debug;
 use crate::core::{Screen, Workspace, Ring};
 use crate::types::Geometry;
 use crate::x::XWindowID;
+use crate::manager::RuntimeConfig;
 use crate::{ToaruError, Result, XConn};
 
 /// A simple manually-tiled layout.
@@ -87,11 +88,15 @@ pub trait Layout {
 use custom_debug_derive::Debug;
 /// The context providing any information that the layout may need
 /// to enforce its layout policy.
+#[non_exhaustive]
 #[derive(Debug)]
-pub struct LayoutCtxt<'wm> {
+pub struct LayoutCtxt<'wm> { //fixme: custom debug is just a bodge rn
     /// A Connection to the X server to make queries if needed.
     #[debug(skip)]
     pub conn: &'wm dyn XConn,
+    /// The runtime configuration of the window manager.
+    #[debug(skip)]
+    pub config: &'wm dyn RuntimeConfig,
     /// The workspace that called the Layout.
     pub workspace: &'wm Workspace,
     /// The current screen the workspace is on.
@@ -187,12 +192,19 @@ impl Layouts {
     }
 
     /// Generates the layout for the currently focused layout.
-    pub fn gen_layout<X: XConn>(&self, conn: &X, ws: &Workspace, scr: &Screen) -> Vec<LayoutAction> {
+    pub fn gen_layout<X, C>(
+        &self, conn: &X, ws: &Workspace, scr: &Screen, cfg: &C
+    ) -> Vec<LayoutAction>
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
         self.focused().expect("focused layout should not be none")
             .layout(LayoutCtxt {
                 workspace: ws,
+                config: cfg,
                 conn,
                 screen: scr,
             })

@@ -16,6 +16,7 @@ use crate::layouts::{
     Layout, Layouts, LayoutAction, LayoutType,
     update::IntoUpdate,
 };
+use crate::manager::RuntimeConfig;
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction, BORDER_WIDTH};
 use crate::x::{core::StackMode, XConn, XWindowID};
 use crate::Result;
@@ -154,36 +155,44 @@ impl Workspace {
     /// Sets the layout to use and applies it to all currently mapped windows.
     /// 
     /// Is a no-op if no such layout exists.
-    pub fn set_layout<X: XConn>(
-        &mut self,
-        layout: &str,
-        conn: &X,
-        scr: &Screen,
-    ) {
+    pub fn set_layout<X, C>(
+        &mut self, layout: &str, conn: &X, scr: &Screen, cfg: &C,
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         let Some((idx, _)) = self.layouts.element_by(|ws| ws.name() == layout) else {
             warn!("No layout with name `{}`", layout);
             return
         };
         self.layouts.set_focused(idx);
-        self.relayout(conn, scr);
+        self.relayout(conn, scr, cfg);
     }
 
     /// Cycles in the given direction to the next layout, and
     /// applies it.
-    pub fn cycle_layout<X: XConn>(
-        &mut self, dir: Direction, conn: &X, scr: &Screen
-    ) {
+    pub fn cycle_layout<X, C>(
+        &mut self, dir: Direction, conn: &X, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         self.layouts.cycle_focus(dir);
-        self.relayout(conn, scr);
+        self.relayout(conn, scr, cfg);
     }
 
     /// Switches to the given layout, and applies it.
-    pub fn switch_layout<S: AsRef<str>, X: XConn>(
-        &mut self, name: S, conn: &X, scr: &Screen
-    ) {
+    pub fn switch_layout<S, X, C>(
+        &mut self, name: S, conn: &X, scr: &Screen, cfg: &C
+    )
+    where
+        S: AsRef<str>,
+        X: XConn,
+        C: RuntimeConfig
+        {
         if let Some((idx, _)) = self.layouts.element_by(|l| l.name() == name.as_ref()) {
             self.layouts.set_focused(idx);
-            self.relayout(conn, scr);
+            self.relayout(conn, scr, cfg);
         } else {
             error!("could not find layout {}", name.as_ref());
         }
@@ -283,13 +292,18 @@ impl Workspace {
     ///
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, conn, scr)))]
-    pub fn activate<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
+    pub fn activate<X, C>(
+        &mut self, conn: &X, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         if self.windows.is_empty() {
             return;
         }
 
-        self.relayout(conn, scr);
+        self.relayout(conn, scr, cfg);
 
         // for each window, update i
         for window in self.windows.iter_rev() {
@@ -329,35 +343,50 @@ impl Workspace {
     }
 
     /// Calls the layout function and applies it to the workspace.
-    pub fn relayout<X: XConn>(&mut self, conn: &X, scr: &Screen) {
-        let layouts = self.layouts.gen_layout(conn, self, scr);
+    pub fn relayout<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
+        let layouts = self.layouts.gen_layout(conn, self, scr, cfg);
         self.apply_layout(conn, layouts);
     }
 
     /// Adds a window to the workspace in the layout.
-    pub fn add_window_on_layout<X: XConn>(&mut self, conn: &X, scr: &Screen, window: XWindowID) {
-        self._add_window(conn, scr, Client::new(window, conn))
+    pub fn add_window_on_layout<X, C>(
+        &mut self, conn: &X, scr: &Screen, window: XWindowID, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
+        self._add_window(conn, scr, cfg, Client::new(window, conn))
     }
 
     /// Adds a window to the workspace off the layout.
-    pub fn add_window_off_layout<X: XConn>(&mut self, conn: &X, scr: &Screen, window: XWindowID) {
-        self._add_window(conn, scr, Client::outside_layout(window, conn))
+    pub fn add_window_off_layout<X, C>(
+        &mut self, conn: &X, scr: &Screen, window: XWindowID, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
+        self._add_window(conn, scr, cfg, Client::outside_layout(window, conn))
     }
 
     /// Deletes the window from the workspaces and returns it.
-    #[instrument(level = "debug", skip(self, conn, scr))]
-    pub fn del_window<X: XConn>(
-        &mut self,
-        conn: &X,
-        scr: &Screen,
-        id: XWindowID,
-    ) -> Result<Option<Client>> {
+    #[instrument(level = "debug", skip(self, conn, scr, cfg))]
+    pub fn del_window<X, C>(
+        &mut self, conn: &X, scr: &Screen, id: XWindowID, cfg: &C
+    ) -> Result<Option<Client>>
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         //todo: make all workspace methods return Result
         if let Some(win) = self.windows.lookup(id) {
             if win.is_off_layout() {
-                Ok(Some(self._del_window(conn, scr, id, false)))
+                Ok(Some(self._del_window(conn, scr, cfg, id, false)))
             } else {
-                Ok(Some(self._del_window(conn, scr, id, true)))
+                Ok(Some(self._del_window(conn, scr, cfg, id, true)))
             }
         } else {
             // fail silently (this accounts for spurious unmap events)
@@ -417,10 +446,16 @@ impl Workspace {
     }
 
     /// Deletes the focused window in the workspace and returns it.
-    pub fn take_focused_window<X: XConn>(&mut self, conn: &X, screen: &Screen) -> Option<Client> {
+    pub fn take_focused_window<X, C>(
+        &mut self, conn: &X, screen: &Screen, cfg: &C
+    ) -> Option<Client>
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         if let Some(window) = self.windows.focused() {
             let id = window.id();
-            self.del_window(conn, screen, id).ok()?
+            self.del_window(conn, screen, id, cfg).ok()?
         } else {
             None
         }
@@ -438,14 +473,19 @@ impl Workspace {
     }
 
     /// Toggles the state of the currently focused window between off or in layout.
-    pub fn toggle_focused_state<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+    pub fn toggle_focused_state<X, C>(
+        &mut self, conn: &X, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         // If we have a focused window
         if let Some(win) = self.windows.focused() {
             debug!("toggling state of focused window {}", win.id());
             if win.is_off_layout() {
-                self.add_to_layout(conn, win.id(), scr)
+                self.add_to_layout(conn, win.id(), scr, cfg)
             } else {
-                self.remove_from_layout(conn, win.id(), scr)
+                self.remove_from_layout(conn, win.id(), scr, cfg)
             }
         }
     }
@@ -453,33 +493,45 @@ impl Workspace {
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
-    pub fn add_to_layout<X: XConn>(&mut self, conn: &X, id: XWindowID, scr: &Screen) {
+    pub fn add_to_layout<X, C>(
+        &mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig,
+    {
         debug!("Setting focused to tiled");
 
         if let Some(win) = self.windows.lookup_mut(id) {
             win.set_on_layout();
-            self.relayout(conn, scr);
+            self.relayout(conn, scr, cfg);
         }
     }
 
     /// Removes the focused window from being managed by the layout, effectively
     /// turning it into a floating window regardless of the current layout style.
-    pub fn remove_from_layout<X: XConn>(&mut self, conn: &X, id: XWindowID, scr: &Screen) {
+    pub fn remove_from_layout<X, C>(
+        &mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         debug!("Setting focused to floating");
         if let Some(win) = self.windows.lookup_mut(id) {
             win.set_off_layout();
-            self.relayout(conn, scr);
+            self.relayout(conn, scr, cfg);
         }
     }
 
     /// Sends an update to the currently focused layout, and applies
     /// and changes that may have taken place.
-    pub fn update_focused_layout<U, X: XConn>(&mut self, conn: &X, scr: &Screen, msg: U)
-    where
-        U: IntoUpdate
+    pub fn update_focused_layout<U: IntoUpdate, X, C>(
+        &mut self, conn: &X, scr: &Screen, cfg: &C, msg: U
+    ) where
+        X: XConn,
+        C: RuntimeConfig,
     {
         self.layouts.send_update(msg.into_update());
-        self.relayout(conn, scr);
+        self.relayout(conn, scr, cfg);
     }
 
     /// Returns the number of windows managed by the layout.
@@ -500,8 +552,13 @@ impl Workspace {
 
     // * PRIVATE METHODS * //
 
-    #[instrument(level = "debug", skip(self, conn, scr, window))]
-    fn _add_window<X: XConn>(&mut self, conn: &X, scr: &Screen, mut window: Client) {
+    #[instrument(level = "debug", skip_all)]
+    fn _add_window<X, C>(
+            &mut self, conn: &X, scr: &Screen, cfg: &C, mut window: Client,
+    ) where
+        X: XConn,
+        C: RuntimeConfig
+    {
         trace!("adding window {:#?}", window);
         // Set supported protocols
         window.set_supported(conn);
@@ -519,7 +576,7 @@ impl Workspace {
         // apply the relevant layout to the screen
         // this also internally updates the geometries on the server
         // as well as locally
-        self.relayout(conn, scr);
+        self.relayout(conn, scr, cfg);
 
         // map window
         self.windows.lookup_mut(id).unwrap().map(conn);
@@ -534,12 +591,17 @@ impl Workspace {
     }
 
     /// Deletes a window
-    fn _del_window<X: XConn>(&mut self,
+    fn _del_window<X, C>(
+        &mut self,
         conn: &X, 
         scr: &Screen, 
+        cfg: &C,
         id: XWindowID,
         on_layout: bool,
-    ) -> Client {
+    ) -> Client 
+    where
+        X: XConn, C: RuntimeConfig
+    {
         let window = self
             .windows
             .remove_by_id(id)
@@ -555,7 +617,7 @@ impl Workspace {
         }
 
         if on_layout {
-            self.relayout(conn, scr);
+            self.relayout(conn, scr, cfg);
         }
 
         window
