@@ -1,4 +1,4 @@
-//! Traits and types for implementing layouts.
+//! Traits and types for defining and generating window layouts.
 //! 
 //! The core of this module is the [`Layout`] trait, you should
 //! read its documentation before looking at anything else.
