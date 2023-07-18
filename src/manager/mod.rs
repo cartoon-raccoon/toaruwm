@@ -64,6 +64,11 @@ macro_rules! handle_err {
 /// the window manager's lifetime, and holds both information
 /// defined by this crate, as well as user-defined data.
 /// 
+/// These two traits are _central_ to the operation of a window manager,
+/// and as such you will see them pop up in a lot of places, mostly
+/// `Workspace` or `Desktop` methods, but also the occasional
+/// `Client` method.
+/// 
 /// # Structure
 /// 
 /// A WindowManager combines an `XConn` and a `Desktop` which
@@ -154,22 +159,6 @@ where
     running: bool,
     // Set if the loop breaks and the user wants a restart.
     restart: bool,
-}
-
-impl<X, C> fmt::Debug for WindowManager<X, C>
-where
-    X: XConn,
-    C: RuntimeConfig
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WindowManager")
-            //.field("config", &self.config)
-            .field("workspaces", &self.desktop.workspaces)
-            .field("screens", &self.screens)
-            .field("root", &self.root)
-            .field("selected", &self.selected)
-            .finish()
-    }
 }
 
 /// General `WindowManager`-level commands.
@@ -907,5 +896,21 @@ where
 
     fn handle_error(&mut self, err: XError, _evt: XEvent) {
         (self.ehandler).call(self.state(), ToaruError::XConnError(err));
+    }
+}
+
+impl<X, C> fmt::Debug for WindowManager<X, C>
+where
+    X: XConn,
+    C: RuntimeConfig
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WindowManager")
+            //.field("config", &self.config)
+            .field("workspaces", &self.desktop.workspaces)
+            .field("screens", &self.screens)
+            .field("root", &self.root)
+            .field("selected", &self.selected)
+            .finish()
     }
 }

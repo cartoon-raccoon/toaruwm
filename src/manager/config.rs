@@ -103,19 +103,18 @@ pub trait Config {
 /// 
 /// # Example
 /// 
-/// ```ignore //fixme
+/// ```rust
+/// # use toaruwm::manager::config::NO_CHECKS;
 /// use toaruwm::ToaruConfig;
 /// 
 /// // create a default config that upholds all invariants
 /// let config = ToaruConfig::new();
 /// 
-/// config.validate(None).expect("invalid config");
+/// config.validate(NO_CHECKS).expect("invalid config");
 /// ```
-/// 
 #[derive(Debug)]
 pub struct ToaruConfig {
     /// The workspaces and the screen it should be sent to.
-    /// (Name, Screen)
     pub(crate) workspaces: Vec<WorkspaceSpec>,
     /// The set of layouts being used.
     #[debug(skip)]
@@ -134,44 +133,70 @@ pub struct ToaruConfig {
     pub(crate) keys: HashMap<String, Box<dyn Any>>,
 }
 
+//* I would use an Option<F> instead of doing this bodge, but
+//* passing in None would cause type inference issues.
+const fn no_checks(_: &ToaruConfig) -> Result<()> {Ok(())}
+
+/// A constant signifying no user-defined checks are required.
+/// 
+/// Pass this into `ToaruConfig::validate` if you have no additional
+/// validation checks to run on your config.
+pub const NO_CHECKS: fn(&ToaruConfig) -> Result<()> = no_checks;
+
 impl ToaruConfig {
     /// Returns the default construction.
     pub fn new() -> Self {
-        Default::default()
+        let ret = Self::default();
+        ret.validate(NO_CHECKS).unwrap();
+        ret
     }
 
-    /// Returns a `ConfigBuiilder`.
+    /// Returns a [`ToaruConfigBuiilder`] to build your Config with the
+    /// 'builder' idiom.
     pub fn builder() -> ToaruConfigBuilder {
         ToaruConfigBuilder::new()
     }
 
     /// Checks the configuration to verify that all invariants are upheld.
     /// 
-    /// You can insert additional code to check that your user-added keys
-    /// are valid.
+    /// This is useful if your `ToaruConfig` goes through a bunch of
+    /// additional processing before it's ready to use in a `WindowManager`,
+    /// and you want to make sure that all the invariants that you
+    /// need it to uphold are indeed upheld. To help with this, you can insert 
+    /// additional code to check that your user-added keys are valid.
+    /// 
+    /// If you have no code you want to insert, pass in the
+    /// [`NO_CHECKS`] constant.
     /// 
     /// # Example
     /// 
     /// ```rust
-    /// use toaruwm::ToaruConfig;
+    /// use toaruwm::config::{ToaruConfig, NO_CHECKS};
     /// use toaruwm::{Result, ToaruError::*};
     /// 
     /// let mut config = ToaruConfig::new();
     /// 
     /// // insert a user-defined key into the Config
+    /// // that requires us to validate
     /// config.insert_key("foo", 1i32);
     /// 
     /// // run the validation
-    /// config.validate(Some(|cfg: &ToaruConfig| {
-    ///     let foo: Option<&i32> = cfg.get_key("foo");
+    /// config.validate(|cfg: &ToaruConfig| {
+    ///     let foo = cfg.get_key::<i32>("foo");
     ///     if let Some(_) = foo {
     ///         Ok(())
     ///     } else {
     ///         Err(InvalidConfig("missing foo".into()))
     ///     }
-    /// })).expect("config was invalid!");
+    /// }).expect("config was invalid!");
+    /// 
+    /// // now, let's create a mew config that doesn't require
+    /// // and user-defined validation
+    /// let config2 = ToaruConfig::new();
+    /// 
+    /// config2.validate(NO_CHECKS).expect("invalid config2");
     /// ```
-    pub fn validate<F>(&self, checks: Option<F>) -> Result<()>
+    pub fn validate<F>(&self, checks: F) -> Result<()>
     where
         F: FnOnce(&ToaruConfig) -> Result<()>
     {
@@ -181,9 +206,7 @@ impl ToaruConfig {
         if self.layouts.len() < 1 {
             return Err(InvalidConfig("layouts is empty".into()))
         }
-        if let Some(check) = checks {
-            check(self)?;
-        }
+        checks(self)?;
         Ok(())
     }
 
@@ -205,12 +228,8 @@ impl ToaruConfig {
     /// you will often have to use Rust's 'turbofish'
     /// notation (`::<T>`) to specify the type of the value
     /// you want to retrieve.
-    pub fn remove_key<K, V>(&mut self, key: K) -> Option<V>
-    where
-        K: Into<String>,
-        V: Any,
-    {
-        self.keys.remove(&key.into())
+    pub fn remove_key<V: Any>(&mut self, key: &str) -> Option<V> {
+        self.keys.remove(&String::from(key))
             .map(|v| v.downcast().ok())
             .flatten()
             .map(|v| *v)
@@ -260,12 +279,8 @@ impl ToaruConfig {
     /// you will often have to use Rust's 'turbofish'
     /// notation (`::<T>`) to specify the type of the value
     /// you want to retrieve.
-    pub fn get_key<K, V>(&self, key: K) -> Option<&V>
-    where
-        K: Into<String>,
-        V: Any
-    {
-        self.keys.get(&key.into())
+    pub fn get_key<V: Any>(&self, key: &str) -> Option<&V> {
+        self.keys.get(&String::from(key))
             .map(|i| i.downcast_ref::<V>())
             .flatten()
     }
@@ -329,7 +344,7 @@ impl Default for ToaruConfig {
     }
 }
 
-/// A helper type to construct a `ToaruConfig`.
+/// A helper type to construct a [`ToaruConfig`].
 //todo: add example
 #[derive(Debug)]
 pub struct ToaruConfigBuilder {
@@ -410,7 +425,7 @@ impl ToaruConfigBuilder {
     /// 
     /// You can supply an additional `check` to run
     /// additional code to validate your config.
-    pub fn finish<F>(self, check: Option<F>) -> Result<ToaruConfig>
+    pub fn finish<F>(self, check: F) -> Result<ToaruConfig>
     where
         F: FnOnce(&ToaruConfig) -> Result<()>
     {
