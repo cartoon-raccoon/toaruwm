@@ -544,7 +544,7 @@ where
         self.desktop.current_mut().switch_layout(
             name,
             &self.conn,
-            &self.screens.focused().unwrap(),
+            self.screens.focused().unwrap(),
             &self.config,
         )
     }

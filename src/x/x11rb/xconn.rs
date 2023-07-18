@@ -150,7 +150,7 @@ impl XConn for X11RBConn<Initialized> {
 
     fn lookup_interned_atom(&self, name: &str) -> Option<XAtom> {
         trace!("Looking up interned atom name {}", name);
-        self.atoms().retrieve(&name)
+        self.atoms().retrieve(name)
     }
 
     fn grab_keyboard(&self) -> Result<()> {

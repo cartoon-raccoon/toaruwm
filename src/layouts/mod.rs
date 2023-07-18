@@ -165,10 +165,14 @@ impl Layouts {
     }
 
     /// Validates the namespace and ensures there are no name conflicts.
+    #[allow(clippy::len_zero)]
     pub fn validate(&self) -> Result<()> {
         if self.focused.is_none() {
             return Err(ToaruError::OtherError("no focused item".into()));
         }
+        /* this is equivalent to calling self.is_empty(),
+        but this more clearly expresses the invariant
+        that we are trying to enforce. */
         if self.len() < 1 {
             return Err(ToaruError::OtherError("layouts is empty".into()));
         }
@@ -176,7 +180,7 @@ impl Layouts {
         let set: HashSet<&str> = self.iter().map(|l| l.name()).collect();
 
         if set.len() == self.len() {
-            return Ok(());
+            Ok(())
         } else {
             let mut all: Vec<&str> = self.iter().map(|l| l.name()).collect();
             let uniques: Vec<&str> = set.into_iter().collect();
@@ -223,6 +227,17 @@ impl Layouts {
     /// Sends an update to every layout within.
     pub fn broadcast_update(&self, update: Update) {
         self.iter().for_each(|ly| ly.receive_update(&update))
+    }
+}
+
+impl Default for Layouts {
+    /// Returns a Layout instance containing a single
+    /// [`Floating`] layout.
+    fn default() -> Self {
+        let mut ret = Ring::new();
+        ret.append(Box::new(Floating{}) as Box<dyn Layout>);
+
+        ret
     }
 }
 

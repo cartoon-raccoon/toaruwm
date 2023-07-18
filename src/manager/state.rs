@@ -122,7 +122,7 @@ impl RuntimeConfig for WmConfig {
     }
 
     fn get_key(&self, key: &str) -> Option<&dyn Any> {
-        self.keys.get(&String::from(key)).map(|v| &*v as &dyn Any)
+        self.keys.get(&key.to_string()).map(|v| v as &dyn Any)
     }
 }
 

@@ -334,7 +334,7 @@ impl Desktop {
             return Err(UnknownWorkspace(name.into()))
         };
         ws.put_window(window);
-        if let None = ws.focused_client() {
+        if ws.focused_client().is_none() {
             ws.windows.set_focused_by_winid(id);
         }
         self.current_mut().relayout(conn, scr, cfg);

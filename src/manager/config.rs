@@ -111,7 +111,7 @@ pub trait Config {
 ///
 /// config.validate(NO_CHECKS).expect("invalid config");
 /// ```
-#[derive(Debug)]
+#[derive(Debug)] //todo: impl Clone, Debug
 pub struct ToaruConfig {
     /// The workspaces and the screen it should be sent to.
     pub(crate) workspaces: Vec<WorkspaceSpec>,
@@ -197,6 +197,7 @@ impl ToaruConfig {
     ///
     /// config2.validate(NO_CHECKS).expect("invalid config2");
     /// ```
+    #[allow(clippy::len_zero)]
     pub fn validate<F>(&self, checks: F) -> Result<()>
     where
         F: FnOnce(&ToaruConfig) -> Result<()>,
@@ -232,8 +233,7 @@ impl ToaruConfig {
     pub fn remove_key<V: Any>(&mut self, key: &str) -> Option<V> {
         self.keys
             .remove(&String::from(key))
-            .map(|v| v.downcast().ok())
-            .flatten()
+            .and_then(|v| v.downcast().ok())
             .map(|v| *v)
     }
 
@@ -284,8 +284,7 @@ impl ToaruConfig {
     pub fn get_key<V: Any>(&self, key: &str) -> Option<&V> {
         self.keys
             .get(&String::from(key))
-            .map(|i| i.downcast_ref::<V>())
-            .flatten()
+            .and_then(|i| i.downcast_ref::<V>())
     }
 }
 
@@ -321,7 +320,7 @@ impl Default for ToaruConfig {
             workspaces: vec![
                 WorkspaceSpec::new("1", 0, layouts.clone()),
                 WorkspaceSpec::new("2", 0, layouts.clone()),
-                WorkspaceSpec::new("3", 0, layouts.clone()),
+                WorkspaceSpec::new("3", 0, layouts),
             ],
             layouts: vec![
                 Box::new(DynamicTiled::new(0.5, 2)) as Box<dyn Layout>,
@@ -345,7 +344,7 @@ impl Default for ToaruConfig {
 
 /// A helper type to construct a [`ToaruConfig`].
 //todo: add example
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ToaruConfigBuilder {
     inner: ToaruConfig,
 }

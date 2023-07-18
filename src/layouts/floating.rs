@@ -1,8 +1,8 @@
 use super::{update::Update, Layout, LayoutAction, LayoutCtxt, LayoutType};
 
 /// A simple floating layout that does not
-/// enforce any specific layout.
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// enforce any specific window layout.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Floating {}
 
 impl Floating {
@@ -26,7 +26,7 @@ impl Layout for Floating {
     }
 
     fn receive_update(&self, _: &Update) {
-        ()
+        /* nothing but the vast emptiness of the void :') */
     }
 
     fn style(&self) -> LayoutType {

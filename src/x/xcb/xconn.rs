@@ -397,7 +397,7 @@ impl XConn for XCBConn<Initialized> {
         req_and_check!(
             self.conn,
             &x::CreateWindow {
-                depth: depth,
+                depth,
                 wid,
                 parent: cast!(x::Window, self.root.id),
                 x: geom.x as i16,
