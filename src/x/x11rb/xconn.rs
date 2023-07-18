@@ -14,8 +14,7 @@ use tracing::{error, trace, warn};
 use super::Initialized;
 use crate::core::Screen;
 use crate::bindings::{Keybind, Mousebind};
-use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
-use crate::util;
+use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
     core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
@@ -315,7 +314,7 @@ impl XConn for X11RBConn<Initialized> {
                 0,
                 0,
             ),
-            WindowClass::InputOutput(a) => {
+            WindowClass::InputOutput(a, b) => {
                 let mid = self.conn.generate_id()?;
                 let screen = self.screen(self.idx)?;
                 let depth = self.depth(screen)?;
@@ -330,10 +329,10 @@ impl XConn for X11RBConn<Initialized> {
 
                 (
                     Some(a),
-                    BORDER_WIDTH,
+                    b,
                     XWindowClass::INPUT_OUTPUT,
                     CreateWindowAux::new()
-                        .border_pixel(util::FOCUSED_COL)
+                        .border_pixel(0x00000000) //fixme: see above
                         .colormap(mid)
                         .event_mask(EventMask::EXPOSURE | EventMask::KEY_PRESS),
                     depth.depth,

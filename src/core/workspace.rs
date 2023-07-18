@@ -17,7 +17,7 @@ use crate::layouts::{
     update::IntoUpdate,
 };
 use crate::manager::RuntimeConfig;
-use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction, BORDER_WIDTH};
+use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction};
 use crate::x::{core::StackMode, XConn, XWindowID};
 use crate::Result;
 
@@ -320,10 +320,10 @@ impl Workspace {
         }
 
         if let Some(win) = self.focused_client() {
-            self.focus_window(conn, win.id());
+            self.focus_window(conn, cfg, win.id());
         } else {
             debug!("no focused window, focusing by ptr");
-            self.focus_window_by_ptr(conn, scr);
+            self.focus_window_by_ptr(conn, scr, cfg);
         }
     }
 
@@ -398,7 +398,11 @@ impl Workspace {
     /// Sets the input focus, internally and on the server, to the given ID.
     /// 
     /// Also calls `Self::unfocus_window` internally.
-    pub fn focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
+    pub fn focus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
+    where
+        X: XConn,
+        C: RuntimeConfig,
+    {
         let Some(_) = self.windows.get_idx(window) else {
             warn!("focus_window: no window {} found in workspace", window);
             return
@@ -408,22 +412,26 @@ impl Workspace {
         // unfocus the current focused window
         if let Some(focused) = self.windows.focused_mut() {
             let id = focused.id();
-            self.unfocus_window(conn, id);
+            self.unfocus_window(conn, cfg, id);
         }
         // focus the window
-        self.stack_and_focus_window(conn, window);
+        self.stack_and_focus_window(conn, cfg, window);
     }
 
     /// Unfocuses the given window ID.
     /// 
     /// You generally shouldn't have to call this directly, as it is also
     /// called by `Self::focus_window`.
-    pub fn unfocus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
+    pub fn unfocus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         // remove focus if window to unfocus is currently focused
         if self.windows.lookup(window).is_some() {
             conn.change_window_attributes(
                 window,
-                &[ClientAttrs::BorderColour(BorderStyle::Unfocused)],
+                &[ClientAttrs::BorderColour(BorderStyle::Unfocused(cfg.unfocused()))],
             )
             .unwrap_or_else(|e| error!("{}", e));
         } else {
@@ -432,7 +440,11 @@ impl Workspace {
     }
 
     /// Cycles the focus to the next window in the workspace.
-    pub fn cycle_focus<X: XConn>(&mut self, conn: &X, dir: Direction) {
+    pub fn cycle_focus<X, C>(&mut self, conn: &X, cfg: &C, dir: Direction)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         // get the currently focused window's ID
         if self.windows.focused_mut().is_none() {
             error!("cycle_focus for ws {}: nothing focused", self.name);
@@ -442,7 +454,7 @@ impl Workspace {
         self.windows.cycle_focus(dir);
 
         // focus window
-        self.focus_window(conn, self.focused_client().unwrap().id());
+        self.focus_window(conn, cfg, self.focused_client().unwrap().id());
     }
 
     /// Deletes the focused window in the workspace and returns it.
@@ -563,7 +575,7 @@ impl Workspace {
         // Set supported protocols
         window.set_supported(conn);
         // Configure window with a border width
-        window.configure(conn, &[ClientConfig::BorderWidth(BORDER_WIDTH)]);
+        window.configure(conn, &[ClientConfig::BorderWidth(cfg.border_px())]);
 
         // add the window to internal client storage
         let id = window.id();
@@ -584,10 +596,10 @@ impl Workspace {
         // set input focus
         if let Some(curr_focused) = self.windows.focused_mut() {
             let to_unfocus = curr_focused.id();
-            self.unfocus_window(conn, to_unfocus);
+            self.unfocus_window(conn, cfg, to_unfocus);
         }
 
-        self.focus_window(conn, id);
+        self.focus_window(conn, cfg, id);
     }
 
     /// Deletes a window
@@ -609,7 +621,7 @@ impl Workspace {
             .expect("Could not find window");
 
         if let Some(win) = self.windows.focused() {
-            self.stack_and_focus_window(conn, win.id());
+            self.stack_and_focus_window(conn, cfg, win.id());
         }
 
         if self.is_empty() {
@@ -640,13 +652,17 @@ impl Workspace {
     }
 
     /// Updates the focus to the window under the pointer.
-    pub(crate) fn focus_window_by_ptr<X: XConn>(&mut self, conn: &X, scr: &Screen) {
+    pub(crate) fn focus_window_by_ptr<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         //todo: make all methods return Result
         let Ok(reply) = conn.query_pointer(scr.root_id) else {
             warn!("could not query pointer");
             return
         };
-        self.focus_window(conn, reply.child);
+        self.focus_window(conn, cfg, reply.child);
     }
 
     fn apply_layout<X: XConn>(&mut self, conn: &X, layouts: Vec<LayoutAction>) {
@@ -680,7 +696,11 @@ impl Workspace {
     /// - Sets the input focus to it.
     ///
     /// Note: THE WINDOW MUST EXIST.
-    fn stack_and_focus_window<X: XConn>(&mut self, conn: &X, window: XWindowID) {
+    fn stack_and_focus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         use BorderStyle::*;
         // disable events
         conn.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
@@ -692,7 +712,7 @@ impl Workspace {
         win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
 
         // focus to current window
-        win.set_border(conn, Focused);
+        win.set_border(conn, Focused(cfg.focused()));
         conn.set_input_focus(window);
         self.windows.set_focused_by_winid(window);
 

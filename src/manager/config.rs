@@ -92,7 +92,7 @@ pub trait Config {
 /// any arbitrary key-value pair.
 /// 
 /// 
-/// `Config` provides a validation method that ensures it is valid
+/// `ToaruConfig` provides a validation method that ensures it is valid
 /// and can be used in a `WindowManager`. While this checks the
 /// predefined invariants on the Config, it can also run user-defined
 /// code to ensure that user-defined invariants are also upheld.
@@ -104,10 +104,10 @@ pub trait Config {
 /// # Example
 /// 
 /// ```rust
-/// use toaruwm::Config;
+/// use toaruwm::ToaruConfig;
 /// 
 /// // create a default config that upholds all invariants
-/// let config = Config::new();
+/// let config = ToaruConfig::new();
 /// 
 /// config.validate().expect("invalid config");
 /// ```
@@ -153,10 +153,10 @@ impl ToaruConfig {
     /// # Example
     /// 
     /// ```rust
-    /// use toaruwm::Config;
+    /// use toaruwm::ToaruConfig;
     /// use toaruwm::{Result, ToaruError::*};
     /// 
-    /// let mut config = Config::new();
+    /// let mut config = ToaruConfig::new();
     /// 
     /// // insert a user-defined key into the Config
     /// config.insert_key("foo", 1i32);
@@ -311,9 +311,9 @@ impl Default for ToaruConfig {
             ],
             float_classes: Vec::new(),
             border_px: 2,
-            unfocused: Color::from(0x555555ff),
-            focused: Color::from(0xddddddff),
-            urgent: Color::from(0xee0000ff),
+            unfocused: Color::from(0x555555),
+            focused: Color::from(0xdddddd),
+            urgent: Color::from(0xee0000),
             keys: {
                 let mut keys = HashMap::new();
                 keys.insert("gap_px".into(), 

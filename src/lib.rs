@@ -144,8 +144,6 @@ pub mod layouts;
 pub mod manager;
 pub mod x;
 
-pub(crate) mod util;
-
 pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Config, ToaruConfig, WindowManager};

@@ -9,7 +9,6 @@ use strum::*;
 use super::Initialized;
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
-use crate::util;
 use crate::x::{
     core::{Result, XError},
     event::MouseEvent,
@@ -220,9 +219,9 @@ impl From<&ClientAttrs> for ChangeWindowAttributesAux {
         let new = ChangeWindowAttributesAux::new();
         match from {
             BorderColour(bs) => match bs {
-                Focused => new.border_pixel(util::FOCUSED_COL),
-                Unfocused => new.border_pixel(util::UNFOCUSED_COL),
-                Urgent => new.border_pixel(util::URGENT_COL),
+                Focused(c) => new.border_pixel(c.as_u32()),
+                Unfocused(c) => new.border_pixel(c.as_u32()),
+                Urgent(c) => new.border_pixel(c.as_u32()),
             },
             EnableClientEvents => new.event_mask(enable_client_events!()),
             DisableClientEvents => new.event_mask(disable_client_events!()),
@@ -238,9 +237,9 @@ pub(super) fn convert_cws(attrs: &[ClientAttrs]) -> ChangeWindowAttributesAux {
     let new = ChangeWindowAttributesAux::new();
     attrs.iter().fold(new, |cw, attr| match *attr {
         BorderColour(bs) => match bs {
-            Focused => cw.border_pixel(util::FOCUSED_COL),
-            Unfocused => cw.border_pixel(util::UNFOCUSED_COL),
-            Urgent => cw.border_pixel(util::URGENT_COL),
+            Focused(c) => cw.border_pixel(c.as_u32()),
+            Unfocused(c) => cw.border_pixel(c.as_u32()),
+            Urgent(c) => cw.border_pixel(c.as_u32()),
         },
         EnableClientEvents => cw.event_mask(enable_client_events!()),
         DisableClientEvents => cw.event_mask(disable_client_events!()),

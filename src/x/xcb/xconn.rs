@@ -11,8 +11,7 @@ use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::core::Screen;
 use crate::bindings::{Keybind, Mousebind};
-use crate::types::{ClientAttrs, ClientConfig, Geometry, BORDER_WIDTH};
-use crate::util as coreutil;
+use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
     core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
@@ -360,7 +359,7 @@ impl XConn for XCBConn<Initialized> {
                 0,
                 0,
             ),
-            WindowClass::InputOutput(a) => {
+            WindowClass::InputOutput(a, b) => {
                 let mid: x::Colormap = self.conn.generate_id();
                 let screen = self.screen(self.idx as usize)?;
                 let depth = self.depth(screen)?;
@@ -378,10 +377,10 @@ impl XConn for XCBConn<Initialized> {
 
                 (
                     Some(a),
-                    BORDER_WIDTH,
+                    b,
                     x::WindowClass::InputOutput,
                     vec![
-                        x::Cw::BorderPixel(coreutil::FOCUSED_COL),
+                        x::Cw::BorderPixel(0x00000000), //fixme: see above
                         x::Cw::Colormap(mid),
                         x::Cw::EventMask(x::EventMask::EXPOSURE | x::EventMask::KEY_PRESS),
                     ],

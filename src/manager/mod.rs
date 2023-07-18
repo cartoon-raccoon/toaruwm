@@ -516,7 +516,7 @@ where
     pub fn cycle_focus(&mut self, direction: Direction) {
         self.desktop
             .current_mut()
-            .cycle_focus(&self.conn, direction);
+            .cycle_focus(&self.conn, &self.config, direction);
     }
 
     /// Cycles in the given direction to the layout applied to the current workspace.
@@ -726,7 +726,9 @@ where
                 }
             }
         };
-        self.desktop.current_mut().focus_window(&self.conn, target);
+        self.desktop.current_mut().focus_window(
+            &self.conn, &self.config, target
+        );
         Ok(())
     }
 
@@ -770,7 +772,7 @@ where
     fn client_name_change(&mut self, id: XWindowID) -> Result<()> {
         //todo
         if let Some(c) = self.desktop.current_client_mut() {
-            c.update_dynamic(&self.conn);
+            c.update_dynamic(&self.conn, &self.config);
         }
         Ok(())
     }

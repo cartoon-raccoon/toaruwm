@@ -15,6 +15,7 @@ use crate::x::{
     core::{XAtom, XConn, XWindow, XWindowID},
     property::WindowState,
 };
+use crate::manager::RuntimeConfig;
 
 /// A Ring of type Client.
 ///
@@ -250,8 +251,12 @@ impl Client {
     }
 
     /// Updates all the internal properties of the client.
-    #[instrument(level = "debug", skip(conn))]
-    pub fn update_all_properties<X: XConn>(&mut self, conn: &X) {
+    #[instrument(level = "debug", skip_all)]
+    pub fn update_all_properties<X, C>(&mut self, conn: &X, cfg: &C)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
             debug!("Got size hints: {:#?}", sizes);
@@ -315,7 +320,7 @@ impl Client {
             self.set_supported(conn);
         }
         if self.urgent {
-            self.set_border(conn, BorderStyle::Urgent);
+            self.set_border(conn, BorderStyle::Urgent(cfg.urgent()));
         }
         debug!("Updated properties: {:#?}", self);
     }
@@ -328,14 +333,18 @@ impl Client {
     /// - WM_ICON_NAME
     /// - WM_CLASS
     /// - WM_HINTS.Urgency
-    pub fn update_dynamic<X: XConn>(&mut self, conn: &X) {
+    pub fn update_dynamic<X, C>(&mut self, conn: &X, cfg: &C)
+    where
+        X: XConn,
+        C: RuntimeConfig
+    {
         self.name = conn.get_wm_name(self.id());
         self.icon_name = conn.get_wm_icon_name(self.id());
         self.class = conn.get_wm_class(self.id());
         self.urgent = conn.get_urgency(self.id());
 
         if self.urgent {
-            self.set_border(conn, BorderStyle::Urgent);
+            self.set_border(conn, BorderStyle::Urgent(cfg.urgent()));
         }
     }
 

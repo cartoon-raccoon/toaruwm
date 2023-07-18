@@ -10,7 +10,6 @@ use xcb::Xid;
 use super::{id, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
-use crate::util;
 use crate::x::{
     core::{Result, XError},
     event::MouseEvent,
@@ -202,9 +201,9 @@ impl From<&ClientAttrs> for Cw {
 
         match from {
             BorderColour(bs) => match bs {
-                Focused => Cw::BorderPixel(util::FOCUSED_COL),
-                Unfocused => Cw::BorderPixel(util::UNFOCUSED_COL),
-                Urgent => Cw::BorderPixel(util::URGENT_COL),
+                Focused(c) => Cw::BorderPixel(c.as_u32()),
+                Unfocused(c) => Cw::BorderPixel(c.as_u32()),
+                Urgent(c) => Cw::BorderPixel(c.as_u32()),
             },
             EnableClientEvents => Cw::EventMask(ENABLE_CLIENT_EVENTS),
             DisableClientEvents => Cw::EventMask(DISABLE_CLIENT_EVENTS),

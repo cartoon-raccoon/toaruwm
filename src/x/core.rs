@@ -125,6 +125,7 @@ impl From<XWindowID> for XWindow {
 }
 
 /// The type of window that you want to create.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WindowClass {
     /// An invisible window to make API calls
@@ -132,8 +133,15 @@ pub enum WindowClass {
     /// A window that only accepts input
     InputOnly,
     /// A regular window. The Atom provided should be a valid
-    /// _NET_WM_WINDOW_TYPE.
-    InputOutput(Atom),
+    /// _NET_WM_WINDOW_TYPE, and the u32 is the border width
+    /// in pixels.
+    /// 
+    /// This should be the value returned by a 
+    /// [`RuntimeConfig`](crate::manager::RuntimeConfig)'s
+    /// `border_px` method.
+    InputOutput(Atom, u32),
+    
+    //todo: add additional variants for new window types?
 }
 
 impl XWindow {

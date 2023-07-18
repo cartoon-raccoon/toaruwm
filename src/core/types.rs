@@ -10,13 +10,6 @@ use crate::x::{
 
 pub use super::window::{Client, ClientRing};
 
-// todo: deprecate this and put inside configuration
-/// The border thickness to use on windows.
-///
-/// NOTE: deprecation for this is planned and will become
-/// user-configurable.
-pub const BORDER_WIDTH: u32 = 2;
-
 /// Specifies a direction.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -477,23 +470,12 @@ impl Geometry {
 
 /// A representation of a color, following the RGBA model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-    a: u8,
-}
+pub struct Color(u32);
 
 impl Color {
     /// Creates the Color from a 32-bit integer.
     pub fn from_hex(hex: u32) -> Self {
-        let bytes = u32::to_be_bytes(hex);
-        Self {
-            r: bytes[0],
-            g: bytes[1],
-            b: bytes[2],
-            a: bytes[3],
-        }
+        Self(hex)
     }
 
     /// Expresses the Color as a hex string.
@@ -503,23 +485,19 @@ impl Color {
 
     /// Returns the (R, G, B) values of the Color.
     pub fn rgb(&self) -> (u8, u8, u8) {
-        (self.r, self.g, self.b)
+        let (r, g, b, _) = self.rgba();
+        (r, g, b)
     }
 
     /// Returns the (R, G, B, A) values of the Color.
     pub fn rgba(&self) -> (u8, u8, u8, u8) {
-        (self.r, self.g, self.b, self.a)
+        let [r, g, b, a] = u32::to_be_bytes(self.0);
+        (r, g, b, a)
     }
 
     /// Returns the color as a u32.
     pub fn as_u32(&self) -> u32 {
-        let comps: [u8; 4] = [
-            self.r,
-            self.g,
-            self.b,
-            self.a
-        ];
-        u32::from_be_bytes(comps)
+        self.0
     }
 }
 
@@ -545,11 +523,11 @@ pub enum MouseMode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BorderStyle {
     /// The colour to be applied to the focused window.
-    Focused,
+    Focused(Color),
     /// The colour to be applied to an unfocused window.
-    Unfocused,
+    Unfocused(Color),
     /// The colour to applied when a window is marked as urgent.
-    Urgent,
+    Urgent(Color),
 }
 
 /// Configuration options for a Client.
