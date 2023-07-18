@@ -1,3 +1,5 @@
+//! Types used for desktop management.
+//! 
 //! This module exports `Desktop` and `Screen`.
 //!
 //! `Desktop` is the main type handled directly by `WindowManager`.

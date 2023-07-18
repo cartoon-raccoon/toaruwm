@@ -1,3 +1,5 @@
+//! A ringbuffer type used throughout toaruwm.
+//! 
 //! This module defines Ring, a data structure that presents a
 //! ringbuffer-like interface.
 //!

@@ -1,4 +1,6 @@
-//! This module exports Client and ClientRing, which encapsulate
+//! Types used to represent and manage individual windows.
+//! 
+//! This module exports `Client` and `ClientRing`, which encapsulate
 //! data about windows and manage them internally respectively.
 
 use std::collections::HashSet;

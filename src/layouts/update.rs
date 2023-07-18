@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::types::Direction;
 
-/// An dynamically typed object that can change the behavior of a layout.
+/// A dynamically typed object that can change the behavior of a layout.
 pub struct Update(Box<dyn Any>);
 
 use std::fmt;
@@ -26,7 +26,7 @@ impl Update {
 }
 
 /// Marker trait to indicate that a type can be sent
-/// as a message.
+/// as an update to a Layout.
 pub trait IntoUpdate: Any
 where
     Self: Sized

@@ -1,3 +1,5 @@
+//! Core types used throughout this crate.
+
 use std::ops::Deref;
 
 use tracing::error;

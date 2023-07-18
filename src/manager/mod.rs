@@ -15,7 +15,7 @@ use tracing::{debug, error, info, span, trace, warn, Level};
 
 use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
-use crate::layouts::{Layout, Layouts};
+use crate::layouts::{Layout, Layouts, update::IntoUpdate};
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};
 use crate::x::{
@@ -177,6 +177,11 @@ where
 {
     /// Constructs a new WindowManager object.
     /// 
+    /// This method is simply generic over any type that implements
+    /// [`Config`], since the trait bounds on `W` and `L` are already
+    /// enforced by this trait. As long as `config` implements
+    /// `Config`, it will work.
+    /// 
     /// # Assumptions
     /// 
     /// This method assumes `config` has already been validated.
@@ -186,7 +191,7 @@ where
     /// See [`Config`] for more details.
     pub fn new<E, W, L>(conn: X, mut config: E) -> Result<WindowManager<X, C>>
     where
-        E: Config<Workspaces = W, Layouts = L, Runtime = C>,
+        E: Config<Runtime = C, Workspaces = W, Layouts = L>,
         W: IntoIterator<Item = WorkspaceSpec>,
         L: IntoIterator<Item = Box<dyn Layout>>,
     {
@@ -516,7 +521,7 @@ where
     pub fn cycle_focus(&mut self, direction: Direction) {
         self.desktop
             .current_mut()
-            .cycle_focus(&self.conn, &self.config, direction);
+            .cycle_focus(direction, &self.conn, &self.config);
     }
 
     /// Cycles in the given direction to the layout applied to the current workspace.
@@ -527,18 +532,6 @@ where
                 direction, 
                 &self.conn, 
                 self.screens.focused().unwrap(),
-                &self.config
-            )
-    }
-
-    /// Seitches to the given layout on the current workspace.
-    pub fn switch_layout<S: AsRef<str>>(&mut self, name: S) {
-        self.desktop
-            .current_mut()
-            .switch_layout(
-                name, 
-                &self.conn, 
-                &self.screens.focused().unwrap(),
                 &self.config
             )
     }
@@ -554,12 +547,39 @@ where
             );
     }
 
+    /// Sends an [`Update`](crate::layouts::update::Update) 
+    /// to the current layout.
+    pub fn update_current_layout<U: IntoUpdate>(&mut self, update: U) {
+        self.desktop
+            .current_mut()
+            .update_focused_layout(
+                update,
+                &self.conn, 
+                self.screens.focused().unwrap(),
+                &self.config,
+            )
+    }
+
+    /// Switches to the given layout on the current workspace.
+    pub fn switch_layout<S: AsRef<str>>(&mut self, name: S) {
+        self.desktop
+            .current_mut()
+            .switch_layout(
+                name, 
+                &self.conn, 
+                &self.screens.focused().unwrap(),
+                &self.config
+            )
+    }
+
     /// Toggles the focused window to fullscreen.
     pub fn toggle_focused_fullscreen(&mut self) {
         self.desktop
             .current_mut()
             .toggle_focused_fullscreen(
-                &self.conn, self.screens.focused().unwrap()
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config
             );
     }
 
@@ -727,7 +747,7 @@ where
             }
         };
         self.desktop.current_mut().focus_window(
-            &self.conn, &self.config, target
+            target, &self.conn, &self.config
         );
         Ok(())
     }
@@ -782,11 +802,11 @@ where
         let current = self.desktop.current_mut();
         if self.conn.should_float(id, self.config.float_classes()) || current.is_floating() {
             current.add_window_off_layout(
-                &self.conn, self.screens.focused().unwrap(), id, &self.config
+                id, &self.conn, self.screens.focused().unwrap(), &self.config
             )
         } else {
             current.add_window_on_layout(
-                &self.conn, self.screens.focused().unwrap(), id, &self.config
+                id, &self.conn, self.screens.focused().unwrap(), &self.config
             )
         }
         Ok(())
@@ -801,7 +821,7 @@ where
         self.desktop
             .current_mut()
             .del_window(
-                &self.conn, self.screens.focused().unwrap(), id, &self.config
+                id, &self.conn, self.screens.focused().unwrap(), &self.config
             )?;
         Ok(())
     }

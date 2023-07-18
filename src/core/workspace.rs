@@ -1,6 +1,10 @@
-//! This module defines `Workspace`, which represents a collection
+//! Types used within workspaces.
+//! 
+//! In ToaruWM, a Workspace represents a collection
 //! of windows that can be displayed onscreen together, with a set
 //! of layouts that can be swapped out or modified on the fly.
+//! 
+//! The core type of this module is [`Workspace`].
 
 use std::fmt;
 
@@ -22,6 +26,10 @@ use crate::x::{core::StackMode, XConn, XWindowID};
 use crate::Result;
 
 /// A specification describing a workspace.
+/// 
+/// Each spec contains a name, a screen index, and the layouts
+/// the workspace is to use. Each layout should correspond to
+/// a Layout trait object within the overall configuration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WorkspaceSpec {
     pub(crate) name: String,
@@ -320,7 +328,7 @@ impl Workspace {
         }
 
         if let Some(win) = self.focused_client() {
-            self.focus_window(conn, cfg, win.id());
+            self.focus_window(win.id(), conn, cfg);
         } else {
             debug!("no focused window, focusing by ptr");
             self.focus_window_by_ptr(conn, scr, cfg);
@@ -354,7 +362,7 @@ impl Workspace {
 
     /// Adds a window to the workspace in the layout.
     pub fn add_window_on_layout<X, C>(
-        &mut self, conn: &X, scr: &Screen, window: XWindowID, cfg: &C
+        &mut self, window: XWindowID, conn: &X, scr: &Screen, cfg: &C
     ) where
         X: XConn,
         C: RuntimeConfig
@@ -364,7 +372,7 @@ impl Workspace {
 
     /// Adds a window to the workspace off the layout.
     pub fn add_window_off_layout<X, C>(
-        &mut self, conn: &X, scr: &Screen, window: XWindowID, cfg: &C
+        &mut self, window: XWindowID, conn: &X, scr: &Screen, cfg: &C
     ) where
         X: XConn,
         C: RuntimeConfig
@@ -375,7 +383,7 @@ impl Workspace {
     /// Deletes the window from the workspaces and returns it.
     #[instrument(level = "debug", skip(self, conn, scr, cfg))]
     pub fn del_window<X, C>(
-        &mut self, conn: &X, scr: &Screen, id: XWindowID, cfg: &C
+        &mut self, id: XWindowID, conn: &X, scr: &Screen, cfg: &C
     ) -> Result<Option<Client>>
     where
         X: XConn,
@@ -398,7 +406,7 @@ impl Workspace {
     /// Sets the input focus, internally and on the server, to the given ID.
     /// 
     /// Also calls `Self::unfocus_window` internally.
-    pub fn focus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
+    pub fn focus_window<X, C>(&mut self, window: XWindowID, conn: &X, cfg: &C)
     where
         X: XConn,
         C: RuntimeConfig,
@@ -412,7 +420,7 @@ impl Workspace {
         // unfocus the current focused window
         if let Some(focused) = self.windows.focused_mut() {
             let id = focused.id();
-            self.unfocus_window(conn, cfg, id);
+            self.unfocus_window(id, conn, cfg);
         }
         // focus the window
         self.stack_and_focus_window(conn, cfg, window);
@@ -422,7 +430,7 @@ impl Workspace {
     /// 
     /// You generally shouldn't have to call this directly, as it is also
     /// called by `Self::focus_window`.
-    pub fn unfocus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
+    pub fn unfocus_window<X, C>(&mut self, window: XWindowID, conn: &X, cfg: &C)
     where
         X: XConn,
         C: RuntimeConfig
@@ -440,7 +448,7 @@ impl Workspace {
     }
 
     /// Cycles the focus to the next window in the workspace.
-    pub fn cycle_focus<X, C>(&mut self, conn: &X, cfg: &C, dir: Direction)
+    pub fn cycle_focus<X, C>(&mut self, dir: Direction, conn: &X, cfg: &C)
     where
         X: XConn,
         C: RuntimeConfig
@@ -454,7 +462,7 @@ impl Workspace {
         self.windows.cycle_focus(dir);
 
         // focus window
-        self.focus_window(conn, cfg, self.focused_client().unwrap().id());
+        self.focus_window(self.focused_client().unwrap().id(), conn, cfg);
     }
 
     /// Deletes the focused window in the workspace and returns it.
@@ -467,16 +475,20 @@ impl Workspace {
     {
         if let Some(window) = self.windows.focused() {
             let id = window.id();
-            self.del_window(conn, screen, id, cfg).ok()?
+            self.del_window(id, conn, screen, cfg).ok()?
         } else {
             None
         }
     }
 
     /// Toggles fullscreen on the currently focused window.
-    pub fn toggle_focused_fullscreen<X: XConn>(
-        &mut self, conn: &X, scr: &Screen
-    ) {
+    #[allow(unused_variables)]
+    pub fn toggle_focused_fullscreen<X, C>(
+        &mut self, conn: &X, scr: &Screen, cfg: &C
+    ) where
+        X: XConn,
+        C: RuntimeConfig,
+    {
         todo!()
         /* 
         * 1. Actually apply the geometry
@@ -537,7 +549,7 @@ impl Workspace {
     /// Sends an update to the currently focused layout, and applies
     /// and changes that may have taken place.
     pub fn update_focused_layout<U: IntoUpdate, X, C>(
-        &mut self, conn: &X, scr: &Screen, cfg: &C, msg: U
+        &mut self, msg: U, conn: &X, scr: &Screen, cfg: &C
     ) where
         X: XConn,
         C: RuntimeConfig,
@@ -596,10 +608,10 @@ impl Workspace {
         // set input focus
         if let Some(curr_focused) = self.windows.focused_mut() {
             let to_unfocus = curr_focused.id();
-            self.unfocus_window(conn, cfg, to_unfocus);
+            self.unfocus_window(to_unfocus, conn, cfg);
         }
 
-        self.focus_window(conn, cfg, id);
+        self.focus_window(id, conn, cfg);
     }
 
     /// Deletes a window
@@ -662,7 +674,7 @@ impl Workspace {
             warn!("could not query pointer");
             return
         };
-        self.focus_window(conn, cfg, reply.child);
+        self.focus_window(reply.child, conn, cfg);
     }
 
     fn apply_layout<X: XConn>(&mut self, conn: &X, layouts: Vec<LayoutAction>) {
