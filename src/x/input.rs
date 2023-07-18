@@ -19,7 +19,7 @@ use crate::{
 pub mod keysym {
     /// A keysym, as defined by the X protocol specification.
     pub type KeySym = u32;
-    pub use x11::keysym::*;
+    //pub use x11::keysym::*;
 }
 
 // Grab NumLock separately and filter it out when receiving events
