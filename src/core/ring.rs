@@ -19,6 +19,7 @@ use core::ops::{Index, IndexMut};
 
 use std::collections::{VecDeque, vec_deque::IntoIter};
 use std::iter::FromIterator;
+use std::cmp::Ordering;
 
 use custom_debug_derive::Debug;
 
@@ -352,6 +353,21 @@ impl<T> Ring<T> {
         self.items.iter_mut().rev()
     }
 
+    /// Sorts a Ring internally.
+    /// 
+    /// ## Note
+    /// 
+    /// This internally rearranges the storage of the Ring
+    /// into a contiguous block of memory, which can be
+    /// very computationally intensive!
+    pub fn sort_by<F>(&mut self, f: F)
+    where
+        F: FnMut(&T, &T) -> Ordering,
+    {
+        let cont = self.items.make_contiguous();
+        cont.sort_by(f);
+    }
+
     /// Rotates the entire buffer by 1 in the given direction.
     /// The focus is rotated with the buffer, so it points at the
     /// same element.
@@ -465,6 +481,22 @@ impl<T> Ring<T> {
             }
             Condition(f) => self.element_by(f).map(|(i, _)| i),
         }
+    }
+}
+
+impl<T: Ord> Ring<T> {
+    /// Reorganizes the inner Ring storage
+    /// and then sorts the Ring using `slice::sort`.
+    pub fn sort(&mut self) {
+        let cont = self.items.make_contiguous();
+        cont.sort();
+    }
+
+    /// Reorganizes the inner Ring storage
+    /// and then sorts the Ring using `slice::sort_unstable`.
+    pub fn sort_unstable(&mut self) {
+        let cont = self.items.make_contiguous();
+        cont.sort_unstable();
     }
 }
 
