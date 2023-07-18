@@ -10,10 +10,6 @@ edition = "2021"
 name = "toaruwm"
 path = "src/lib.rs"
 
-[[bin]]
-name = "toaruwm"
-path = "src/bin/main.rs"
-
 [dependencies]
 xcb = { version = "1.2", features = ["randr", "xkb"] }
 x11 = "2.21"
