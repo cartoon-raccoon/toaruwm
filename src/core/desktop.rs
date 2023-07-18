@@ -1,5 +1,5 @@
 //! Types used for desktop management.
-//! 
+//!
 //! This module exports `Desktop` and `Screen`.
 //!
 //! `Desktop` is the main type handled directly by `WindowManager`.
@@ -15,8 +15,8 @@ use tracing::debug;
 
 use crate::core::{Client, Workspace};
 use crate::layouts::{Layout, Layouts};
-use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
 use crate::manager::RuntimeConfig;
+use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
 use crate::x::{Atom, Property, XConn, XWindowID};
 use crate::{Result, ToaruError::*};
 
@@ -88,7 +88,7 @@ impl Desktop {
     where
         N: IntoIterator<IntoIter = R>,
         R: DoubleEndedIterator<Item = WorkspaceSpec>,
-        L: IntoIterator<Item = Box<dyn Layout>>
+        L: IntoIterator<Item = Box<dyn Layout>>,
     {
         let mut desktop = Self {
             workspaces: {
@@ -96,9 +96,7 @@ impl Desktop {
 
                 let ins = Layouts::with_layouts_validated(layouts)?;
                 for spec in wksps.into_iter().rev() {
-                    workspaces.push(
-                        Workspace::from_spec(spec, &ins)?
-                    );
+                    workspaces.push(Workspace::from_spec(spec, &ins)?);
                 }
 
                 workspaces.set_focused(0);
@@ -236,7 +234,7 @@ impl Desktop {
     ) -> Result<()>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("Cycling workspaces in direction {:?}", direction);
         self.workspaces.cycle_focus(direction);
@@ -252,12 +250,10 @@ impl Desktop {
     }
 
     /// Switch to a given workspace by its name.
-    pub fn go_to<X, C>(
-        &mut self, name: &str, conn: &X, scr: &Screen, cfg: &C
-    ) -> Result<()>
+    pub fn go_to<X, C>(&mut self, name: &str, conn: &X, scr: &Screen, cfg: &C) -> Result<()>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("Going to workspace with name '{}'", name);
 
@@ -294,11 +290,15 @@ impl Desktop {
     }
     /// Sends the currently focused window to the specified workspace.
     pub fn send_focused_to<X, C>(
-        &mut self, name: &str, conn: &X, scr: &Screen, cfg: &C
+        &mut self,
+        name: &str,
+        conn: &X,
+        scr: &Screen,
+        cfg: &C,
     ) -> Result<()>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("Attempting to send window to workspace {}", name);
         let winid = if let Some(window) = self.current().focused_client() {
@@ -317,11 +317,11 @@ impl Desktop {
         name: &str,
         conn: &X,
         scr: &Screen,
-        cfg: &C
+        cfg: &C,
     ) -> Result<()>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("Attempting to send window to workspace {}", name);
         let Some(window) = self.current_mut().take_window(id, conn) else {

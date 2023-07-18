@@ -1,7 +1,4 @@
-use super::{
-    Layout, LayoutAction, LayoutType, LayoutCtxt,
-    update::Update
-};
+use super::{update::Update, Layout, LayoutAction, LayoutCtxt, LayoutType};
 
 /// A simple floating layout that does not
 /// enforce any specific layout.

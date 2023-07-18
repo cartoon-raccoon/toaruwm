@@ -1,27 +1,27 @@
 //! Types for configuring a `WindowManager`.
-//! 
+//!
 //! This module contains `Config`, the trait that defines a
 //! configuration object usable by a `WindowManager`. One type
 //! that implements this is already provided: [`ToaruConfig`],
 //! and you can this directly in a `WindowManager`.
-//! 
+//!
 use custom_debug_derive::Debug;
 
 use std::any::Any;
 use std::collections::HashMap;
 
-use crate::{ToaruError::*, Result};
-use crate::types::Color;
 use crate::core::WorkspaceSpec;
-use crate::layouts::{Layout, Floating, DynamicTiled};
-use crate::manager::state::{WmConfig, RuntimeConfig};
+use crate::layouts::{DynamicTiled, Floating, Layout};
+use crate::manager::state::{RuntimeConfig, WmConfig};
+use crate::types::Color;
+use crate::{Result, ToaruError::*};
 
 /// A trait defining a `WindowManager` configuration.
-/// 
+///
 /// On initialization, the `WindowManager` queries a config
 /// for various fields to move elsewhere, before at the end converting
 /// the config into a runtime configuration.
-/// 
+///
 /// You will probably have noticed that the `workspaces` and
 /// `layouts` methods take a `&mut self`, but return owned
 /// types. This is because any type implementing this trait
@@ -31,35 +31,35 @@ use crate::manager::state::{WmConfig, RuntimeConfig};
 /// to do some expensive operations such as cloning. These methods
 /// also use a `&mut self` to allow the user to mutate internal
 /// state, or to do something like [`std::mem::take`].
-/// 
-/// The type implementing this trait must yield these key fields 
+///
+/// The type implementing this trait must yield these key fields
 /// for the window manager to take and initialize
 /// itself, before converting itself into a `RuntimeConfig`.
-/// 
+///
 /// # Configuration Keys
-/// 
+///
 /// The required configuration keys are:
-/// 
+///
 /// - *Layouts*: the set of layouts used by the window manager.
 /// - *Workspaces*: the workspaces to be created by the window
 /// manager.
-/// 
+///
 /// The following are not explicitly required by `Config`, but
 /// are required by the [`RuntimeConfig`] trait, which `Self::Config`
 /// needs to implement:
-/// 
+///
 /// - *Float Classes*: the set of window classes that the window
 /// manager will not place under layout.
 /// - *Border Pixel*: The thickness of the window border.
 /// - *Unfocused*: The border color of unfocused windows.
 /// - *Focused*: The border color of focused windows.
 /// - *Urgent*: The border color of focused windows.
-/// 
-/// `RuntimeConfig` also requires a method `get_key` to retrieve arbitrary 
+///
+/// `RuntimeConfig` also requires a method `get_key` to retrieve arbitrary
 /// values of keys.
-/// 
+///
 /// # Validity
-/// 
+///
 /// While user-defined keys may have their own invariants that
 /// should not violated, A type `Config` also has one invariant of its own,
 /// that its Layouts and Workspaces must contain at least one member,
@@ -84,32 +84,31 @@ pub trait Config {
     fn into_runtime_config(self) -> Self::Runtime;
 }
 
-
 /// The central configuration object.
-/// 
+///
 /// `ToaruConfig` stores several key attributes that are required
 /// by the window manager to run, but it can also store
 /// any arbitrary key-value pair.
-/// 
-/// 
+///
+///
 /// `ToaruConfig` provides a `validate` method that ensures it is valid
 /// and can be used in a `WindowManager`. While this checks the
 /// predefined invariants on the Config, it can also run user-defined
 /// code to ensure that user-defined invariants are also upheld.
-/// 
+///
 /// # Construction
-/// 
+///
 /// To build a ToaruConfig, use the [`ToaruConfigBuilder`] type.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// # use toaruwm::manager::config::NO_CHECKS;
 /// use toaruwm::ToaruConfig;
-/// 
+///
 /// // create a default config that upholds all invariants
 /// let config = ToaruConfig::new();
-/// 
+///
 /// config.validate(NO_CHECKS).expect("invalid config");
 /// ```
 #[derive(Debug)]
@@ -135,10 +134,12 @@ pub struct ToaruConfig {
 
 //* I would use an Option<F> instead of doing this bodge, but
 //* passing in None would cause type inference issues.
-const fn no_checks(_: &ToaruConfig) -> Result<()> {Ok(())}
+const fn no_checks(_: &ToaruConfig) -> Result<()> {
+    Ok(())
+}
 
 /// A constant signifying no user-defined checks are required.
-/// 
+///
 /// Pass this into `ToaruConfig::validate` if you have no additional
 /// validation checks to run on your config.
 pub const NO_CHECKS: fn(&ToaruConfig) -> Result<()> = no_checks;
@@ -158,28 +159,28 @@ impl ToaruConfig {
     }
 
     /// Checks the configuration to verify that all invariants are upheld.
-    /// 
+    ///
     /// This is useful if your `ToaruConfig` goes through a bunch of
     /// additional processing before it's ready to use in a `WindowManager`,
     /// and you want to make sure that all the invariants that you
-    /// need it to uphold are indeed upheld. To help with this, you can insert 
+    /// need it to uphold are indeed upheld. To help with this, you can insert
     /// additional code to check that your user-added keys are valid.
-    /// 
+    ///
     /// If you have no code you want to insert, pass in the
     /// [`NO_CHECKS`] constant.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::config::{ToaruConfig, NO_CHECKS};
     /// use toaruwm::{Result, ToaruError::*};
-    /// 
+    ///
     /// let mut config = ToaruConfig::new();
-    /// 
+    ///
     /// // insert a user-defined key into the Config
     /// // that requires us to validate
     /// config.insert_key("foo", 1i32);
-    /// 
+    ///
     /// // run the validation
     /// config.validate(|cfg: &ToaruConfig| {
     ///     let foo = cfg.get_key::<i32>("foo");
@@ -189,22 +190,22 @@ impl ToaruConfig {
     ///         Err(InvalidConfig("missing foo".into()))
     ///     }
     /// }).expect("config was invalid!");
-    /// 
+    ///
     /// // now, let's create a mew config that doesn't require
     /// // and user-defined validation
     /// let config2 = ToaruConfig::new();
-    /// 
+    ///
     /// config2.validate(NO_CHECKS).expect("invalid config2");
     /// ```
     pub fn validate<F>(&self, checks: F) -> Result<()>
     where
-        F: FnOnce(&ToaruConfig) -> Result<()>
+        F: FnOnce(&ToaruConfig) -> Result<()>,
     {
         if self.workspaces.len() < 1 {
-            return Err(InvalidConfig("workspaces is empty".into()))
+            return Err(InvalidConfig("workspaces is empty".into()));
         }
         if self.layouts.len() < 1 {
-            return Err(InvalidConfig("layouts is empty".into()))
+            return Err(InvalidConfig("layouts is empty".into()));
         }
         checks(self)?;
         Ok(())
@@ -220,16 +221,17 @@ impl ToaruConfig {
     }
 
     /// Remove a key-value pair from the Config.
-    /// 
+    ///
     /// Returns None if the value doesn't exist or is not of
     /// the specified type.
-    /// 
+    ///
     /// Since this function is so generic, it is likely
     /// you will often have to use Rust's 'turbofish'
     /// notation (`::<T>`) to specify the type of the value
     /// you want to retrieve.
     pub fn remove_key<V: Any>(&mut self, key: &str) -> Option<V> {
-        self.keys.remove(&String::from(key))
+        self.keys
+            .remove(&String::from(key))
             .map(|v| v.downcast().ok())
             .flatten()
             .map(|v| *v)
@@ -271,16 +273,17 @@ impl ToaruConfig {
     }
 
     /// Get a generic key from the `Config`'s internal store.
-    /// 
+    ///
     /// Returns `None` if the key does not exist or is not
     /// in the type specified.
-    /// 
+    ///
     /// Since this function is so generic, it is likely
     /// you will often have to use Rust's 'turbofish'
     /// notation (`::<T>`) to specify the type of the value
     /// you want to retrieve.
     pub fn get_key<V: Any>(&self, key: &str) -> Option<&V> {
-        self.keys.get(&String::from(key))
+        self.keys
+            .get(&String::from(key))
             .map(|i| i.downcast_ref::<V>())
             .flatten()
     }
@@ -289,16 +292,14 @@ impl ToaruConfig {
 impl Config for ToaruConfig {
     type Runtime = WmConfig;
     type Workspaces = Vec<WorkspaceSpec>;
-    type Layouts = Vec<Box <dyn Layout>>;
+    type Layouts = Vec<Box<dyn Layout>>;
 
     fn take_workspaces(&mut self) -> Vec<WorkspaceSpec> {
         self.workspaces.clone()
     }
-    
-    fn take_layouts(&mut self) -> Vec<Box<dyn Layout>>{
-        self.layouts.iter()
-            .map(|l| l.boxed())
-            .collect()
+
+    fn take_layouts(&mut self) -> Vec<Box<dyn Layout>> {
+        self.layouts.iter().map(|l| l.boxed()).collect()
     }
 
     fn into_runtime_config(self) -> Self::Runtime {
@@ -308,7 +309,7 @@ impl Config for ToaruConfig {
             unfocused: self.unfocused,
             focused: self.focused,
             urgent: self.urgent,
-            keys: self.keys
+            keys: self.keys,
         }
     }
 }
@@ -333,13 +334,11 @@ impl Default for ToaruConfig {
             urgent: Color::from(0xee0000),
             keys: {
                 let mut keys = HashMap::new();
-                keys.insert("gap_px".into(), 
-                    Box::new(0u32) as Box<dyn Any>);
-                keys.insert("main_ratio_inc".into(), 
-                    Box::new(0.05f32) as Box<dyn Any>);
+                keys.insert("gap_px".into(), Box::new(0u32) as Box<dyn Any>);
+                keys.insert("main_ratio_inc".into(), Box::new(0.05f32) as Box<dyn Any>);
 
                 keys
-            }
+            },
         }
     }
 }
@@ -355,14 +354,14 @@ impl ToaruConfigBuilder {
     /// Creates a new `ConfigBuilder`.
     pub fn new() -> Self {
         Self {
-            inner: ToaruConfig::default()
+            inner: ToaruConfig::default(),
         }
     }
 
     /// Sets the workspaces used by the WindowManager.
     pub fn workspaces<W>(mut self, workspaces: W) -> Self
     where
-        W: IntoIterator<Item=WorkspaceSpec>
+        W: IntoIterator<Item = WorkspaceSpec>,
     {
         self.inner.workspaces = workspaces.into_iter().collect();
         self
@@ -371,7 +370,7 @@ impl ToaruConfigBuilder {
     /// Sets the layouts used by the WindowManager.
     pub fn layouts<L>(mut self, layouts: L) -> Self
     where
-        L: IntoIterator<Item = Box<dyn Layout>>
+        L: IntoIterator<Item = Box<dyn Layout>>,
     {
         self.inner.layouts = layouts.into_iter().collect();
         self
@@ -380,7 +379,7 @@ impl ToaruConfigBuilder {
     /// Sets which window classes to not be placed under layout.
     pub fn float_classes<F>(mut self, float_classes: F) -> Self
     where
-        F: IntoIterator<Item = String>
+        F: IntoIterator<Item = String>,
     {
         self.inner.float_classes = float_classes.into_iter().collect();
         self
@@ -414,24 +413,25 @@ impl ToaruConfigBuilder {
     pub fn other_key<K, V>(mut self, key: K, value: V) -> Self
     where
         K: Into<String>,
-        V: Any
+        V: Any,
     {
-        self.inner.keys.insert(key.into(), Box::new(value) as Box<dyn Any>);
+        self.inner
+            .keys
+            .insert(key.into(), Box::new(value) as Box<dyn Any>);
         self
     }
 
     /// Finishes Config construction, validates it and returns
     /// a completed config if validation is successful.
-    /// 
+    ///
     /// You can supply an additional `check` to run
     /// additional code to validate your config.
     pub fn finish<F>(self, check: F) -> Result<ToaruConfig>
     where
-        F: FnOnce(&ToaruConfig) -> Result<()>
+        F: FnOnce(&ToaruConfig) -> Result<()>,
     {
         let config = self.inner;
         config.validate(check)?;
         Ok(config)
     }
-
 }

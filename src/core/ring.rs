@@ -1,5 +1,5 @@
 //! A ringbuffer type used throughout toaruwm.
-//! 
+//!
 //! This module defines Ring, a data structure that presents a
 //! ringbuffer-like interface.
 //!
@@ -17,9 +17,9 @@
 
 use core::ops::{Index, IndexMut};
 
-use std::collections::{VecDeque, vec_deque::IntoIter};
-use std::iter::FromIterator;
 use std::cmp::Ordering;
+use std::collections::{vec_deque::IntoIter, VecDeque};
+use std::iter::FromIterator;
 
 use custom_debug_derive::Debug;
 
@@ -354,9 +354,9 @@ impl<T> Ring<T> {
     }
 
     /// Sorts a Ring internally.
-    /// 
+    ///
     /// ## Note
-    /// 
+    ///
     /// This internally rearranges the storage of the Ring
     /// into a contiguous block of memory, which can be
     /// very computationally intensive!
@@ -391,40 +391,40 @@ impl<T> Ring<T> {
     /// Cycles the focus by one in the given direction.
     ///
     /// Is a no-op if nothing is in focus or the ring only has one item.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::core::Ring;
     /// use toaruwm::types::Direction::*;
-    /// 
+    ///
     /// let mut ring1 = Ring::with_capacity(2);
-    /// 
+    ///
     /// ring1.append(1); ring1.append(2);
     /// ring1.set_focused(0);
-    /// 
+    ///
     /// ring1.cycle_focus(Forward);
-    /// 
+    ///
     /// # //assert_eq!(ring1.focused_idx().unwrap(), 1);
-    /// 
+    ///
     /// assert_eq!(*ring1.focused().unwrap(), 2);
-    /// 
+    ///
     /// let mut ring2 = Ring::with_capacity(1);
-    /// 
+    ///
     /// ring2.append(1);
     /// ring2.set_focused(0);
-    /// 
+    ///
     /// ring2.cycle_focus(Forward);
-    /// 
+    ///
     /// # //assert_eq!(ring2.focused_idx().unwrap(), 0);
-    /// 
+    ///
     /// assert_eq!(*ring2.focused().unwrap(), 1);
     /// ```
     pub fn cycle_focus(&mut self, direction: Direction) {
         use Direction::*;
 
         if self.len() <= 1 {
-            return
+            return;
         }
 
         match direction {

@@ -3,8 +3,9 @@ use std::cell::Cell;
 use tracing::debug;
 
 use super::{
-    Layout, LayoutType, LayoutAction, LayoutCtxt,
-    update::{Update, ResizeMain}};
+    update::{ResizeMain, Update},
+    Layout, LayoutAction, LayoutCtxt, LayoutType,
+};
 
 use crate::types::Geometry;
 use crate::x::XWindowID;
@@ -28,7 +29,7 @@ impl DynamicTiled {
         Self {
             ratio: Cell::new(ratio),
             bwidth: Cell::new(bwidth),
-            main: Cell::new(None)
+            main: Cell::new(None),
         }
     }
 }
@@ -57,15 +58,19 @@ impl Layout for DynamicTiled {
                     geom.height - self.bwidth.get() as i32,
                     geom.width - self.bwidth.get() as i32,
                 );
-                vec![LayoutAction::Resize { id: main_id, geom: new }]
+                vec![LayoutAction::Resize {
+                    id: main_id,
+                    geom: new,
+                }]
             } else {
                 debug_assert!(ws.managed_count() > 1);
                 debug!("Multiple windows mapped, recalculating");
 
                 let (main, sec) = geom.split_vert_ratio(self.ratio.get());
 
-                let mut ret = vec![LayoutAction::Resize { 
-                    id: main_id, geom: main 
+                let mut ret = vec![LayoutAction::Resize {
+                    id: main_id,
+                    geom: main,
                 }];
 
                 // get no of secondary windows
@@ -90,10 +95,12 @@ impl Layout for DynamicTiled {
 
                 ret
             }
-        } else { // we have no main
+        } else {
+            // we have no main
             if ws.managed_count() == 0 {
                 Vec::new()
-            } else { // managed count >= 1
+            } else {
+                // managed count >= 1
                 debug_assert!(ws.managed_count() >= 1);
                 debug!("No main with at least one managed window");
 
@@ -121,6 +128,4 @@ impl Layout for DynamicTiled {
     fn style(&self) -> super::LayoutType {
         LayoutType::Tiled
     }
-
 }
-

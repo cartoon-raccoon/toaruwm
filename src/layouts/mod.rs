@@ -1,5 +1,5 @@
 //! Traits and types for defining and generating window layouts.
-//! 
+//!
 //! The core of this module is the [`Layout`] trait, you should
 //! read its documentation before looking at anything else.
 
@@ -7,57 +7,57 @@ use std::collections::HashSet;
 
 use tracing::debug;
 
-use crate::core::{Screen, Workspace, Ring};
+use crate::core::{Ring, Screen, Workspace};
+use crate::manager::RuntimeConfig;
 use crate::types::Geometry;
 use crate::x::XWindowID;
-use crate::manager::RuntimeConfig;
-use crate::{ToaruError, Result, XConn};
+use crate::{Result, ToaruError, XConn};
 
-/// A simple manually-tiled layout.
-pub mod tiled;
 /// A simple no-frills floating layout.
 pub mod floating;
+/// A simple manually-tiled layout.
+pub mod tiled;
 /// Types to be used to update layouts.
 pub mod update;
 
 #[doc(inline)]
-pub use tiled::DynamicTiled;
-#[doc(inline)]
 pub use floating::Floating;
+#[doc(inline)]
+pub use tiled::DynamicTiled;
 
 use update::Update;
 
 /// A trait for implementing layouts.
-/// 
+///
 /// A `Layout` is an object that enforces the layout of the windows
 /// that are managed by the workspace.
-/// 
+///
 /// # Components and Usage
-/// 
+///
 /// A layout has two main components: A name and a policy. The name is
 /// self-explanatory, and the policy is simply how the windows are
 /// arranged on the screen. This policy is implemented by the
 /// `layout` method, which is called by the managing workspace.
 /// This method returns a set of `LayoutActions` which the workspace
 /// must carry out in order to enforce the policy.
-/// 
+///
 /// Layouts can also receive [`Update`]s, which tell the layout to modify
 /// its behaviour or policy in some way. Since not all updates are
 /// applicable to a particular layout (e.g. an update to shrink the
 /// main window is not applicable to a floating layout), Layouts are
 /// not required to comply with all updates.
-/// 
+///
 /// # Layout Types and Styles
-/// 
+///
 /// Layouts are generally organized into two main styles: Floating
 /// and Tiled, where floating layouts have their windows free floating
 /// and and have little, if any, enforcement over window positioning.
 /// Tiled layouts, on the other hand, enforce window positioning in
 /// various ways.
-/// 
+///
 /// A type implementing `Layout` reports its style through the `style`
 /// method in the `Layout` trait.
-/// 
+///
 /// # Usage by a `WindowManager`
 ///
 /// Layouts will usually be used as a trait object by the window manager.
@@ -71,7 +71,7 @@ pub trait Layout {
     fn style(&self) -> LayoutType;
 
     /// Generates the actions to be taken to lay out the windows.
-    /// 
+    ///
     /// A `LayoutCtxt` is provided to give the layout any additional
     /// information it might need to enforce its policy.
     fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction>;
@@ -90,7 +90,8 @@ use custom_debug_derive::Debug;
 /// to enforce its layout policy.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct LayoutCtxt<'wm> { //fixme: custom debug is just a bodge rn
+pub struct LayoutCtxt<'wm> {
+    //fixme: custom debug is just a bodge rn
     /// A Connection to the X server to make queries if needed.
     #[debug(skip)]
     pub conn: &'wm dyn XConn,
@@ -104,20 +105,20 @@ pub struct LayoutCtxt<'wm> { //fixme: custom debug is just a bodge rn
 }
 
 /// A Ring of layouts applied on a workspace.
-/// 
+///
 /// A set of layouts that a workspace can use to apply on its
 /// managed windows.
-/// 
+///
 /// ## A Note to Programmers
-/// 
+///
 /// `Layouts` has some unique invariants that normal
-/// `Rings` do not have: 
-/// 
+/// `Rings` do not have:
+///
 /// 1. It must _never_ be empty.
 /// 2. It must _always_ have something in focus.
 /// 3. There must be _no_ name conflicts
 /// (i.e. no two layouts can have the same name).
-/// 
+///
 /// To this end, there are runtime checks on startup
 /// and initialization to ensure that these invariants
 /// are upheld at the start of runtime. However, these
@@ -129,18 +130,18 @@ pub type Layouts = Ring<Box<dyn Layout>>;
 impl Layouts {
     /// Returns Self with the given layouts and
     /// the focused item set to the first item in the Ring.
-    /// 
+    ///
     /// Use this over `Ring::new` as it ensures that
     /// the invariants on Layouts are upheld.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This method panics if any of the invariants are not upheld.
     pub fn with_layouts_validated<I>(layouts: I) -> Result<Self>
     where
-        I: IntoIterator<Item = Box<dyn Layout>>
+        I: IntoIterator<Item = Box<dyn Layout>>,
     {
-        let ret = unsafe {Self::with_layouts_unchecked(layouts)};
+        let ret = unsafe { Self::with_layouts_unchecked(layouts) };
 
         ret.validate()?;
 
@@ -149,13 +150,13 @@ impl Layouts {
 
     /// Returns Self with the given layouts and the focused
     /// item set to the first item in the Ring.
-    /// 
+    ///
     /// ## Safety
-    /// 
+    ///
     /// The caller must ensure that invariants 1 and 3 are upheld.
     pub unsafe fn with_layouts_unchecked<I>(layouts: I) -> Self
     where
-        I: IntoIterator<Item = Box<dyn Layout>>
+        I: IntoIterator<Item = Box<dyn Layout>>,
     {
         let mut ret = Ring::new();
         layouts.into_iter().for_each(|l| ret.append(l));
@@ -166,26 +167,25 @@ impl Layouts {
     /// Validates the namespace and ensures there are no name conflicts.
     pub fn validate(&self) -> Result<()> {
         if self.focused.is_none() {
-            return Err(ToaruError::OtherError("no focused item".into()))
+            return Err(ToaruError::OtherError("no focused item".into()));
         }
         if self.len() < 1 {
-            return Err(ToaruError::OtherError("layouts is empty".into()))
+            return Err(ToaruError::OtherError("layouts is empty".into()));
         }
 
-        let set: HashSet<&str> = self
-            .iter()
-            .map(|l| l.name())
-            .collect();
+        let set: HashSet<&str> = self.iter().map(|l| l.name()).collect();
 
         if set.len() == self.len() {
-            return Ok(())
+            return Ok(());
         } else {
             let mut all: Vec<&str> = self.iter().map(|l| l.name()).collect();
             let uniques: Vec<&str> = set.into_iter().collect();
 
             debug_assert!(uniques.len() < self.len());
 
-            uniques.into_iter().for_each(|s1| all.retain(|s2| s1 != *s2));
+            uniques
+                .into_iter()
+                .for_each(|s1| all.retain(|s2| s1 != *s2));
 
             Err(ToaruError::LayoutConflict(all.join(", ")))
         }
@@ -193,15 +193,20 @@ impl Layouts {
 
     /// Generates the layout for the currently focused layout.
     pub fn gen_layout<X, C>(
-        &self, conn: &X, ws: &Workspace, scr: &Screen, cfg: &C
+        &self,
+        conn: &X,
+        ws: &Workspace,
+        scr: &Screen,
+        cfg: &C,
     ) -> Vec<LayoutAction>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
-        self.focused().expect("focused layout should not be none")
+        self.focused()
+            .expect("focused layout should not be none")
             .layout(LayoutCtxt {
                 workspace: ws,
                 config: cfg,
@@ -259,4 +264,3 @@ pub enum LayoutAction {
     /// Unmap the given window.
     Unmap(XWindowID),
 }
-

@@ -7,7 +7,7 @@ use strum::*;
 
 use custom_debug_derive::Debug;
 
-use crate::manager::{WindowManager, RuntimeConfig};
+use crate::manager::{RuntimeConfig, WindowManager};
 use crate::types::Point;
 use crate::x::{
     core::XConn,
@@ -263,7 +263,7 @@ pub type MouseCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>, Point)>;
 pub struct Keybinds<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     bindings: HashMap<Keybind, KeyCallback<X, C>>,
 }
@@ -271,7 +271,7 @@ where
 impl<X, C> Keybinds<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Creates a new Keybinds object.
     pub fn new() -> Self {
@@ -324,7 +324,7 @@ where
 pub struct Mousebinds<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     bindings: HashMap<Mousebind, MouseCallback<X, C>>,
 }
@@ -332,7 +332,7 @@ where
 impl<X, C> Mousebinds<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Creates a new `Mousebinds` object.
     pub fn new() -> Self {

@@ -33,14 +33,11 @@ pub type Hook<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;
 #[macro_export]
 macro_rules! hook {
     (|$wm:ident| $code:tt) => {
-        Box::new(
-            |$wm: &mut WindowManager<_,_>| $code
-        ) as Box<dyn FnMut(&mut WindowManager<_,_>)>
+        Box::new(|$wm: &mut WindowManager<_, _>| $code) as Box<dyn FnMut(&mut WindowManager<_, _>)>
     };
     (move |$wm:ident| $code:tt) => {
-        Box::new(
-            move |$wm: &mut WindowManager<_,_>| $code
-        ) as Box<dyn FnMut(&mut WindowManager<_,_>)>
+        Box::new(move |$wm: &mut WindowManager<_, _>| $code)
+            as Box<dyn FnMut(&mut WindowManager<_, _>)>
     };
 }
 

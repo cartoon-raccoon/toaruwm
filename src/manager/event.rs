@@ -2,9 +2,9 @@ use std::str::FromStr;
 
 use tracing::{debug, info};
 
-use crate::core::types::Point;
 use crate::bindings::{Keybind, Mousebind};
-use crate::manager::{WmState, RuntimeConfig};
+use crate::core::types::Point;
+use crate::manager::{RuntimeConfig, WmState};
 use crate::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
@@ -61,10 +61,13 @@ pub enum EventAction {
 }
 
 impl EventAction {
-    pub(crate) fn from_xevent<X, C>(event: XEvent, state: WmState<'_, X, C>) -> Option<Vec<EventAction>>
+    pub(crate) fn from_xevent<X, C>(
+        event: XEvent,
+        state: WmState<'_, X, C>,
+    ) -> Option<Vec<EventAction>>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         use EventAction::*;
         use XEvent::*;
@@ -126,7 +129,7 @@ impl EventAction {
             PropertyNotify(event) => {
                 // ignore if window that changed was the root
                 if event.id == state.root.id {
-                    return None
+                    return None;
                 }
                 debug!(target: "manager::event","property notify for window {}", event.id);
                 process_property_notify(event, state)
@@ -178,7 +181,8 @@ fn process_map_request<X: XConn, C: RuntimeConfig>(
 }
 
 fn process_enter_notify<X: XConn, C: RuntimeConfig>(
-    pt: PointerEvent, state: WmState<'_, X, C>
+    pt: PointerEvent,
+    state: WmState<'_, X, C>,
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
@@ -209,7 +213,7 @@ fn process_property_notify<X: XConn, C: RuntimeConfig>(
     let atom = if let Ok(atom) = state.conn.lookup_atom(event.atom) {
         atom
     } else {
-        return None
+        return None;
     };
 
     let hints = Atom::WmHints.as_ref();
@@ -244,19 +248,20 @@ fn process_client_message<X: XConn, C: RuntimeConfig>(
 
     let atom = match state.conn.lookup_atom(event.type_) {
         Ok(atom) => atom,
-        Err(_) => return None
+        Err(_) => return None,
     };
 
     if let ClientMessageData::U32(data) = event.data {
         match Atom::from_str(&atom) {
-            Ok(Atom::NetActiveWindow) => {
-                None
-            } //todo
+            Ok(Atom::NetActiveWindow) => None, //todo
             Ok(Atom::NetWmDesktop) => Some(vec![ClientToWorkspace(event.window, data[0] as usize)]),
             Ok(Atom::NetWmState) if is_fullscreen(&data[1..3]) => {
                 let should_fullscreen = [1, 2].contains(&data[0]);
 
-                Some(vec![ToggleClientFullscreen(event.window, should_fullscreen)])
+                Some(vec![ToggleClientFullscreen(
+                    event.window,
+                    should_fullscreen,
+                )])
             }
             _ => {
                 debug!(target: "manager::event","Got client message of type {}, data {:?}", atom, data);

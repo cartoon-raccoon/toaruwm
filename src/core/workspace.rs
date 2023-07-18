@@ -1,9 +1,9 @@
 //! Types used within workspaces.
-//! 
+//!
 //! In ToaruWM, a Workspace represents a collection
 //! of windows that can be displayed onscreen together, with a set
 //! of layouts that can be swapped out or modified on the fly.
-//! 
+//!
 //! The core type of this module is [`Workspace`].
 
 use std::fmt;
@@ -13,20 +13,17 @@ use tracing::{debug, error, trace, warn};
 
 use crate::core::{
     desktop::Screen,
-    window::{Client, ClientRing},
     ring::Ring,
+    window::{Client, ClientRing},
 };
-use crate::layouts::{
-    Layout, Layouts, LayoutAction, LayoutType,
-    update::IntoUpdate,
-};
+use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction};
 use crate::x::{core::StackMode, XConn, XWindowID};
 use crate::Result;
 
 /// A specification describing a workspace.
-/// 
+///
 /// Each spec contains a name, a screen index, and the layouts
 /// the workspace is to use. Each layout should correspond to
 /// a Layout trait object within the overall configuration.
@@ -42,7 +39,7 @@ impl WorkspaceSpec {
     pub fn new<S, L>(name: S, screen: usize, layouts: L) -> Self
     where
         S: Into<String>,
-        L: IntoIterator<Item = String>
+        L: IntoIterator<Item = String>,
     {
         Self {
             name: name.into(),
@@ -68,33 +65,33 @@ impl WorkspaceSpec {
 }
 
 /// A grouped collection of windows arranged according to a Layout.
-/// 
+///
 /// # General Usage
-/// 
+///
 /// Workspaces manage windows in two classes; within the layout
 /// or outside the layout, marked by an attribute on the window.
 /// windows within the layout are passed to the layout generator
 /// to account for when it generates the layout, and windows outside
 /// of the layout are always stacked on top and floated.
-/// 
+///
 /// Most Workspace methods involve adding or removing windows, swapping
 /// layouts, or modifying layouts.
-/// 
+///
 /// # Layout
-/// 
+///
 /// Workspaces have no notion of layout policy or layout-specific details,
 /// such as the main and secondary windows on a dynamically tiled layout,
 /// or for what reason certain windows are unmapped on a monocle-based
 /// layout. They simply query the current focused layout and apply it,
 /// or update the layouts as necessary.
-/// 
+///
 /// See [`Layout`] for more information.
-/// 
+///
 /// # Panics
-/// 
-/// Any of `Workspace`'s layout-related methods may panic if any of 
+///
+/// Any of `Workspace`'s layout-related methods may panic if any of
 /// `Layouts`' invariants are not upheld.
-/// 
+///
 /// See [`Layouts`] for more information.
 pub struct Workspace {
     pub(crate) name: String,
@@ -125,20 +122,19 @@ impl Workspace {
     }
 
     /// Creates a new workspace with the given layouts.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// This function panics if one or more of the invariants
     /// on [`Layouts`] are not upheld.
     pub fn with_layouts<I>(name: &str, layouts: I) -> Self
     where
-        I: IntoIterator<Item = Box<dyn Layout>>
+        I: IntoIterator<Item = Box<dyn Layout>>,
     {
         Self {
             name: name.into(),
             windows: ClientRing::new(),
-            layouts: Layouts::with_layouts_validated(layouts)
-                .expect("validation failed"),
+            layouts: Layouts::with_layouts_validated(layouts).expect("validation failed"),
         }
     }
 
@@ -161,13 +157,12 @@ impl Workspace {
     }
 
     /// Sets the layout to use and applies it to all currently mapped windows.
-    /// 
+    ///
     /// Is a no-op if no such layout exists.
-    pub fn set_layout<X, C>(
-        &mut self, layout: &str, conn: &X, scr: &Screen, cfg: &C,
-    ) where
+    pub fn set_layout<X, C>(&mut self, layout: &str, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         let Some((idx, _)) = self.layouts.element_by(|ws| ws.name() == layout) else {
             warn!("No layout with name `{}`", layout);
@@ -179,25 +174,22 @@ impl Workspace {
 
     /// Cycles in the given direction to the next layout, and
     /// applies it.
-    pub fn cycle_layout<X, C>(
-        &mut self, dir: Direction, conn: &X, scr: &Screen, cfg: &C
-    ) where
+    pub fn cycle_layout<X, C>(&mut self, dir: Direction, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         self.layouts.cycle_focus(dir);
         self.relayout(conn, scr, cfg);
     }
 
     /// Switches to the given layout, and applies it.
-    pub fn switch_layout<S, X, C>(
-        &mut self, name: S, conn: &X, scr: &Screen, cfg: &C
-    )
+    pub fn switch_layout<S, X, C>(&mut self, name: S, conn: &X, scr: &Screen, cfg: &C)
     where
         S: AsRef<str>,
         X: XConn,
-        C: RuntimeConfig
-        {
+        C: RuntimeConfig,
+    {
         if let Some((idx, _)) = self.layouts.element_by(|l| l.name() == name.as_ref()) {
             self.layouts.set_focused(idx);
             self.relayout(conn, scr, cfg);
@@ -267,24 +259,32 @@ impl Workspace {
     #[inline]
     pub fn is_floating(&self) -> bool {
         // just assume the invariants hold
-        matches!(self.layouts
-            .focused().expect("layout focus should not be None")
-            .style(), LayoutType::Floating)
+        matches!(
+            self.layouts
+                .focused()
+                .expect("layout focus should not be None")
+                .style(),
+            LayoutType::Floating
+        )
     }
 
     /// Returns the name of the workspace's current layout.
     #[inline]
     pub fn layout(&self) -> &str {
-        let layout = self.layouts
-            .focused().expect("layout focus should not be None");
+        let layout = self
+            .layouts
+            .focused()
+            .expect("layout focus should not be None");
         layout.name()
     }
 
     /// Returns the style of the workspace's current layout.
     #[inline]
     pub fn layout_style(&self) -> LayoutType {
-        let layout = self.layouts
-            .focused().expect("layout focus should not be None");
+        let layout = self
+            .layouts
+            .focused()
+            .expect("layout focus should not be None");
         layout.style()
     }
 
@@ -301,11 +301,10 @@ impl Workspace {
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    pub fn activate<X, C>(
-        &mut self, conn: &X, scr: &Screen, cfg: &C
-    ) where
+    pub fn activate<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         if self.windows.is_empty() {
             return;
@@ -354,28 +353,31 @@ impl Workspace {
     pub fn relayout<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         let layouts = self.layouts.gen_layout(conn, self, scr, cfg);
         self.apply_layout(conn, layouts);
     }
 
     /// Adds a window to the workspace in the layout.
-    pub fn add_window_on_layout<X, C>(
-        &mut self, window: XWindowID, conn: &X, scr: &Screen, cfg: &C
-    ) where
+    pub fn add_window_on_layout<X, C>(&mut self, window: XWindowID, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         self._add_window(conn, scr, cfg, Client::new(window, conn))
     }
 
     /// Adds a window to the workspace off the layout.
     pub fn add_window_off_layout<X, C>(
-        &mut self, window: XWindowID, conn: &X, scr: &Screen, cfg: &C
+        &mut self,
+        window: XWindowID,
+        conn: &X,
+        scr: &Screen,
+        cfg: &C,
     ) where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         self._add_window(conn, scr, cfg, Client::outside_layout(window, conn))
     }
@@ -383,11 +385,15 @@ impl Workspace {
     /// Deletes the window from the workspaces and returns it.
     #[instrument(level = "debug", skip(self, conn, scr, cfg))]
     pub fn del_window<X, C>(
-        &mut self, id: XWindowID, conn: &X, scr: &Screen, cfg: &C
+        &mut self,
+        id: XWindowID,
+        conn: &X,
+        scr: &Screen,
+        cfg: &C,
     ) -> Result<Option<Client>>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         //todo: make all workspace methods return Result
         if let Some(win) = self.windows.lookup(id) {
@@ -404,7 +410,7 @@ impl Workspace {
     }
 
     /// Sets the input focus, internally and on the server, to the given ID.
-    /// 
+    ///
     /// Also calls `Self::unfocus_window` internally.
     pub fn focus_window<X, C>(&mut self, window: XWindowID, conn: &X, cfg: &C)
     where
@@ -427,19 +433,21 @@ impl Workspace {
     }
 
     /// Unfocuses the given window ID.
-    /// 
+    ///
     /// You generally shouldn't have to call this directly, as it is also
     /// called by `Self::focus_window`.
     pub fn unfocus_window<X, C>(&mut self, window: XWindowID, conn: &X, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         // remove focus if window to unfocus is currently focused
         if self.windows.lookup(window).is_some() {
             conn.change_window_attributes(
                 window,
-                &[ClientAttrs::BorderColour(BorderStyle::Unfocused(cfg.unfocused()))],
+                &[ClientAttrs::BorderColour(BorderStyle::Unfocused(
+                    cfg.unfocused(),
+                ))],
             )
             .unwrap_or_else(|e| error!("{}", e));
         } else {
@@ -451,7 +459,7 @@ impl Workspace {
     pub fn cycle_focus<X, C>(&mut self, dir: Direction, conn: &X, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         // get the currently focused window's ID
         if self.windows.focused_mut().is_none() {
@@ -467,11 +475,14 @@ impl Workspace {
 
     /// Deletes the focused window in the workspace and returns it.
     pub fn take_focused_window<X, C>(
-        &mut self, conn: &X, screen: &Screen, cfg: &C
+        &mut self,
+        conn: &X,
+        screen: &Screen,
+        cfg: &C,
     ) -> Option<Client>
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         if let Some(window) = self.windows.focused() {
             let id = window.id();
@@ -483,25 +494,23 @@ impl Workspace {
 
     /// Toggles fullscreen on the currently focused window.
     #[allow(unused_variables)]
-    pub fn toggle_focused_fullscreen<X, C>(
-        &mut self, conn: &X, scr: &Screen, cfg: &C
-    ) where
+    pub fn toggle_focused_fullscreen<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
         C: RuntimeConfig,
     {
         todo!()
-        /* 
-        * 1. Actually apply the geometry
-        * 2. Update EWMH properties on the server, if needed
-        */
+        /*
+         * 1. Actually apply the geometry
+         * 2. Update EWMH properties on the server, if needed
+         */
     }
 
     /// Toggles the state of the currently focused window between off or in layout.
-    pub fn toggle_focused_state<X, C>(
-        &mut self, conn: &X, scr: &Screen, cfg: &C
-    ) where
+    pub fn toggle_focused_state<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         // If we have a focused window
         if let Some(win) = self.windows.focused() {
@@ -517,9 +526,8 @@ impl Workspace {
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
-    pub fn add_to_layout<X, C>(
-        &mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C
-    ) where
+    pub fn add_to_layout<X, C>(&mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C)
+    where
         X: XConn,
         C: RuntimeConfig,
     {
@@ -533,11 +541,10 @@ impl Workspace {
 
     /// Removes the focused window from being managed by the layout, effectively
     /// turning it into a floating window regardless of the current layout style.
-    pub fn remove_from_layout<X, C>(
-        &mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C
-    ) where
+    pub fn remove_from_layout<X, C>(&mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         debug!("Setting focused to floating");
         if let Some(win) = self.windows.lookup_mut(id) {
@@ -549,7 +556,11 @@ impl Workspace {
     /// Sends an update to the currently focused layout, and applies
     /// and changes that may have taken place.
     pub fn update_focused_layout<U: IntoUpdate, X, C>(
-        &mut self, msg: U, conn: &X, scr: &Screen, cfg: &C
+        &mut self,
+        msg: U,
+        conn: &X,
+        scr: &Screen,
+        cfg: &C,
     ) where
         X: XConn,
         C: RuntimeConfig,
@@ -563,7 +574,10 @@ impl Workspace {
     /// Since a workspace can contain both floating and tiled windows,
     /// this returns the number of tiled windows only.
     pub fn managed_count(&self) -> usize {
-        self.windows.iter().filter(|win| !win.is_off_layout()).count()
+        self.windows
+            .iter()
+            .filter(|win| !win.is_off_layout())
+            .count()
     }
 
     /// Returns the number of floating windows in the workspace.
@@ -571,17 +585,19 @@ impl Workspace {
     /// Since a workspace can contain both floating and tiled windows,
     /// this returns the number of floating windows only.
     pub fn floating_count(&self) -> usize {
-        self.windows.iter().filter(|win| win.is_off_layout()).count()
+        self.windows
+            .iter()
+            .filter(|win| win.is_off_layout())
+            .count()
     }
 
     // * PRIVATE METHODS * //
 
     #[instrument(level = "debug", skip_all)]
-    fn _add_window<X, C>(
-            &mut self, conn: &X, scr: &Screen, cfg: &C, mut window: Client,
-    ) where
+    fn _add_window<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C, mut window: Client)
+    where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         trace!("adding window {:#?}", window);
         // Set supported protocols
@@ -617,14 +633,15 @@ impl Workspace {
     /// Deletes a window
     fn _del_window<X, C>(
         &mut self,
-        conn: &X, 
-        scr: &Screen, 
+        conn: &X,
+        scr: &Screen,
         cfg: &C,
         id: XWindowID,
         on_layout: bool,
-    ) -> Client 
+    ) -> Client
     where
-        X: XConn, C: RuntimeConfig
+        X: XConn,
+        C: RuntimeConfig,
     {
         let window = self
             .windows
@@ -667,7 +684,7 @@ impl Workspace {
     pub(crate) fn focus_window_by_ptr<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         //todo: make all methods return Result
         let Ok(reply) = conn.query_pointer(scr.root_id) else {
@@ -685,8 +702,7 @@ impl Workspace {
 
         for rsaction in layouts {
             match rsaction {
-                LayoutAction::Resize {id, geom } => {
-
+                LayoutAction::Resize { id, geom } => {
                     let window = self.windows.lookup_mut(id).unwrap();
                     window.set_and_update_geometry(conn, geom);
                 }
@@ -711,7 +727,7 @@ impl Workspace {
     fn stack_and_focus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         use BorderStyle::*;
         // disable events

@@ -13,9 +13,9 @@ use std::process::{Command, Stdio};
 use tracing::instrument;
 use tracing::{debug, error, info, span, trace, warn, Level};
 
-use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
-use crate::layouts::{Layout, Layouts, update::IntoUpdate};
+use crate::core::{Desktop, Screen, WorkspaceSpec};
+use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};
 use crate::x::{
@@ -32,7 +32,7 @@ pub mod hooks;
 pub mod state;
 
 #[doc(inline)]
-pub use config::{ToaruConfig, Config};
+pub use config::{Config, ToaruConfig};
 #[doc(inline)]
 pub use event::EventAction;
 #[doc(inline)]
@@ -54,29 +54,29 @@ macro_rules! handle_err {
 /// and receives and responds to events.
 ///
 /// `WindowManager` is generic over two types:
-/// 
+///
 /// - X, that is its connection to the X server and so must implement
 /// the [`XConn`] trait. This is the type by which the `WindowManager`
 /// connects to the X server, and receives events and issues requests.
-/// 
+///
 /// - C, that is its runtime configuration and must implement the
 /// [`RuntimeConfig`] trait. This stores all configuration during
 /// the window manager's lifetime, and holds both information
 /// defined by this crate, as well as user-defined data.
-/// 
+///
 /// These two traits are _central_ to the operation of a window manager,
 /// and as such you will see them pop up in a lot of places, mostly
 /// `Workspace` or `Desktop` methods, but also the occasional
 /// `Client` method.
-/// 
+///
 /// # Structure
-/// 
+///
 /// A WindowManager combines an `XConn` and a `Desktop` which
 /// combines `Workspaces`. As the top-level struct, `WindowManager`
 /// has methods that apply to its sub-structures, and thus are
 /// organized accordingly: `WindowManager`-level, `Desktop`-level,
 /// and `Workspace`-level.
-/// 
+///
 /// # Usage
 ///
 /// To run a WindowManager, it needs to first be registered with
@@ -124,19 +124,19 @@ macro_rules! handle_err {
 /// ```
 ///
 /// # Configuration
-/// 
+///
 /// A `WindowManager` can be configured with any type implementing
 /// the [`Config`] trait.
-/// 
+///
 /// # Defaults
-/// 
-/// The Window Manager employs a basic error handler that simply logs 
-/// errors to stdout, but can be changed with 
+///
+/// The Window Manager employs a basic error handler that simply logs
+/// errors to stdout, but can be changed with
 /// `WindowManager::set_error_handler`.
 pub struct WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// The X Connection
     conn: X,
@@ -165,21 +165,21 @@ where
 impl<X, C> WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Constructs a new WindowManager object.
-    /// 
+    ///
     /// This method is simply generic over any type that implements
     /// [`Config`], since the trait bounds on `W` and `L` are already
     /// enforced by this trait. As long as `config` implements
     /// `Config`, it will work.
-    /// 
+    ///
     /// # Assumptions
-    /// 
+    ///
     /// This method assumes `config` has already been validated.
     /// It is on you to prevalidate your configuration and ensure
     /// all your invariants are upheld.
-    /// 
+    ///
     /// See [`Config`] for more details.
     pub fn new<E, W, L>(conn: X, mut config: E) -> Result<WindowManager<X, C>>
     where
@@ -187,19 +187,18 @@ where
         W: IntoIterator<Item = WorkspaceSpec>,
         L: IntoIterator<Item = Box<dyn Layout>>,
     {
-
         let root = conn.get_root();
         let mut screens = Ring::from_iter(
             conn.all_outputs()
                 .unwrap_or_else(|e| fatal!("Could not get screens: {}", e)),
         );
-        let workspaces: Vec<WorkspaceSpec> = config.take_workspaces()
-            .into_iter()
-            .collect();
+        let workspaces: Vec<WorkspaceSpec> = config.take_workspaces().into_iter().collect();
 
         let layouts = Layouts::with_layouts_validated(
-            config.take_layouts().into_iter()
-                .collect::<Vec<Box<dyn Layout>>>()
+            config
+                .take_layouts()
+                .into_iter()
+                .collect::<Vec<Box<dyn Layout>>>(),
         )?;
         info!(target: "", "Layouts successfully validated");
 
@@ -326,7 +325,6 @@ where
 
     /// Runs the main event loop.
     pub fn run(&mut self, mut kb: Keybinds<X, C>, mut mb: Mousebinds<X, C>) -> Result<()> {
-
         // grab all existing windows
         info!(target: "", "Grabbing any existing windows");
         for _ in self.conn.query_tree(self.root.id)? {
@@ -433,19 +431,18 @@ where
 impl<X, C> WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Goes to the specified workspace.
     #[instrument(level = "debug", skip(self))]
     pub fn goto_workspace(&mut self, name: &str) {
         handle_err!(
-            self.desktop
-                .go_to(
-                    name, 
-                    &self.conn, 
-                    self.screens.focused().unwrap(),
-                    &self.config
-                ),
+            self.desktop.go_to(
+                name,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config
+            ),
             self
         );
     }
@@ -453,13 +450,12 @@ where
     /// Cycles the focused workspace.
     pub fn cycle_workspace(&mut self, direction: Direction) {
         handle_err!(
-            self.desktop
-                .cycle_to(
-                    &self.conn, 
-                    self.screens.focused().unwrap(), 
-                    &self.config,
-                    direction
-                ),
+            self.desktop.cycle_to(
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config,
+                direction
+            ),
             self
         );
     }
@@ -467,13 +463,12 @@ where
     /// Sends the focused window to the specified workspace.
     pub fn send_focused_to(&mut self, name: &str) {
         handle_err!(
-            self.desktop
-                .send_focused_to(
-                    name, 
-                    &self.conn, 
-                    self.screens.focused().unwrap(),
-                    &self.config
-                ),
+            self.desktop.send_focused_to(
+                name,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config
+            ),
             self
         );
     }
@@ -481,23 +476,21 @@ where
     /// Sends the focused window to the specified workspace and then switches to it.
     pub fn send_window_and_switch(&mut self, name: &str) {
         handle_err!(
-            self.desktop
-                .send_focused_to(
-                    name, 
-                    &self.conn, 
-                    self.screens.focused().unwrap(),
-                    &self.config
-                ),
+            self.desktop.send_focused_to(
+                name,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config
+            ),
             self
         );
         handle_err!(
-            self.desktop
-                .go_to(
-                    name, 
-                    &self.conn, 
-                    self.screens.focused().unwrap(),
-                    &self.config
-                ),
+            self.desktop.go_to(
+                name,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config
+            ),
             self
         );
     }
@@ -507,7 +500,7 @@ where
 impl<X, C> WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Cycles the focused window.
     pub fn cycle_focus(&mut self, direction: Direction) {
@@ -518,61 +511,51 @@ where
 
     /// Cycles in the given direction to the layout applied to the current workspace.
     pub fn cycle_layout(&mut self, direction: Direction) {
-        self.desktop
-            .current_mut()
-            .cycle_layout(
-                direction, 
-                &self.conn, 
-                self.screens.focused().unwrap(),
-                &self.config
-            )
+        self.desktop.current_mut().cycle_layout(
+            direction,
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        )
     }
 
     /// Toggles the state of the focused window to floating or vice versa.
     pub fn toggle_focused_state(&mut self) {
-        self.desktop
-            .current_mut()
-            .toggle_focused_state(
-                &self.conn, 
-                self.screens.focused().unwrap(),
-                &self.config
-            );
+        self.desktop.current_mut().toggle_focused_state(
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        );
     }
 
-    /// Sends an [`Update`](crate::layouts::update::Update) 
+    /// Sends an [`Update`](crate::layouts::update::Update)
     /// to the current layout.
     pub fn update_current_layout<U: IntoUpdate>(&mut self, update: U) {
-        self.desktop
-            .current_mut()
-            .update_focused_layout(
-                update,
-                &self.conn, 
-                self.screens.focused().unwrap(),
-                &self.config,
-            )
+        self.desktop.current_mut().update_focused_layout(
+            update,
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        )
     }
 
     /// Switches to the given layout on the current workspace.
     pub fn switch_layout<S: AsRef<str>>(&mut self, name: S) {
-        self.desktop
-            .current_mut()
-            .switch_layout(
-                name, 
-                &self.conn, 
-                &self.screens.focused().unwrap(),
-                &self.config
-            )
+        self.desktop.current_mut().switch_layout(
+            name,
+            &self.conn,
+            &self.screens.focused().unwrap(),
+            &self.config,
+        )
     }
 
     /// Toggles the focused window to fullscreen.
     pub fn toggle_focused_fullscreen(&mut self) {
-        self.desktop
-            .current_mut()
-            .toggle_focused_fullscreen(
-                &self.conn,
-                self.screens.focused().unwrap(),
-                &self.config
-            );
+        self.desktop.current_mut().toggle_focused_fullscreen(
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        );
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
@@ -585,7 +568,7 @@ where
                 &self.conn,
                 win,
                 self.screens.focused().unwrap(),
-                &self.config
+                &self.config,
             );
         }
 
@@ -616,7 +599,7 @@ where
                 &self.conn,
                 win,
                 self.screens.focused().unwrap(),
-                &self.config
+                &self.config,
             );
         }
 
@@ -643,7 +626,7 @@ where
                 &self.conn,
                 id,
                 self.screens.focused().unwrap(),
-                &self.config
+                &self.config,
             );
         }
 
@@ -674,9 +657,8 @@ where
 impl<X, C> WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
-
     /// Receive the next event from the connection and process it
     /// into a actions to be taken by the window manager.
     fn process_next_event(&mut self) -> Result<Option<Vec<EventAction>>> {
@@ -738,9 +720,9 @@ where
                 }
             }
         };
-        self.desktop.current_mut().focus_window(
-            target, &self.conn, &self.config
-        );
+        self.desktop
+            .current_mut()
+            .focus_window(target, &self.conn, &self.config);
         Ok(())
     }
 
@@ -794,11 +776,17 @@ where
         let current = self.desktop.current_mut();
         if self.conn.should_float(id, self.config.float_classes()) || current.is_floating() {
             current.add_window_off_layout(
-                id, &self.conn, self.screens.focused().unwrap(), &self.config
+                id,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config,
             )
         } else {
             current.add_window_on_layout(
-                id, &self.conn, self.screens.focused().unwrap(), &self.config
+                id,
+                &self.conn,
+                self.screens.focused().unwrap(),
+                &self.config,
             )
         }
         Ok(())
@@ -810,11 +798,12 @@ where
 
     #[instrument(level = "debug", skip(self))]
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
-        self.desktop
-            .current_mut()
-            .del_window(
-                id, &self.conn, self.screens.focused().unwrap(), &self.config
-            )?;
+        self.desktop.current_mut().del_window(
+            id,
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        )?;
         Ok(())
     }
 
@@ -831,13 +820,13 @@ where
             None => return Ok(()),
         };
 
-        self.desktop
-            .send_window_to(
-                id, &name, 
-                &self.conn, 
-                self.screens.focused().unwrap(),
-                &self.config
-            )
+        self.desktop.send_window_to(
+            id,
+            &name,
+            &self.conn,
+            self.screens.focused().unwrap(),
+            &self.config,
+        )
     }
 
     /// Runs the keybind.
@@ -851,7 +840,13 @@ where
     }
 
     #[instrument(level = "debug", skip(self, bdgs))]
-    fn run_mousebind(&mut self, mb: Mousebind, bdgs: &mut Mousebinds<X, C>, id: XWindowID, pt: Point) {
+    fn run_mousebind(
+        &mut self,
+        mb: Mousebind,
+        bdgs: &mut Mousebinds<X, C>,
+        id: XWindowID,
+        pt: Point,
+    ) {
         match mb.kind {
             MouseEventKind::Press => {
                 self.conn
@@ -902,7 +897,7 @@ where
 impl<X, C> fmt::Debug for WindowManager<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WindowManager")

@@ -61,7 +61,7 @@ pub(crate) mod dummy;
 
 pub mod status {
     //! Types for representing connection status.
-    //! 
+    //!
     //! This module contains the [`ConnStatus`] sealed trait,
     //! as well as its two implementors, [`Initialized`] and
     //! [`Uninitialized`]. These are used to mark the state of

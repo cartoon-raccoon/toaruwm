@@ -1,44 +1,42 @@
 //! Types for working with the internal state of a `WindowManager`.
-//! 
+//!
 //! This module contains types and expose the internal state of a
 //! `WindowManager`, and also provides traits to allow you
 //! to call [`Workspace`] and [`Desktop`] methods with your own
 //! types.
 
-use std::collections::HashMap;
 use std::any::Any;
+use std::collections::HashMap;
 
 use custom_debug_derive::Debug;
 
-use crate::core::{
-    types::Color, Client, Desktop, Ring, Workspace,
-};
+use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// An object that can provide information about window manager state
 /// at runtime.
-/// 
+///
 /// This trait allows you to create objects representing current
 /// `WindowManager` state and configuration. It is passed to various
 /// [`Workspace`] and [`Desktop`] methods to allow then to account for
 /// various configuration details when executing their functionality.
-/// 
+///
 /// As this trait is used as a trait object during the window manager
 /// runtime, its methods cannot be generic.
-/// 
+///
 /// # Retrieving Arbitrary Values
-/// 
+///
 /// One of `RuntimeConfig`'s required methods is `get_key`, which
 /// returns a dynamically typed trait object (i.e. `&dyn Any`).
-/// 
+///
 /// It is then up to the caller to see if this object is of the
 /// needed type, by calling
 /// [`downcast_ref`](https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref)
 /// on it:
-/// 
+///
 /// ```rust
 /// use toaruwm::manager::RuntimeConfig;
-/// 
+///
 /// fn try_getting_key(rtcfg: Box<dyn RuntimeConfig>) {
 ///     /* try to extract our item named "foo" from rtcfg */
 ///     let Some(val) = rtcfg.get_key("foo") else {
@@ -52,7 +50,7 @@ use crate::x::{XConn, XWindow, XWindowID};
 ///     }
 /// }
 /// ```
-/// 
+///
 /// See the documentation on the [`Any`] trait for more details.
 pub trait RuntimeConfig {
     /// Return information about the floating classes.
@@ -66,31 +64,31 @@ pub trait RuntimeConfig {
 
     /// Return information about focused window border color.
     fn focused(&self) -> Color;
-    
+
     /// Return information about urgent window border color.
     fn urgent(&self) -> Color;
 
     /// Retrieve arbitrary key value pairs from storage.
-    /// 
+    ///
     /// Should return None if the key does not exist in
     /// storage.
     fn get_key(&self, key: &str) -> Option<&dyn Any>;
 }
 
-/// The runtime configuration of the 
+/// The runtime configuration of the
 /// [`WindowManager`](super::WindowManager).
-/// 
+///
 /// Since a user-created [`Config`](crate::manager::Config)
 /// has several fields moved out of it during window manager
 /// initialization, this contains the remaining fields
 /// that are used by the rest of the window manager's functionality.
-/// 
+///
 /// It is not possible for users to construct this type directly,
 /// as it is owned by `WindowManager` and is constructed internally
 /// on initialization. It is only passed to user code to provide
 /// various configuration details that may be needed for such code
 /// to work.
-/// 
+///
 /// This type implements `RuntimeConfig`.
 #[derive(Debug)]
 pub struct WmConfig {
@@ -142,7 +140,7 @@ pub enum State {}
 pub struct WmState<'wm, X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// The `XConn` implementation currently being used.
     #[debug(skip)]

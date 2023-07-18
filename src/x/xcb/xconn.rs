@@ -9,8 +9,8 @@ use tracing::{error, trace, warn};
 
 use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
-use crate::core::Screen;
 use crate::bindings::{Keybind, Mousebind};
+use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
     core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},

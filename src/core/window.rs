@@ -1,5 +1,5 @@
 //! Types used to represent and manage individual windows.
-//! 
+//!
 //! This module exports `Client` and `ClientRing`, which encapsulate
 //! data about windows and manage them internally respectively.
 
@@ -10,14 +10,12 @@ use tracing::{debug, error, trace, warn};
 
 use super::{Ring, Selector};
 
-use crate::core::types::{
-    BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates,
-};
+use crate::core::types::{BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates};
+use crate::manager::RuntimeConfig;
 use crate::x::{
     core::{XAtom, XConn, XWindow, XWindowID},
     property::WindowState,
 };
-use crate::manager::RuntimeConfig;
 
 /// A Ring of type Client.
 ///
@@ -90,7 +88,7 @@ impl ClientRing {
 }
 
 /// Represents an X server client.
-/// 
+///
 /// It contains other data from the X server, stored locally,
 /// such as ICCCM and EWMH properties.
 ///
@@ -258,7 +256,7 @@ impl Client {
     pub fn update_all_properties<X, C>(&mut self, conn: &X, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         let properties = conn.get_client_properties(self.id());
         let initial_geom = if let Some(sizes) = properties.wm_size_hints() {
@@ -339,7 +337,7 @@ impl Client {
     pub fn update_dynamic<X, C>(&mut self, conn: &X, cfg: &C)
     where
         X: XConn,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     {
         self.name = conn.get_wm_name(self.id());
         self.icon_name = conn.get_wm_icon_name(self.id());

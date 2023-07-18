@@ -1,5 +1,5 @@
 //! Basic core types used throughout this crate at a high level.
-//! 
+//!
 //! For X server-specific types, see [`crate::x::core`].
 
 use std::ops::Deref;

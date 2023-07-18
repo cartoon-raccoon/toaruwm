@@ -135,12 +135,11 @@ pub enum WindowClass {
     /// A regular window. The Atom provided should be a valid
     /// _NET_WM_WINDOW_TYPE, and the u32 is the border width
     /// in pixels.
-    /// 
-    /// This should be the value returned by a 
+    ///
+    /// This should be the value returned by a
     /// [`RuntimeConfig`](crate::manager::RuntimeConfig)'s
     /// `border_px` method.
     InputOutput(Atom, u32),
-    
     //todo: add additional variants for new window types?
 }
 

@@ -12,9 +12,9 @@
 //! ## Design
 //!
 //! ToaruWM was designed in the style of tiling window managers, like
-//! dwm or Qtile. Its default layout style maintains a main window 
+//! dwm or Qtile. Its default layout style maintains a main window
 //! on the left of the screen, while other windows are stacked on the
-//! side of the main window. Users can also design their own layouts 
+//! side of the main window. Users can also design their own layouts
 //! and switch between each layout on the fly.
 //!
 //! Like Qtile and dwm, ToaruWM also maintains a number of workspaces
@@ -55,7 +55,7 @@
 //!     Keymap, Keybinds, Mousebinds,
 //!     ModKey, MouseEventKind::*,
 //! };
-//! 
+//!
 //! type Wm<'a> = &'a mut ToaruWM<InitX11RB>;
 //!
 //! //todo: hide all this behind a declarative macro
@@ -112,14 +112,14 @@
 //! ```
 //!
 //! ## Extensions and Add-Ons
-//! 
+//!
 //! ToaruWM has internal support for widgets and extensions through
 //! the [`Widget`](widget::Widget) trait.
 //!
 //! A number of extensions and add-on items will be provided
 //! through the planned `toarulib` crate, which will contain
 //! many different additional widgets that you can add you your own
-//! personal configuration. 
+//! personal configuration.
 //!
 //! ## Compliance
 //!
@@ -143,11 +143,11 @@ extern crate bitflags;
 #[macro_use]
 mod log;
 
-pub mod core;
 pub mod bindings;
+pub mod core;
 pub mod layouts;
-pub mod widget;
 pub mod manager;
+pub mod widget;
 pub mod x;
 
 pub use crate::core::types;
@@ -158,7 +158,7 @@ pub use crate::x::core::XConn;
 #[doc(inline)]
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
-use crate::manager::state::{WmConfig, RuntimeConfig};
+use crate::manager::state::{RuntimeConfig, WmConfig};
 use crate::x::Initialized;
 
 use std::io;
@@ -252,7 +252,7 @@ pub enum ToaruError {
 /// Quickly construct a ToaruError.
 #[macro_export]
 macro_rules! error {
-    () => {}
+    () => {};
 }
 
 impl From<XError> for ToaruError {
@@ -284,7 +284,7 @@ use crate::manager::WmState;
 pub trait ErrorHandler<X, C>
 where
     X: XConn,
-    C: RuntimeConfig
+    C: RuntimeConfig,
 {
     /// Calls the error handler.
     fn call(&self, state: WmState<'_, X, C>, err: ToaruError);

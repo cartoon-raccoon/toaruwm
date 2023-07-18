@@ -8,8 +8,7 @@ pub struct Update(Box<dyn Any>);
 use std::fmt;
 impl fmt::Debug for Update {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .write_str("Update <type erased>")
+        formatter.write_str("Update <type erased>")
     }
 }
 
@@ -29,7 +28,7 @@ impl Update {
 /// as an update to a Layout.
 pub trait IntoUpdate: Any
 where
-    Self: Sized
+    Self: Sized,
 {
     /// Converts Self into an update.
     fn into_update(self) -> Update {
