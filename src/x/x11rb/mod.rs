@@ -1,3 +1,5 @@
+//! Implementation of `XConn` backed by the `x11rb` library.
+
 use core::marker::PhantomData;
 
 use std::cell::{Cell, RefCell};

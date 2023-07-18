@@ -27,9 +27,7 @@ pub mod event;
 pub mod input;
 pub mod property;
 
-/// Implementation of `XConn` backed by the `x11rb` library.
 pub mod x11rb;
-/// Implementation of `XConn` backed by the `xcb` library.
 pub mod xcb;
 
 #[doc(inline)]

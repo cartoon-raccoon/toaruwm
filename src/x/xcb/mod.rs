@@ -1,4 +1,4 @@
-//! Implementation of `XConn` backed by the `x11rb` library.
+//! Implementation of `XConn` backed by the `xcb` library.
 //!
 //! This module provides an interface to the X11 protocol via the XCB
 //! backend.

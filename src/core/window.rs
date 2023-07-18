@@ -90,6 +90,7 @@ impl ClientRing {
 }
 
 /// Represents an X server client.
+/// 
 /// It contains other data from the X server, stored locally,
 /// such as ICCCM and EWMH properties.
 ///
