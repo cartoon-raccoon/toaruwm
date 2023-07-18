@@ -12,14 +12,14 @@
 //! ## Design
 //!
 //! ToaruWM was designed in the style of tiling window managers, like
-//! dwm or Qtile. It maintains a main window on the left of the screen,
-//! while other windows are stacked on the side of the main window.
-//! Users can also design their own layouts and switch between each
-//! layout on the fly.
+//! dwm or Qtile. Its default layout style maintains a main window 
+//! on the left of the screen, while other windows are stacked on the
+//! side of the main window. Users can also design their own layouts 
+//! and switch between each layout on the fly.
 //!
 //! Like Qtile and dwm, ToaruWM also maintains a number of workspaces
 //! that the user can switch between using bindings. Each workspace
-//! has its own layout that can be hotswapped, as mentioned above.
+//! has its own set of layouts that can be hotswapped.
 //!
 //! ToaruWM also provides the ability to run arbitrary commands and
 //! code at almost any point in the runtime of the window manager,
@@ -42,14 +42,12 @@
 //! the following general structure:
 //!
 //! ```no_run
-//!# use toaruwm::x::X11RBConn;
 //!# use toaruwm::WindowManager;
-//!# use toaruwm::x::status::Initialized;
+//!# use toaruwm::{ToaruWM, InitX11RB};
 //!
 //!# // convenience typedef
-//!# type Wm<'a> = &'a mut WindowManager<X11RBConn<Initialized>>;
 //! use toaruwm::{
-//!     Config,
+//!     ToaruConfig,
 //!     x11rb_backed_wm, hook
 //! };
 //! use toaruwm::bindings::{
@@ -57,6 +55,8 @@
 //!     Keymap, Keybinds, Mousebinds,
 //!     ModKey, MouseEventKind::*,
 //! };
+//! 
+//! type Wm<'a> = &'a mut ToaruWM<InitX11RB>;
 //!
 //! //todo: hide all this behind a declarative macro
 //! // defining keybinds and associated WM actions
@@ -66,7 +66,7 @@
 //! ];
 //!
 //! //* 1: Setup X Connection and allocate new WM object
-//! let mut wm = x11rb_backed_wm(Config::default()).unwrap();
+//! let mut wm = x11rb_backed_wm(ToaruConfig::default()).unwrap();
 //!
 //! //* 2: Read/setup config
 //! // if using as a library, declare config here
@@ -112,9 +112,14 @@
 //! ```
 //!
 //! ## Extensions and Add-Ons
+//! 
+//! ToaruWM has internal support for widgets and extensions through
+//! the [`Widget`](widget::Widget) trait.
 //!
-//! ToaruWM provides a number of extensions similar to how QTile
-//! does it. PLANNED
+//! A number of extensions and add-on items will be provided
+//! through the planned `toarulib` crate, which will contain
+//! many different additional widgets that you can add you your own
+//! personal configuration. 
 //!
 //! ## Compliance
 //!

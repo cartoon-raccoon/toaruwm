@@ -81,12 +81,12 @@ macro_rules! handle_err {
 /// After that, then it can initiate the event loop.
 ///
 /// ```no_run
-/// use toaruwm::{XCBConn, Config, WindowManager};
+/// use toaruwm::{XCBConn, ToaruConfig, WindowManager};
 /// use toaruwm::bindings::{Keybinds, Mousebinds};
 ///
 /// let conn = XCBConn::new().unwrap();
 ///
-/// let mut wm = WindowManager::new(conn, Config::default())
+/// let mut wm = WindowManager::new(conn, ToaruConfig::default())
 ///     .expect("could not create WindowManager");
 ///
 /// /* register the windowmanager with the x server */
@@ -102,17 +102,20 @@ macro_rules! handle_err {
 ///
 /// ## Example
 ///
-/// ```ignore
-/// use toaruwm::keybinds::{ModKey, Keybind, Keybinds, Mousebinds};
+/// ```rust
+/// # use toaruwm::{ToaruWM, InitXCB};
+/// use toaruwm::bindings::{ModKey, Keybind, Keybinds, Mousebinds};
 ///
 /// /* create a new keybinds object */
 /// let mut keybinds = Keybinds::new();
 ///
 /// /* create a binding */
-/// let kb = Keybind::new(vec![ModKey::Meta], "t") // <-- use a keycode here!
+/// let kb = Keybind::new(vec![ModKey::Meta], 240); //todo: use keybinds macro
 ///
-/// /* set a callback to run */
-/// keybinds.insert(|wm| {wm.run_external("xterm", &[])});
+/// /* set a callback to run (with type annotations for clarity) */
+/// keybinds.insert(kb, |wm: &mut ToaruWM<InitXCB>| {
+///     wm.run_external("xterm", &[])
+/// });
 /// ```
 ///
 /// # Configuration

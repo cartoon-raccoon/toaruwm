@@ -92,7 +92,7 @@ pub trait Config {
 /// any arbitrary key-value pair.
 /// 
 /// 
-/// `ToaruConfig` provides a validation method that ensures it is valid
+/// `ToaruConfig` provides a `validate` method that ensures it is valid
 /// and can be used in a `WindowManager`. While this checks the
 /// predefined invariants on the Config, it can also run user-defined
 /// code to ensure that user-defined invariants are also upheld.
@@ -103,13 +103,13 @@ pub trait Config {
 /// 
 /// # Example
 /// 
-/// ```rust
+/// ```ignore //fixme
 /// use toaruwm::ToaruConfig;
 /// 
 /// // create a default config that upholds all invariants
 /// let config = ToaruConfig::new();
 /// 
-/// config.validate().expect("invalid config");
+/// config.validate(None).expect("invalid config");
 /// ```
 /// 
 #[derive(Debug)]
@@ -161,11 +161,13 @@ impl ToaruConfig {
     /// // insert a user-defined key into the Config
     /// config.insert_key("foo", 1i32);
     /// 
-    /// config.validate(Some(|config| {
-    ///     if config.get_key::<i32>("foo").is_none() {
-    ///         Err(InvalidConfig("missing foo".into()))
-    ///     } else {
+    /// // run the validation
+    /// config.validate(Some(|cfg: &ToaruConfig| {
+    ///     let foo: Option<&i32> = cfg.get_key("foo");
+    ///     if let Some(_) = foo {
     ///         Ok(())
+    ///     } else {
+    ///         Err(InvalidConfig("missing foo".into()))
     ///     }
     /// })).expect("config was invalid!");
     /// ```

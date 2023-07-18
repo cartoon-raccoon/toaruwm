@@ -82,7 +82,7 @@ impl WorkspaceSpec {
 /// 
 /// # Layout
 /// 
-/// Workspaces have no notion of layout or layout-specific details,
+/// Workspaces have no notion of layout policy or layout-specific details,
 /// such as the main and secondary windows on a dynamically tiled layout,
 /// or for what reason certain windows are unmapped on a monocle-based
 /// layout. They simply query the current focused layout and apply it,

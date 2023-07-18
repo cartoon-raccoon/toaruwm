@@ -1,16 +1,17 @@
-//! Core types used throughout this crate.
+//! Basic core types used throughout this crate at a high level.
+//! 
+//! For X server-specific types, see [`crate::x::core`].
 
 use std::ops::Deref;
 
 use tracing::error;
 
+#[doc(inline)]
 pub use crate::core::{Ring, Selector};
 use crate::x::{
     core::{StackMode, XAtom, XConn},
     property::{WindowState, WmHints, WmSizeHints},
 };
-
-pub use super::window::{Client, ClientRing};
 
 /// Specifies a direction.
 #[allow(missing_docs)]
