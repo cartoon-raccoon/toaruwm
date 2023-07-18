@@ -486,16 +486,38 @@ impl Color {
         format!("{:#x}", self.as_u32())
     }
 
-    /// Returns the (R, G, B) values of the Color.
+    /// Returns the (R, G, B) values of the Color
+    /// as bytes.
     pub fn rgb(&self) -> (u8, u8, u8) {
         let (r, g, b, _) = self.rgba();
         (r, g, b)
     }
 
-    /// Returns the (R, G, B, A) values of the Color.
+    /// Returns the (R, G, B, A) values of the Color
+    /// as bytes.
     pub fn rgba(&self) -> (u8, u8, u8, u8) {
         let [r, g, b, a] = u32::to_be_bytes(self.0);
         (r, g, b, a)
+    }
+
+    /// Returns the (R, G, B) components of the Color
+    /// as proportions of max intensity (255.0).
+    pub fn rgb_f32(&self) -> (f32, f32, f32) {
+        let (r, g, b, _) = self.rgba_f32();
+        (r, g, b)
+    }
+
+    /// Returns the (R, G, B, A) components of the Color
+    /// as proportions of max intensity (255.0).
+    pub fn rgba_f32(&self) -> (f32, f32, f32, f32) {
+        let (r, g, b, a) = self.rgba();
+
+        (
+            r as f32 / 255.0, 
+            g as f32 / 255.0, 
+            b as f32 / 255.0,
+            a as f32 / 255.0,
+        )
     }
 
     /// Returns the color as a u32.
