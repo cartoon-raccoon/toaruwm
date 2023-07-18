@@ -146,6 +146,7 @@ mod log;
 pub mod core;
 pub mod bindings;
 pub mod layouts;
+pub mod widget;
 pub mod manager;
 pub mod x;
 
