@@ -76,6 +76,17 @@ impl WorkspaceSpec {
 ///
 /// Most Workspace methods involve adding or removing windows, swapping
 /// layouts, or modifying layouts.
+/// 
+/// # Common Method Parameters
+/// 
+/// You may notice that a lot of the methods on `Workspace` have many
+/// scary-looking trait bounds; this is because they are also
+/// generic over the two types `WindowManager` itself is generic over:
+/// an [`XConn`], and a [`RuntimeConfig`]. These two provide an interface
+/// that the `Workspace` needs to perform a lot of its functionality.
+/// 
+/// Generally speaking, if you're using `WindowManager` itself, chances
+/// are you won't have to call many of these methods directly.
 ///
 /// # Layout
 ///
@@ -208,7 +219,7 @@ impl Workspace {
         self.windows.focused()
     }
 
-    /// Returns a mutable reference to the currently focused client.`
+    /// Returns a mutable reference to the currently focused client.
     pub fn focused_client_mut(&mut self) -> Option<&mut Client> {
         self.windows.focused_mut()
     }

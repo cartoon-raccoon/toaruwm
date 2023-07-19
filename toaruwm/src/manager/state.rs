@@ -30,9 +30,8 @@ use crate::x::{XConn, XWindow, XWindowID};
 /// returns a dynamically typed trait object (i.e. `&dyn Any`).
 ///
 /// It is then up to the caller to see if this object is of the
-/// needed type, by calling
-/// [`downcast_ref`](https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref)
-/// on it:
+/// needed type, by calling [`downcast_ref`][1] on it:
+/// 
 ///
 /// ```rust
 /// use toaruwm::manager::RuntimeConfig;
@@ -54,10 +53,11 @@ use crate::x::{XConn, XWindow, XWindowID};
 /// A provided method, `get_key_static`, does this call for you,
 /// but the trade-off is that it cannot be called on a trait object.
 ///
-/// See the [module-level documentation][1] on the [`Any`] trait for 
+/// See the [module-level documentation][2] on the [`Any`] trait for 
 /// more details.
 /// 
-/// [1]: std::any
+/// [1]: https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref
+/// [2]: std::any
 pub trait RuntimeConfig {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
