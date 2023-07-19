@@ -16,9 +16,7 @@ x11 = "2.21"
 x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cursor", "randr", "xkb"] }
 
 log = "0.4"
-flexi_logger = "0.25"
 tracing = {version = "0.1", features = ["attributes", "log"] }
-tracing-subscriber = {version = "0.3", features = ["ansi", "std", "fmt"]}
 
 strum = { version = "0.19.2", features = ["derive"] }
 strum_macros = "0.19.2"

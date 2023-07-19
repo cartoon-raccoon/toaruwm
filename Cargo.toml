@@ -1,2 +1,6 @@
 [workspace]
-members = ["toaruwm", "toarulib"]
+members = [
+    "toaruwm", 
+    "toarulib", 
+    "toaruwm-bin"
+]

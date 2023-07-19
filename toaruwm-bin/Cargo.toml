@@ -7,8 +7,9 @@ edition = "2021"
 name = "toaruwm"
 path = "src/main.rs"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-toaruwm = { path = "../../toaruwm" }
-toarulib = { path = "../../toarulib" }
+toaruwm = { path = "../toaruwm" }
+toarulib = { path = "../toarulib" }
+
+tracing = {version = "0.1", features = ["attributes", "log"] }
+tracing-subscriber = {version = "0.3", features = ["ansi", "std", "fmt"]}

@@ -152,7 +152,7 @@ impl ToaruConfig {
         ret
     }
 
-    /// Returns a [`ToaruConfigBuiilder`] to build your Config with the
+    /// Returns a [`ToaruConfigBuilder`] to build your Config with the
     /// 'builder' idiom.
     pub fn builder() -> ToaruConfigBuilder {
         ToaruConfigBuilder::new()

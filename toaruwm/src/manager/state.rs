@@ -13,8 +13,8 @@ use custom_debug_derive::Debug;
 use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
 use crate::x::{XConn, XWindow, XWindowID};
 
-/// An object that can provide information about window manager state
-/// at runtime.
+/// An object that can provide information about window manager
+/// configuration at runtime.
 ///
 /// This trait allows you to create objects representing current
 /// `WindowManager` state and configuration. It is passed to various
@@ -50,8 +50,14 @@ use crate::x::{XConn, XWindow, XWindowID};
 ///     }
 /// }
 /// ```
+/// 
+/// A provided method, `get_key_static`, does this call for you,
+/// but the trade-off is that it cannot be called on a trait object.
 ///
-/// See the documentation on the [`Any`] trait for more details.
+/// See the [module-level documentation][1] on the [`Any`] trait for 
+/// more details.
+/// 
+/// [1]: std::any
 pub trait RuntimeConfig {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
@@ -73,6 +79,23 @@ pub trait RuntimeConfig {
     /// Should return None if the key does not exist in
     /// storage.
     fn get_key(&self, key: &str) -> Option<&dyn Any>;
+
+    /// A monomorphizable, easier-to-use version of `get_key`.
+    /// 
+    /// Rust's restrictions on trait objects prevent `get_key`
+    /// from returning generic types, thus it has to return
+    /// a trait object (i.e. `&dyn Any`), and rely on the caller
+    /// to call `downcast_ref` themselves to get the concrete
+    /// type. This method does that call for you.
+    /// 
+    /// Unfortunately, this means that this method cannot be
+    /// called on a trait object.
+    fn get_key_static<V: Any>(&self, key: &str) -> Option<&V>
+    where
+        Self: Sized
+    {
+        self.get_key(key).and_then(|v| v.downcast_ref::<V>())
+    }
 }
 
 /// The runtime configuration of the
