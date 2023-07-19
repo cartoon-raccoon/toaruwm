@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "toaruwm"
+name = "toaruwm-bin"
 path = "src/main.rs"
 
 [dependencies]
