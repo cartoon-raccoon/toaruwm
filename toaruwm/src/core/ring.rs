@@ -372,6 +372,29 @@ impl<T> Ring<T> {
     /// If the insert point is the focused item, then the inserted
     /// item becomes the focus, replacing whatever was in focus, which
     /// gets slid up by 1.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::core::{Ring, ring::InsertPoint};
+    /// 
+    /// let mut ring = Ring::new();
+    /// for i in 1..10 {
+    ///     ring.append(i);
+    /// }
+    /// // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    /// //  ^
+    /// 
+    /// ring.insert(InsertPoint::BeforeFocused, 10);
+    /// //[10, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    /// //     ^
+    /// assert_eq!(*ring.focused().expect("no focus"), 1);
+    /// 
+    /// ring.insert(InsertPoint::Focused, 69);
+    /// // [10, 69, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    /// //      ^
+    /// assert_eq!(*ring.focused().expect("no focus"), 69);
+    /// ```
     pub fn insert(&mut self, point: InsertPoint, item: T) {
         use Direction::*;
         use InsertPoint::*;
@@ -690,7 +713,6 @@ mod test {
     #[test]
     fn test_ring_insert() {
         let mut ring = Ring::new();
-
         for i in 1..10 {
             ring.append(i);
         }
