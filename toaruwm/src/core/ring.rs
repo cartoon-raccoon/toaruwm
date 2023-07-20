@@ -59,7 +59,24 @@ pub enum Selector<'a, T> {
 ///
 /// Provides an interface where the data is a ring of items,
 /// with a single item in focus.
-/// Ideally, the only time there is no focused item is when the ring is empty.
+/// 
+/// # Guarantees
+/// 
+/// Since so many structures within ToaruWM make use of a Ring,
+/// it has to make certain guarantees about its behaviour that
+/// these structures can rely on to make certain assumptions.
+/// 
+/// These guarantees are:
+/// 
+/// 1. The only time there is no focused item is when the ring is empty.
+/// The focus is automatically set when the first item is pushed, and
+/// unset when the last item is removed.
+/// 
+/// 2. The item pointed to by the focused item will not change unless
+/// explicitly changed by the user, or the focused item is removed.
+/// 
+/// 3. The focus will always point to a valid item. It will never point
+/// to an index that is out of bounds.
 #[derive(Clone, Debug, Default)]
 pub struct Ring<T> {
     pub(crate) items: VecDeque<T>,
@@ -148,6 +165,10 @@ impl<T> Ring<T> {
     }
 
     #[inline]
+    /// Checks if the focus would wrap to the other end of
+    /// the Ring if moved in the given direction.
+    /// 
+    /// Always returns false if no focus is set.
     fn would_wrap(&self, direction: Direction) -> bool {
         use Direction::*;
 
@@ -170,6 +191,11 @@ impl<T> Ring<T> {
         false
     }
 
+    /// Check if the given index points to a valid item.
+    fn is_in_bounds(&self, idx: usize) -> bool {
+        idx <= self.len() - 1
+    }
+
     /// Returns the index of the element that is
     /// currently in focus.
     ///
@@ -180,14 +206,25 @@ impl<T> Ring<T> {
     }
 
     /// Sets the element to be in focus by index.
+    /// 
+    /// If the requested focus is out of bounds,
+    /// it is set to the first element.
+    /// 
+    /// Is a no-op if the Ring is empty.
     #[inline(always)]
     pub fn set_focused(&mut self, idx: usize) {
-        self.focused = Some(idx);
+        if !self.is_empty() {
+            if self.is_in_bounds(idx) {
+                self.focused = Some(idx);
+            } else {
+                self.focused = Some(0);
+            }
+        }
     }
 
     /// Unsets the focused element.
     #[inline(always)]
-    pub fn unset_focused(&mut self) {
+    fn unset_focused(&mut self) {
         self.focused = None
     }
 
@@ -209,112 +246,186 @@ impl<T> Ring<T> {
         None
     }
 
-    /// Moves the element specified by index to the front.
-    pub fn move_front(&mut self, idx: usize) {
-        if idx != 0 {
-            self.items.swap(0, idx)
-        }
-    }
-
     /// Pushes an element to the front of the Ring.
     pub fn push(&mut self, item: T) {
         self.items.push_front(item);
         if let Some(idx) = self.focused {
-            self.set_focused(idx + 1)
+            self.set_focused(idx + 1);
+        } else {
+            /* assume the ring was empty, and
+            this is the first item */
+            self.set_focused(0);
         }
     }
 
     /// Pushes an element to the back of the Ring.
     pub fn append(&mut self, item: T) {
-        self.items.push_back(item)
+        self.items.push_back(item);
+        if self.focused.is_none() {
+            /* assume the ring was empty, and
+            this is the first item */
+            self.set_focused(0)
+        }
     }
 
     /// Pops the element off the front.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the Ring is empty.
-    pub fn pop_front(&mut self) -> T {
-        if let Some(f) = self.focused {
-            if f == 0 {
-                self.unset_focused();
+    /// 
+    /// If the focus was on the front element,
+    /// the focus moves to the next in line.
+    /// 
+    /// Returns None if the Ring is empty.
+    pub fn pop_front(&mut self) -> Option<T> {
+        let ret = self.items.pop_front();
+        if self.is_empty() {
+            self.unset_focused();
+        } else if let Some(focused) = self.focused {
+            if focused > 0 {
+                self.set_focused(focused - 1);
             }
+        } else {
+            unreachable!("focused not set with non-empty Ring")
         }
-        self.items.pop_front().unwrap()
+        ret
     }
 
-    /// Removes an element from the Ring, returning it if it exists.
+    /// Moves the element at index `idx` to the front (index 0).
+    /// 
+    /// Is a no-op if `idx` is out of bounds.
+    pub fn move_front(&mut self, idx: usize) {
+        self.move_to(idx, 0);
+    }
+
+    /// Moves the element at index `from` to index `to`.
+    /// 
+    /// Is a no-op if `from` is out of bounds.
+    pub fn move_to(&mut self, from: usize, to: usize) {
+        if let Some(item) = self.remove(from) {
+            self.insert(InsertPoint::Index(to), item);
+        }
+    }
+
+    /// Removes an element from the Ring at `idx`, returning it if
+    /// it exists.
     ///
-    /// If the item being removed is the focused element,
-    /// it also unsets the focus.
+    /// If the element removed is the focused element, the focus
+    /// slides to the next element in line.
     pub fn remove(&mut self, idx: usize) -> Option<T> {
+        // if we can't access the element, immediately return
         let Some(ret) = self.items.remove(idx) else {
             return None
         };
 
-        // check if we just removed the focused element.
-        if let Some(i) = self.focused {
-            if i == idx {
-                self.unset_focused();
-            }
-        }
-        // if empty, unfocus
-        if self.is_empty() {
+        // if empty, unset our focus
+        if self.items.is_empty() {
             self.unset_focused();
+            return Some(ret)
         }
 
+        /* do focus checks */
+        if let Some(f_idx) = self.focused {
+            if idx < f_idx {
+                /* we removed an element in front of the focused
+                element.
+                in order to maintain our guarantee, we need to 
+                change the focus to continue to point to the
+                same element.
+                slide the focus down by one.
+
+                this code won't panic, since idx
+                is strictly less than f_idx, and
+                idx >= 0, so f_idx >= 1. */
+                self.set_focused(f_idx - 1)
+            }
+
+            /* we don't need to account for cases where
+            idx > f_idx, as the focused item won't change
+            in that case. 
+            if idx == f_idx, then we've removed the
+            focused item, and the focus should slide
+            to the next in line.*/
+
+            if !self.is_in_bounds(f_idx) {
+                /* if our focus now points out of bounds,
+                that means we were already pointing to the
+                end of the deque before removal.
+                wrap around to the front. */
+                self.set_focused(0);
+            }
+        } else if !self.is_empty() {
+            /* if we've reached this point, then
+            we've definitely had something to remove
+            but somehow we have None as our focus.
+            this means our guarantees are not upheld. */
+            unreachable!("focus not set with non-empty ring")
+        }
         Some(ret)
     }
 
     /// Insert an item into the Ring with an insert point.
-    ///
-    /// The focused index does not change.
+    /// 
+    /// If the Ring is empty, it pushes the item, disregarding the
+    /// insert point.
     ///
     /// If insert point revolves around the focused item and nothing has focus,
     /// it appends the item to the end of the ring.
+    /// 
+    /// If the insert point is the focused item, then the inserted
+    /// item becomes the focus, replacing whatever was in focus, which
+    /// gets slid up by 1.
     pub fn insert(&mut self, point: InsertPoint, item: T) {
         use Direction::*;
         use InsertPoint::*;
 
+        if self.is_empty() {
+            self.push(item);
+            return
+        }
+
+        debug_assert!(self.focused.is_some());
+        let f_idx = self.focused.unwrap();
+
         match point {
             Index(idx) => {
-                // don't bother checking for whether it would wrap or not
+                if !self.is_in_bounds(idx) {
+                    /* fail silently */
+                    return
+                }
                 self.items.insert(idx, item);
+                if idx <= f_idx {
+                    /* we inserted at or before
+                    the focused item, so to
+                    maintain our guarantee, we
+                    have to slide the index up by 1 */
+                    debug_assert!(self.is_in_bounds(f_idx + 1));
+                    self.set_focused(f_idx + 1);
+                }
             }
             Focused => {
-                if let Some(idx) = self.focused {
-                    self.items.insert(idx, item);
-                } else {
+                self.items.insert(f_idx, item);
+                /* don't change the focus idx, since this
+                now replaces the previous focus */
+            }
+            AfterFocused => { // we must preserve the focus here
+                debug_assert!(self.is_in_bounds(f_idx));
+                if self.would_wrap(Forward) {
                     self.append(item);
+                } else {
+                    self.insert(InsertPoint::Index(f_idx + 1), item);
                 }
             }
-            AfterFocused => {
-                if let Some(idx) = self.focused {
-                    if self.would_wrap(Forward) {
-                        self.items.push_back(item);
-                    } else {
-                        self.items.insert(idx + 1, item);
-                    }
+            BeforeFocused => { // we must preserve the focus here
+                debug_assert!(self.is_in_bounds(f_idx));
+                if self.would_wrap(Backward) {
+                    self.push(item);
                 } else {
-                    self.append(item);
-                }
-            }
-            BeforeFocused => {
-                if let Some(idx) = self.focused {
-                    if self.would_wrap(Backward) {
-                        self.items.push_back(item);
-                    } else {
-                        self.items.insert(idx - 1, item);
-                    }
-                } else {
-                    self.append(item);
+                    self.insert(InsertPoint::Index(f_idx - 1), item);
                 }
             }
             First => {
-                self.items.push_front(item);
+                self.push(item);
             }
             Last => {
-                self.items.push_back(item);
+                self.append(item);
             }
         }
     }
@@ -532,5 +643,134 @@ impl<T> IntoIterator for Ring<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.items.into_iter()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_ring_focus() {
+        let mut ring = Ring::new();
+
+        assert!(ring.focused().is_none());
+
+        ring.push(1); 
+        // [1]
+        //  ^
+        assert_eq!(*ring.focused().expect("no focus"), 1);
+
+        ring.push(2);
+        // [2, 1]
+        //     ^
+        assert_eq!(*ring.focused().expect("no focus"), 1);
+
+        ring.push(3);
+        // [3, 2, 1]
+        //        ^
+        assert_eq!(*ring.focused().expect("no focus"), 1);
+
+        ring.cycle_focus(Direction::Forward);
+        // [3, 2, 1]
+        //  ^
+        assert_eq!(*ring.focused().expect("no_focus"), 3);
+
+        ring.append(4);
+        // [3, 2, 1, 4]
+        //  ^
+        assert_eq!(*ring.focused().expect("no focus"), 3);
+
+        ring.cycle_focus(Direction::Backward);
+        // [3, 2, 1, 4]
+        //           ^
+        assert_eq!(*ring.focused().expect("no focus"), 4);
+    }
+
+    #[test]
+    fn test_ring_insert() {
+        let mut ring = Ring::new();
+
+        for i in 1..10 {
+            ring.append(i);
+        }
+        // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //  ^
+
+        ring.insert(InsertPoint::BeforeFocused, 10);
+        // [10, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //      ^
+        assert_eq!(ring[0], 10);
+        assert_eq!(*ring.focused().expect("no focus"), 1);
+
+        ring.insert(InsertPoint::Focused, 69);
+        // [10, 69, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //      ^
+        assert_eq!(ring[1], 69);
+        assert_eq!(*ring.focused().expect("no focus"), 69);
+
+        ring.insert(InsertPoint::AfterFocused, 15);
+        // [10, 69, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //      ^
+        assert_eq!(ring[2], 15);
+        assert_eq!(*ring.focused().expect("no focus"), 69);
+
+        // insertion at index but the index happens to be the focus
+        ring.insert(InsertPoint::Index(1), 20);
+        // [10, 20, 69, 15, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //          ^
+        assert_eq!(ring[1], 20);
+        assert_eq!(*ring.focused().expect("no focus"), 69);
+    }
+
+    #[test]
+    fn test_ring_removal() {
+        let mut ring = Ring::new();
+
+        for i in 1..10 {
+            ring.append(i);
+        }
+        // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //  ^
+
+        ring.remove(0);
+        // [2, 3, 4, 5, 6, 7, 8, 9]
+        //  ^
+        assert_eq!(ring[0], 2);
+        assert_eq!(*ring.focused().expect("no focus"), 2);
+
+        ring.set_focused(3);
+        // [2, 3, 4, 5, 6, 7, 8, 9]
+        //           ^
+        assert_eq!(*ring.focused().expect("no focus"), 5);
+
+        ring.remove(1);
+        // [2, 4, 5, 6, 7, 8, 9]
+        //        ^
+        assert_eq!(ring[1], 4);
+        assert_eq!(*ring.focused().expect("no focus"), 5);
+
+        for _ in 0..7 {
+            ring.remove(0);
+        }
+
+        assert!(ring.focused().is_none());
+    }
+
+    #[test]
+    fn test_ring_move() {
+        let mut ring = Ring::new();
+
+        for i in 1..10 {
+            ring.append(i);
+        }
+        // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        //  ^
+
+        ring.move_to(7, 3);
+        // [1, 2, 3, 8, 4, 5, 6, 7, 9]
+        //  ^
+        assert_eq!(*ring.focused().expect("no focus"), 1);
+        assert_eq!(ring[3], 8);
     }
 }
