@@ -50,6 +50,23 @@ macro_rules! handle_err {
     };
 }
 
+/// Removes the focused window if under layout.
+macro_rules! _rm_if_under_layout {
+    ($_self:expr, $id:expr) => {
+        let is_under_layout = $_self.desktop.current()
+            .has_window_under_layout($id);
+
+        if is_under_layout {
+            $_self.desktop.current_mut().remove_from_layout(
+                &$_self.conn,
+                $id,
+                $_self.screens.focused().unwrap(),
+                &$_self.config,
+            );
+        }
+    }
+}
+
 /// The main window manager object that owns the event loop,
 /// and receives and responds to events.
 ///
@@ -559,29 +576,24 @@ where
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
-    #[instrument(level = "debug", skip(self))]
+    /// 
+    /// If the selected window is under layout, it is removed from
+    /// layout and the entire workspace is then re-laid out.
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn move_window_ptr(&mut self, pt: Point) {
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         if let Some(win) = self.selected {
-            self.desktop.current_mut().remove_from_layout(
-                &self.conn,
-                win,
-                self.screens.focused().unwrap(),
-                &self.config,
-            );
-        }
+            _rm_if_under_layout!(self, win);
 
-        let current = self.desktop.current_mut();
-
-        if let Some(win) = self.selected {
+            let current = self.desktop.current_mut();
             if let Some(win) = current.windows.lookup_mut(win) {
                 win.do_move(&self.conn, dx, dy);
             } else {
                 error!("Tried to move untracked window {}", win)
             }
         } else {
-            warn!("Nothing selected");
+            warn!("no selected window to move");
         }
 
         self.last_mouse_pos = pt;
@@ -589,55 +601,58 @@ where
 
     /// Grabs the pointer and resizes the window the pointer is on.
     ///
-    /// If the window is tiled, its state is toggled to floating
-    /// and the entire desktop is re-laid out.
+    /// If the selected window is under layout, it is removed from
+    /// layout and the entire workspace is then re-laid out.
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn resize_window_ptr(&mut self, pt: Point) {
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         if let Some(win) = self.selected {
-            self.desktop.current_mut().remove_from_layout(
-                &self.conn,
-                win,
-                self.screens.focused().unwrap(),
-                &self.config,
-            );
-        }
+            _rm_if_under_layout!(self, win);
 
-        let current = self.desktop.current_mut();
-
-        if let Some(win) = self.selected {
+            let current = self.desktop.current_mut();
             if let Some(win) = current.windows.lookup_mut(win) {
                 win.do_resize(&self.conn, dx, dy);
             } else {
                 error!("Tried to move untracked window {}", win)
             }
         } else {
-            warn!("Nothing selected");
+            warn!("no selected window to resize");
         }
 
         self.last_mouse_pos = pt;
     }
 
-    /// Warps the window in the direction passed to it.
-    pub fn warp_window(&mut self, dist: i32, dir: Cardinal) {
-        //todo: this still affects master window
+    /// Moves the window `delta` pixels in direction `dir`.
+    pub fn move_window(&mut self, delta: i32, dir: Cardinal) {
         if let Some(id) = self.focused_client_id() {
-            self.desktop.current_mut().remove_from_layout(
-                &self.conn,
-                id,
-                self.screens.focused().unwrap(),
-                &self.config,
-            );
+            _rm_if_under_layout!(self, id);
         }
 
         let current = self.desktop.current_mut();
-
         if let Some(win) = current.focused_client_mut() {
             match dir {
-                Cardinal::Up => win.do_move(&self.conn, 0, -dist),
-                Cardinal::Down => win.do_move(&self.conn, 0, dist),
-                Cardinal::Left => win.do_move(&self.conn, -dist, 0),
-                Cardinal::Right => win.do_move(&self.conn, dist, 0),
+                Cardinal::Up => win.do_move(&self.conn, 0, -delta),
+                Cardinal::Down => win.do_move(&self.conn, 0, delta),
+                Cardinal::Left => win.do_move(&self.conn, -delta, 0),
+                Cardinal::Right => win.do_move(&self.conn, delta, 0),
+            }
+        }
+    }
+
+    /// Resizes the window `delta` pixels in direction `dir`.
+    pub fn resize_window(&mut self, delta: i32, dir: Cardinal) {
+        if let Some(id) = self.focused_client_id() {
+            _rm_if_under_layout!(self, id);
+        }
+
+        let current = self.desktop.current_mut();
+        if let Some(win) = current.focused_client_mut() {
+            match dir {
+                Cardinal::Up => win.do_resize(&self.conn, 0, -delta),
+                Cardinal::Down => win.do_resize(&self.conn, 0, delta),
+                Cardinal::Left => win.do_resize(&self.conn, -delta, 0),
+                Cardinal::Right => win.do_resize(&self.conn, delta, 0),
             }
         }
     }
@@ -699,7 +714,7 @@ where
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn update_focus(&mut self, id: XWindowID) -> Result<()> {
         // get target id
         // set input focus to main window
@@ -731,12 +746,12 @@ where
     }
 
     /// Unfocuses a client
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn client_unfocus(&mut self, id: XWindowID) -> Result<()> {
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn set_focused_screen(&mut self, ptr: Option<Point>) -> Result<()> {
         // get pointer position
         // if ptr is None, query the pointer directly
@@ -762,7 +777,7 @@ where
     }
 
     /// Query _NET_WM_NAME or WM_NAME and change it accordingly
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn client_name_change(&mut self, id: XWindowID) -> Result<()> {
         //todo
         if let Some(c) = self.desktop.current_client_mut() {
@@ -771,7 +786,7 @@ where
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn map_tracked_client(&mut self, id: XWindowID) -> Result<()> {
         let current = self.desktop.current_mut();
         if self.conn.should_float(id, self.config.float_classes()) || current.is_floating() {
@@ -796,7 +811,7 @@ where
         Ok(self.conn.map_window(id)?)
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
         self.desktop.current_mut().del_window(
             id,
@@ -807,13 +822,13 @@ where
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn configure_client(&mut self, data: ConfigureRequestData) -> Result<()> {
         //todo
         Ok(())
     }
 
-    #[instrument(level = "debug", skip(self))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn client_to_workspace(&mut self, id: XWindowID, idx: usize) -> Result<()> {
         let name = match self.desktop.get(idx) {
             Some(ws) => ws.name.to_string(),
@@ -830,7 +845,7 @@ where
     }
 
     /// Runs the keybind.
-    #[instrument(level = "debug", skip(self, bdgs))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
     fn run_keybind(&mut self, kb: Keybind, bdgs: &mut Keybinds<X, C>, id: XWindowID) {
         if let Some(cb) = bdgs.get_mut(&kb) {
             cb(self);
@@ -839,7 +854,7 @@ where
         }
     }
 
-    #[instrument(level = "debug", skip(self, bdgs))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
     fn run_mousebind(
         &mut self,
         mb: Mousebind,
@@ -848,6 +863,8 @@ where
         pt: Point,
     ) {
         match mb.kind {
+            // assume that we want to do something with the pointer,
+            // so grab it
             MouseEventKind::Press => {
                 self.conn
                     .grab_pointer(self.root.id, 0)

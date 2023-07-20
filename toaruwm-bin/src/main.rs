@@ -22,6 +22,7 @@ use toaruwm::bindings::{
 };
 use toaruwm::types::{Cardinal::*, Direction::*};
 use toaruwm::{hook, ToaruConfig, WindowManager};
+use toaruwm::manager::config::NO_CHECKS;
 use toaruwm::{InitX11RB, ToaruWM};
 
 // convenience typedef
@@ -36,10 +37,10 @@ const KEYBINDS: &[(&str, fn(Wm))] = &[
     ("M-S-q", |wm| wm.quit()),
     ("M-k", |wm| wm.cycle_focus(Forward)),
     ("M-j", |wm| wm.cycle_focus(Backward)),
-    ("M-S-Up", |wm| wm.warp_window(5, Up)),
-    ("M-S-Down", |wm| wm.warp_window(5, Down)),
-    ("M-S-Left", |wm| wm.warp_window(5, Left)),
-    ("M-S-Right", |wm| wm.warp_window(5, Right)),
+    ("M-S-Up", |wm| wm.move_window(5, Up)),
+    ("M-S-Down", |wm| wm.move_window(5, Down)),
+    ("M-S-Left", |wm| wm.move_window(5, Left)),
+    ("M-S-Right", |wm| wm.move_window(5, Right)),
     ("M-t", |wm| wm.toggle_focused_state()),
     ("M-Left", |wm| wm.cycle_workspace(Backward)),
     ("M-Right", |wm| wm.cycle_workspace(Forward)),
@@ -68,8 +69,12 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         // register as global
         .try_init()?;
 
+    let config = ToaruConfig::builder()
+        .border_px(4)
+        .finish(NO_CHECKS)?;
+
     //* 1: Setup X Connection and allocate new WM object
-    let mut manager = toaruwm::x11rb_backed_wm(ToaruConfig::default())?;
+    let mut manager = toaruwm::x11rb_backed_wm(config)?;
 
     //* 2: Read/setup config
     // if using as a library, declare config here
