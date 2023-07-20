@@ -97,6 +97,13 @@ impl WorkspaceSpec {
 /// or update the layouts as necessary.
 ///
 /// See [`Layout`] for more information.
+/// 
+/// # Stacking Policy
+/// 
+/// While Workspaces have no notion of layout policy, they are aware
+/// that there are layouts managing the placement of their windows.
+/// Thus, they implement a stacking policy where any window off layout
+/// is always stacked above.
 ///
 /// # Panics
 ///
@@ -534,6 +541,11 @@ impl Workspace {
         }
     }
 
+    /// Checks if the Client with given `id` is managed under layout.
+    pub fn has_window_under_layout(&self, id: XWindowID) -> bool {
+        self.clients_in_layout().any(|c| c.id() == id)
+    }
+
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
@@ -552,6 +564,8 @@ impl Workspace {
 
     /// Removes the focused window from being managed by the layout, effectively
     /// turning it into a floating window regardless of the current layout style.
+    /// 
+    /// This will also stack the window above any other windows.
     pub fn remove_from_layout<X, C>(&mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C)
     where
         X: XConn,
@@ -604,7 +618,7 @@ impl Workspace {
 
     // * PRIVATE METHODS * //
 
-    #[instrument(level = "debug", skip_all)]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
     fn _add_window<X, C>(&mut self, conn: &X, scr: &Screen, cfg: &C, mut window: Client)
     where
         X: XConn,
@@ -741,18 +755,24 @@ impl Workspace {
         C: RuntimeConfig,
     {
         use BorderStyle::*;
+
         // disable events
         conn.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
             .unwrap_or_else(|e| error!("{}", e));
 
+        let is_under_layout = self.has_window_under_layout(window);
+
         let win = self.windows.lookup_mut(window).unwrap();
 
-        // if there is a focused window, stack it above
-        win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
-
-        // focus to current window
+        // if the window is not under layout, stack it above
+        if !is_under_layout {
+            win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above)]);
+        }
+        // focus to current window visually...
         win.set_border(conn, Focused(cfg.focused()));
+        // ...server-ly...
         conn.set_input_focus(window);
+        // ...and internally
         self.windows.set_focused_by_winid(window);
 
         // re-enable events
