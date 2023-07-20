@@ -174,11 +174,11 @@ impl From<&ClientConfig> for ConfigureWindowAux {
             StackingMode(sm) => {
                 let new = ConfigureWindowAux::new();
                 match sm {
-                    Above => new.stack_mode(StackMode::ABOVE),
-                    Below => new.stack_mode(StackMode::BELOW),
-                    TopIf => new.stack_mode(StackMode::TOP_IF),
-                    BottomIf => new.stack_mode(StackMode::BOTTOM_IF),
-                    Opposite => new.stack_mode(StackMode::OPPOSITE),
+                    Above(sib) => new.stack_mode(StackMode::ABOVE).sibling(*sib),
+                    Below(sib) => new.stack_mode(StackMode::BELOW).sibling(*sib),
+                    TopIf(sib) => new.stack_mode(StackMode::TOP_IF).sibling(*sib),
+                    BottomIf(sib) => new.stack_mode(StackMode::BOTTOM_IF).sibling(*sib),
+                    Opposite(sib) => new.stack_mode(StackMode::OPPOSITE).sibling(*sib),
                 }
             }
         }

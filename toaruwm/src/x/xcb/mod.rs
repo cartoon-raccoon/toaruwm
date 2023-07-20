@@ -397,12 +397,15 @@ impl XCBConn<Initialized> {
                     None
                 };
                 let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
+                    let sib = if req.sibling() != x::WINDOW_NONE {
+                        Some(id!(req.sibling()))
+                    } else { None };
                     match req.stack_mode() {
-                        XStackMode::Above => Some(Above),
-                        XStackMode::Below => Some(Below),
-                        XStackMode::TopIf => Some(TopIf),
-                        XStackMode::BottomIf => Some(BottomIf),
-                        XStackMode::Opposite => Some(Opposite),
+                        XStackMode::Above => Some(Above(sib)),
+                        XStackMode::Below => Some(Below(sib)),
+                        XStackMode::TopIf => Some(TopIf(sib)),
+                        XStackMode::BottomIf => Some(BottomIf(sib)),
+                        XStackMode::Opposite => Some(Opposite(sib)),
                     }
                 } else {
                     None

@@ -358,12 +358,15 @@ impl X11RBConn<Initialized> {
                     None
                 };
                 let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
+                    let sib = if req.sibling != x11rb::NONE {
+                        Some(req.sibling)
+                    } else { None };
                     match req.stack_mode {
-                        XStackMode::ABOVE => Some(Above),
-                        XStackMode::BELOW => Some(Below),
-                        XStackMode::TOP_IF => Some(TopIf),
-                        XStackMode::BOTTOM_IF => Some(BottomIf),
-                        XStackMode::OPPOSITE => Some(Opposite),
+                        XStackMode::ABOVE => Some(Above(sib)),
+                        XStackMode::BELOW => Some(Below(sib)),
+                        XStackMode::TOP_IF => Some(TopIf(sib)),
+                        XStackMode::BOTTOM_IF => Some(BottomIf(sib)),
+                        XStackMode::OPPOSITE => Some(Opposite(sib)),
                         _ => return Err(XError::ConversionError),
                     }
                 } else {

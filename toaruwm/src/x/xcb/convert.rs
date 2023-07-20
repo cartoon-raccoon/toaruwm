@@ -5,9 +5,9 @@ use std::convert::TryFrom;
 use strum::*;
 
 use xcb::x;
-use xcb::Xid;
+use xcb::{Xid, XidNew};
 
-use super::{id, Initialized, XCBConn};
+use super::{id, cast, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::x::{
@@ -147,6 +147,20 @@ impl XCBConn<Initialized> {
     }
 }
 
+/// Adds sibling if specified, else doesn't add it
+macro_rules! _add_sib_if_some {
+    ($sib:expr, $mode:expr) => {
+        if let Some(s) = $sib {
+            vec![
+                x::ConfigWindow::Sibling(cast!(x::Window, *s)),
+                x::ConfigWindow::StackMode($mode)
+            ]
+        } else {
+            vec![x::ConfigWindow::StackMode($mode)]
+        }
+    }
+}
+
 // converting ClientConfigs to (u16, u32) slices for xcb
 impl From<&ClientConfig> for Vec<x::ConfigWindow> {
     fn from(from: &ClientConfig) -> Vec<x::ConfigWindow> {
@@ -167,11 +181,11 @@ impl From<&ClientConfig> for Vec<x::ConfigWindow> {
             ],
             Move { x, y } => vec![x::ConfigWindow::X(*x), x::ConfigWindow::Y(*y)],
             StackingMode(sm) => match sm {
-                Above => vec![x::ConfigWindow::StackMode(x::StackMode::Above)],
-                Below => vec![x::ConfigWindow::StackMode(x::StackMode::Below)],
-                TopIf => vec![x::ConfigWindow::StackMode(x::StackMode::TopIf)],
-                BottomIf => vec![x::ConfigWindow::StackMode(x::StackMode::BottomIf)],
-                Opposite => vec![x::ConfigWindow::StackMode(x::StackMode::Opposite)],
+                Above(sib) => _add_sib_if_some!(sib, x::StackMode::Above),
+                Below(sib) => _add_sib_if_some!(sib, x::StackMode::Below),
+                TopIf(sib) => _add_sib_if_some!(sib, x::StackMode::TopIf),
+                BottomIf(sib) => _add_sib_if_some!(sib, x::StackMode::BottomIf),
+                Opposite(sib) =>  _add_sib_if_some!(sib, x::StackMode::Opposite),
             },
         }
     }

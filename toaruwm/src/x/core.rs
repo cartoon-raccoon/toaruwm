@@ -44,18 +44,38 @@ where
 impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
 
 /// Window stacking modes defined by the X Protocol.
+/// 
+/// Each variant may carry a `sibling` window ID, that
+/// changes the semantics of the `StackMode`.
+/// 
+/// The exact semantics of this difference are explained
+/// [here](https://tronche.com/gui/x/xlib/window/configure.html).
 #[derive(Clone, Copy, Debug)]
 pub enum StackMode {
-    /// Stack the window above all its siblings.
-    Above,
-    /// Stack the window below all its siblings.
-    Below,
+    /// Stack the window at the top of the stack.
+    /// 
+    /// If a sibling is specified, the window is instead stacked
+    /// just above the specified sibling.
+    Above(Option<XWindowID>),
+    /// Stack the window at the bottom of the stack.
+    /// 
+    /// If a sibling is specified, the window is instead stacked
+    /// just below the specified sibling.
+    Below(Option<XWindowID>),
+    /// If any sibling occludes the window, the window
+    /// is stacked at the top of the stack.
+    /// 
+    /// If a sibling is specified, then the window is
+    /// stacked only if the sibling occludes it.
+    TopIf(Option<XWindowID>),
+    /// If the window occludes any sibling, the window
+    /// is stacked at the bottom of the stack.
+    /// 
+    /// If a sibling is specified, then the window is
+    /// stacked only if it occludes any sibling.
+    BottomIf(Option<XWindowID>),
     /// TODO
-    TopIf,
-    /// TODO
-    BottomIf,
-    /// TODO
-    Opposite,
+    Opposite(Option<XWindowID>),
 }
 
 /// Reply to a pointer query.
