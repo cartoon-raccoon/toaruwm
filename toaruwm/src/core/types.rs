@@ -1,4 +1,9 @@
 //! Basic core types used throughout this crate at a high level.
+//! 
+//! # Important Note
+//! 
+//! For types pertaining to the cartesian plane,
+//! all of them assume the default X server window gravity (NorthWest).
 //!
 //! For X server-specific types, see [`crate::x::core`].
 
@@ -15,7 +20,7 @@ use crate::x::{
 
 /// Specifies a direction.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     Forward,
     Backward,
@@ -23,7 +28,7 @@ pub enum Direction {
 
 /// A cardinal direction.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Cardinal {
     Up,
     Down,
@@ -31,12 +36,65 @@ pub enum Cardinal {
     Right,
 }
 
+/// A subset of Cardinal with only Left and Right variants.
+/// 
+/// It is disjoint with `CardinalY`.
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CardinalX {
+    Left,
+    Right,
+}
+
+/// A subset of Cardinal with only Up and Down variants.
+/// 
+/// It is disjoint with `CardinalX`.
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CardinalY {
+    Up,
+    Down,
+}
+
+/// The direction in which `Point`s and `Geometry`s
+/// should take reference to when calculating offsets.
+/// 
+/// For example, if a Geometry takes a Gravity of `NorthWest`,
+/// then when the Geometry is resized, it will resize
+/// towards the top-left corner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Gravity {
+    /// The top left direction.
+    NorthWest,
+    /// The top direction.
+    North,
+    /// The top right direction.
+    NorthEast,
+    /// The left direction.
+    West,
+    /// Dead center in the Geometry.
+    Center,
+    /// The right direction.
+    East,
+    /// The bottom left direction.
+    SouthWest,
+    /// The bottom direction.
+    South,
+    /// The bottom right direction.
+    SouthEast,
+}
+
 /// A type for representing a point on a display or screen.
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Point.
-///
-/// [1]: std::cmp::PartialEq\
+/// 
+/// # Note
+/// 
+/// The (0, 0) reference is by default taken from the top left
+/// corner of the 2D plane.
+/// 
+/// [1]: std::cmp::PartialEq
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
@@ -80,12 +138,88 @@ impl Point {
     pub fn calculate_offset(&self, other: Point) -> (i32, i32) {
         (other.x - self.x, other.y - self.y)
     }
+
+    /// Calculates the distance to another point, using the
+    /// Pythagorean theorem.
+    /// 
+    /// Since most things in this crate take integer values,
+    /// you will probably want to round this up/down to
+    /// the nearest integer value before coercing to an
+    /// integer type.
+    pub fn distance_to(&self, other: Point) -> f64 {
+        let (x, y) = self.calculate_offset(other);
+
+        let ret = (
+            (x as f64).powi(2) + (y as f64).powi(2)
+        ).sqrt();
+
+        assert!(!ret.is_nan());
+        ret
+    }
+
+    /// Creates a Point with `delta` in the given direction
+    /// (unidirectional offset).
+    /// 
+    /// Only moves the point in one direction.
+    // todo: example
+    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
+        use Cardinal::*;
+
+        let Point { x , y } = *self;
+
+        match dir {
+            Up => Point { x, y: y - delta },
+            Down => Point { x, y: y + delta },
+            Left => Point { x: x - delta, y },
+            Right => Point { x: x + delta, y }
+        }
+    }
+
+    /// Creates a Point offset by `dx, dy` in the given directions
+    /// (bidirectional offset).
+    /// 
+    /// Moves the point in both directions.
+    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
+        use CardinalX::*;
+        use CardinalY::*;
+
+        let Point { x, y } = *self;
+
+        match (dirx, diry) {
+            (Left, Up) => Point { x: x - dx, y: y - dy},
+            (Left, Down) => Point { x: x - dx, y: y + dy },
+            (Right, Down) => Point { x: x + dx, y: y + dy},
+            (Right, Up) => Point { x: x + dx, y: y - dy},
+        }
+    }
+
+    /// Offsets itself by `delta` in the given direction.
+    pub fn unidir_offset_in_place(&mut self, delta: i32, dir: Cardinal) {
+        let Point { x, y } = self.unidir_offset(delta, dir);
+
+        self.x = x; self.y = y;
+    }
+
+    /// Offsets itself by `dx, dy` in the given directions.
+    pub fn bidir_offset_in_place(&mut self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) {
+        let Point { x, y } = self.bidir_offset(dx, dy, dirx, diry);
+
+        self.x = x; self.y = y;
+    }
 }
 
 /// A type for representing a 2D rectangular space on a display or screen.
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Geometry.
+/// 
+/// # Note on X Window Gravity
+/// 
+/// Geometries follow the X Window System default
+/// of taking their gravity from the top-left corner,
+/// that is, (0, 0) is considered the top left corner
+/// of the screen, and any increase is an offset to the right
+/// or downwards.
 ///
 /// _Note:_ The Default impl returns
 /// Geometry {0, 0, 100, 160}, **NOT** zeroed.
@@ -159,6 +293,15 @@ impl Geometry {
             y: 0,
             height: 0,
             width: 0,
+        }
+    }
+
+    /// Creates a `Geometry` based at the origin (0, 0)
+    /// with the given dimensions `height` and `width`.
+    pub fn at_origin(height: i32, width: i32) -> Geometry {
+        Self {
+            x: 0, y: 0,
+            height, width
         }
     }
 
@@ -456,17 +599,62 @@ impl Geometry {
         )
     }
 
-    /// Trim off an area from a Geometry.
+    /// Trim off an area from a Geometry from the side corresponding
+    /// to `dir` (`Cardinal::Up` trims the top, `CardinaL::Down`
+    /// trims the bottom).
     ///
-    /// This returns a new geometry.
+    /// This returns a new Geometry.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::{Geometry, Cardinal::*};
+    /// 
+    /// let g1 = Geometry::new(0, 0, 100, 160);
+    /// /* trim off 5 from the left and 10 from the top */
+    /// let g2 = g1.trim(5, Left).trim(10, Up);
+    /// 
+    /// assert_eq!(g2, Geometry {
+    ///     x: 5, y: 10, height: 90, width: 155
+    /// });
+    /// ```
     #[must_use]
     pub fn trim(&self, trim: i32, dir: Cardinal) -> Geometry {
         use Cardinal::*;
         match dir {
-            Up => Geometry::new(self.x - trim, self.y, self.width, self.height - trim),
-            Down => Geometry::new(self.x, self.y, self.width, self.height - trim),
-            Left => Geometry::new(self.x, self.y + trim, self.width - trim, self.height),
-            Right => Geometry::new(self.x, self.y, self.width - trim, self.height),
+            Up => Geometry::new(self.x, self.y + trim, self.height - trim, self.width),
+            Down => Geometry::new(self.x, self.y, self.height - trim, self.width),
+            Left => Geometry::new(self.x + trim, self.y, self.height, self.width - trim),
+            Right => Geometry::new(self.x, self.y, self.height, self.width - trim),
+        }
+    }
+
+    /// Creates a new Geometry offset by `delta` pixels in the given
+    /// direction `dir` (unidirectional offset).
+    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Geometry {
+        let Geometry { x, y, height, width } = *self;
+
+        let Point { x, y } = Point { x, y }.unidir_offset(delta, dir);
+
+        Geometry {
+            x, y,
+            height,
+            width
+        }
+    }
+
+    /// Creates a new Geometry offset by `dx, dy` pixels in the given
+    /// directions `dirx, diry` (bidirectional offset).
+    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Geometry {
+        let Geometry { x, y, height, width } = *self;
+
+        let Point { x, y } = Point { x, y }.bidir_offset(dx, dy, dirx, diry);
+
+        Geometry {
+            x, y,
+            height,
+            width
+
         }
     }
 }
