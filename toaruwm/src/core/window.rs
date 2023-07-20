@@ -1,7 +1,10 @@
 //! Types used to represent and manage individual windows.
-//!
-//! This module exports `Client` and `ClientRing`, which encapsulate
-//! data about windows and manage them internally respectively.
+//! 
+//! This core of this module is the `Client` type, which represents
+//! an individual window on the X server that is also managed
+//! by a `WindowManager`.
+//! 
+//! See the [`Client`] documentation for more details.
 
 use std::collections::HashSet;
 
@@ -124,7 +127,7 @@ impl PartialEq for Client {
 
 impl Client {
     /// Creates a new Client.
-    #[instrument(level = "debug", skip(conn))]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(conn)))]
     pub fn new<X: XConn>(from: XWindowID, conn: &X) -> Self {
         let properties = conn.get_client_properties(from);
         Self {
@@ -242,17 +245,31 @@ impl Client {
     }
 
     /// Mark a Client as outside of the layout.
+    /// 
+    /// # Note
+    /// 
+    /// This only changes the internal state of the window.
+    /// It is the caller's responsibility to effect
+    /// any server-side implications of this change based on
+    /// their policy towards windows on/off layout.
     pub fn set_off_layout(&mut self) {
         self.inside_layout = false;
     }
 
     /// Mark a Client as inside of the layout.
+    /// 
+    /// # Note
+    /// 
+    /// This only changes the internal state of the window.
+    /// It is the caller's responsibility to effect
+    /// any server-side implications of this change based on
+    /// their policy towards windows on/off layout.
     pub fn set_on_layout(&mut self) {
         self.inside_layout = true;
     }
 
     /// Updates all the internal properties of the client.
-    #[instrument(level = "debug", skip_all)]
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
     pub fn update_all_properties<X, C>(&mut self, conn: &X, cfg: &C)
     where
         X: XConn,
@@ -410,7 +427,7 @@ impl Client {
             attrs
         );
         conn.configure_window(self.id(), attrs)
-            .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
+            .unwrap_or_else(|e| warn!("Could not configure window {}, got error {}", self.id(), e));
     }
 
     /// Change client attributes.
@@ -438,7 +455,7 @@ impl Client {
                 w: self.width(),
             }],
         )
-        .unwrap_or_else(|e| warn!("Could not configure window {} with error {}", self.id(), e));
+        .unwrap_or_else(|e| warn!("Could not configure window {}, got error {}", self.id(), e));
 
         // debug!(
         //     "Updated geometry:\nx: {}, y: {}, h: {}, w: {}",
