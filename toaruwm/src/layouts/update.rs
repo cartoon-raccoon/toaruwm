@@ -41,7 +41,25 @@ where
 pub struct ResizeMain(pub f32);
 impl IntoUpdate for ResizeMain {}
 
+/// Update the internally stored border thickness.
+/// 
+/// Some tiling layouts may have to account for the user-set
+/// border thickness when calculating window geometries.
+/// This update tells them to change their internal store
+/// of border thickness so they can update their calculations
+/// accordingly.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct UpdateBorderPx(pub u32);
+impl IntoUpdate for UpdateBorderPx {}
+
 /// Cycle the shown window of the layout in the given direction.
+/// 
+/// Some layouts (like a monocle layout) might keep only one window
+/// mapped at time, taking up the entire screen, while the rest
+/// of the windows are unmapped.
+/// 
+/// Sending this message to the layout tells it to cycle to the next
+/// window to focus to.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CycleFocused(pub Direction);
 impl IntoUpdate for CycleFocused {}

@@ -11,7 +11,10 @@ use std::any::Any;
 use std::collections::HashMap;
 
 use crate::core::WorkspaceSpec;
-use crate::layouts::{DynamicTiled, Floating, Layout};
+use crate::layouts::{
+    DynamicTiled, Floating, Layout,
+    update::{IntoUpdate, UpdateBorderPx},
+};
 use crate::manager::state::{RuntimeConfig, WmConfig};
 use crate::types::Color;
 use crate::{Result, ToaruError::*};
@@ -430,6 +433,11 @@ impl ToaruConfigBuilder {
         F: FnOnce(&ToaruConfig) -> Result<()>,
     {
         let config = self.inner;
+        for layout in config.layouts.iter() {
+            layout.receive_update(
+                &UpdateBorderPx(config.border_px).into_update()
+            )
+        }
         config.validate(check)?;
         Ok(config)
     }
