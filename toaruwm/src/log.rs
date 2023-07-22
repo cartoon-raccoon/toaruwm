@@ -7,14 +7,18 @@ macro_rules! fatal {
     };
 }
 
-// macro_rules! error {
-//     ($fmt:expr) => {
-//         (eprintln!(concat!("[X] ", $fmt)))
-//     };
-//     ($fmt:expr, $($arg:tt)*) => {
-//         (eprintln!(concat!("[X] ", $fmt), $($arg)*))
-//     };
-// }
+extern crate tracing;
+
+macro_rules! trace {
+    ($fmt:expr) => {
+        #[cfg(debug_assertions)]
+        tracing::trace!($fmt)
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        #[cfg(debug_assertions)]
+        tracing::trace!($fmt, $($arg)*)
+    }
+}
 
 use crate::manager::{RuntimeConfig, WmState};
 use crate::{ErrorHandler, ToaruError, XConn};

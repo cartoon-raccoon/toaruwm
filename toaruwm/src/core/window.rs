@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 
 use tracing::instrument;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, warn};
 
 use super::{Ring, Selector, ring::InsertPoint};
 

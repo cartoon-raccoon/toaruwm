@@ -10,7 +10,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 use tracing::instrument;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, warn};
 
 use crate::core::{
     desktop::Screen,

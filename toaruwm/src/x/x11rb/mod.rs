@@ -14,8 +14,6 @@ use x11rb::protocol::{
 };
 use x11rb::rust_connection::RustConnection;
 
-use tracing::trace;
-
 use strum::*;
 
 use super::{

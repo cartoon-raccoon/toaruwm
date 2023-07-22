@@ -11,7 +11,7 @@ use std::process::{Command, Stdio};
 //use std::sync::OnceLock;
 
 use tracing::instrument;
-use tracing::{debug, error, info, span, trace, warn, Level};
+use tracing::{debug, error, info, span, warn, Level};
 
 use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
 use crate::core::{Desktop, Screen, WorkspaceSpec};

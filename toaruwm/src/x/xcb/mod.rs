@@ -19,8 +19,6 @@ use xcb::randr;
 use xcb::x;
 use xcb::{Xid, XidNew};
 
-use tracing::trace;
-
 use strum::*;
 
 use super::{

@@ -9,7 +9,7 @@ use x11rb::protocol::{
 use byteorder::{LittleEndian, WriteBytesExt};
 
 use tracing::instrument;
-use tracing::{error, trace, warn};
+use tracing::{error, warn};
 
 use super::Initialized;
 use crate::bindings::{Keybind, Mousebind};
