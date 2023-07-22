@@ -7,11 +7,12 @@
 //! See the [`Client`] documentation for more details.
 
 use std::collections::HashSet;
+use std::ops::{Deref, DerefMut};
 
 use tracing::instrument;
 use tracing::{debug, error, trace, warn};
 
-use super::{Ring, Selector};
+use super::{Ring, Selector, ring::InsertPoint};
 
 use crate::core::types::{BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates};
 use crate::manager::RuntimeConfig;
@@ -20,22 +21,97 @@ use crate::x::{
     property::WindowState,
 };
 
-/// A Ring of type Client.
+/// A ring of Clients.
 ///
 /// Contains additional methods more specific to window management.
+/// 
+/// It implements `Deref` and `DerefMut` to `Ring`, so you can
+/// use all `Ring` methods on it.
 ///
 /// The focused element of this ring is the window that currently
 /// has the input focus.
-pub type ClientRing = Ring<Client>;
+/// 
+/// A `ClientRing` also plays an important role in enforcing window
+/// stacking, keeping all off-layout clients on top.
+#[derive(Debug, Clone)]
+pub struct ClientRing(Ring<Box<Client>>);
+
+impl Deref for ClientRing {
+    type Target = Ring<Box<Client>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ClientRing {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 impl ClientRing {
+
+    /// Creates a new ClientRing.
+    pub fn new() -> Self {
+        Self(Ring::new())
+    }
+
+    /// Inserts a client at a point in the Ring by its layout status.
+    /// 
+    /// If a window is on layout, insert it at the partition point
+    /// between windows that are on layout and those that are not.
+    /// 
+    /// In doing this, all windows on layout are kept below those
+    /// that are not.
+    //* precondition: the ring is already partitioned correctly */
+    pub fn add_by_layout_status(&mut self, win: Client) {
+        if self.is_empty() || win.is_off_layout() {
+            self.push(Box::new(win));
+        } else {
+            /* assume that we are already partitioned */
+            /* since all workspace calls to add a window eventually
+            call this to actually add the window,
+            we just need to prove this function is correct. */
+            let idx = self.partition_idx();
+            self.insert(InsertPoint::Index(idx), Box::new(win));
+        }
+    }
+
+    /// Moves the window with ID `id` to the top of its respective
+    /// stack.
+    /// 
+    /// If the window is off layout, it is moved to the front of
+    /// the queue; if it is on layout, it is moved to the first
+    /// index of the stacked windows.
+    pub fn bubble_to_top(&mut self, id: XWindowID) {
+        if self.is_empty() {return}
+        let Some(c) = self.lookup(id) else {return};
+        let idx = self.get_idx(id).unwrap();
+
+        if c.is_off_layout() {
+            self.move_front(idx);
+        } else {
+            let n_idx = self.partition_idx();
+            self.move_to(idx, n_idx);
+        }
+    }
+
+    /// Gets the index where the first window on layout resides.
+    /// 
+    /// Assumes the `ClientRing` is indeed partitioned.
+    //* precondition: the ring is already partitioned correctly */
+    pub fn partition_idx(&self) -> usize {
+        self.items.partition_point(|c| c.is_off_layout())
+    }
+
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
     pub fn remove_by_id(&mut self, id: XWindowID) -> Option<Client> {
         let Some(i) = self.get_idx(id) else {
             return None
         };
 
-        self.remove(i)
+        self.remove(i).map(|c| *c)
     }
 
     /// Wrapper around `Ring::index` that takes a window ID.
@@ -46,7 +122,7 @@ impl ClientRing {
     /// Returns a reference to the client containing the given window ID.
     pub fn lookup(&self, id: XWindowID) -> Option<&Client> {
         if let Some(i) = self.get_idx(id) {
-            self.get(i)
+            self.get(i).map(|c| c.deref())
         } else {
             None
         }
@@ -55,7 +131,7 @@ impl ClientRing {
     /// Returns a mutable reference to the client containing the given ID.
     pub fn lookup_mut(&mut self, id: XWindowID) -> Option<&mut Client> {
         if let Some(i) = self.get_idx(id) {
-            self.get_mut(i)
+            self.get_mut(i).map(|c| c.deref_mut())
         } else {
             None
         }

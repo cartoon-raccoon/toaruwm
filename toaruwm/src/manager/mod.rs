@@ -54,7 +54,7 @@ macro_rules! handle_err {
 macro_rules! _rm_if_under_layout {
     ($_self:expr, $id:expr) => {
         let is_under_layout = $_self.desktop.current()
-            .has_window_under_layout($id);
+            .has_window_in_layout($id);
 
         if is_under_layout {
             $_self.desktop.current_mut().remove_from_layout(

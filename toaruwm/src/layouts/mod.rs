@@ -265,6 +265,7 @@ impl LayoutType {
 
 /// An action to resize a window in order to enforce the
 /// layout currently in effect.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LayoutAction {
     /// Resize a given client.
@@ -278,4 +279,8 @@ pub enum LayoutAction {
     Map(XWindowID),
     /// Unmap the given window.
     Unmap(XWindowID),
+    /// Stack the given window on top.
+    StackOnTop(XWindowID),
+    /// Remove the given window from the layout.
+    Remove(XWindowID),
 }

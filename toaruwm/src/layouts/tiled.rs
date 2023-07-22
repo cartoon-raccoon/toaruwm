@@ -3,11 +3,12 @@ use std::cell::Cell;
 use tracing::debug;
 
 use super::{
-    update::{ResizeMain, Update},
+    update::{ResizeMain, UpdateBorderPx, Update},
     Layout, LayoutAction, LayoutCtxt, LayoutType,
 };
 
-use crate::types::Geometry;
+use crate::types::{Cardinal, Geometry};
+use crate::core::Workspace;
 use crate::x::XWindowID;
 
 /// A simple dynamic tiling layout, with a main window
@@ -40,61 +41,35 @@ impl Layout for DynamicTiled {
     }
 
     fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction> {
-        let geom = ctxt.screen.effective_geom();
+        self._layout(ctxt)
+    }
 
+    fn boxed(&self) -> Box<dyn Layout> {
+        Box::new(self.clone())
+    }
+
+    fn receive_update(&self, update: &Update) {
+        if let Some(ResizeMain(inc)) = update.as_update() {
+            self.ratio.set(self.ratio.get() + inc);
+        } else if let Some(UpdateBorderPx(new)) = update.as_update() {
+            self.bwidth.set(*new);
+        }
+    }
+
+    fn style(&self) -> super::LayoutType {
+        LayoutType::Tiled
+    }
+}
+
+#[doc(hidden)]
+impl DynamicTiled {
+    fn _layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction> {
+        let geom = ctxt.screen.effective_geom();
         let ws = ctxt.workspace;
 
         /* we have a main window */
         if let Some(main_id) = self.main.get() {
-            if ws.managed_count() == 0 {
-                debug!("Tiled count is 0, unsetting main");
-                self.main.set(None);
-                vec![]
-            } else if ws.managed_count() == 1 {
-                debug!("Only main exists, tiling to full window");
-                let new = Geometry::new(
-                    0,
-                    0,
-                    geom.height - self.bwidth.get() as i32,
-                    geom.width - self.bwidth.get() as i32,
-                );
-                vec![LayoutAction::Resize {
-                    id: main_id,
-                    geom: new,
-                }]
-            } else {
-                debug_assert!(ws.managed_count() > 1);
-                debug!("Multiple windows mapped, recalculating");
-
-                let (main, sec) = geom.split_vert_ratio(self.ratio.get());
-
-                let mut ret = vec![LayoutAction::Resize {
-                    id: main_id,
-                    geom: main,
-                }];
-
-                // get no of secondary windows
-                let sec_count = if ws.managed_count() == 0 {
-                    0
-                } else {
-                    ws.managed_count() - 1
-                };
-
-                //todo: account for border width
-                let sec_geoms = sec.split_horz_n(sec_count);
-
-                ws.clients_in_layout()
-                    .filter(|c| c.id() != main_id)
-                    .enumerate()
-                    .for_each(|(i, c)| {
-                        ret.push(LayoutAction::Resize {
-                            id: c.id(),
-                            geom: sec_geoms[i],
-                        })
-                    });
-
-                ret
-            }
+            self._layout_with_main(main_id, geom, ws)
         } else {
             // we have no main
             if ws.managed_count() == 0 {
@@ -115,17 +90,98 @@ impl Layout for DynamicTiled {
         }
     }
 
-    fn boxed(&self) -> Box<dyn Layout> {
-        Box::new(self.clone())
-    }
+    fn _layout_with_main(&self, 
+        main_id: XWindowID, 
+        geom: Geometry,
+        ws: &Workspace,
+    ) -> Vec<LayoutAction> {
+        use Cardinal::*;
 
-    fn receive_update(&self, update: &Update) {
-        if let Some(ResizeMain(inc)) = update.as_update() {
-            self.ratio.set(self.ratio.get() + inc)
+        let bwidth = self.bwidth.get() as i32;
+
+        /* weird ass bodge because of X server shenaniganery:
+        we have to trim off double the bwidth because of how
+        the X server counts window borders.*/
+        let usable_geom = geom.trim(bwidth * 2, Right)
+                              .trim(bwidth * 2, Down);
+        
+        if ws.managed_count() == 0 {
+            /* managed count is 0 but we have a main,
+            means the main just got closed and
+            the workspace is now empty */
+            debug!("Tiled count is 0, unsetting main");
+            self.main.set(None);
+            return vec![]
         }
-    }
 
-    fn style(&self) -> super::LayoutType {
-        LayoutType::Tiled
+        /* at this point we can assume managed count is >= 1 */
+
+        // run check to set new main if needed
+        if !ws.has_window_in_layout(main_id) {
+            /* main window is no longer under layout,
+            pick a new main */
+            debug!("main is now off layout, choosing new main");
+            let new_main = ws.clients_in_layout().next()
+                .expect("should have at least 1 client under layout")
+                .id();
+
+            self.main.set(Some(new_main));
+        }
+        let current_main = self.main.get().unwrap();
+
+        // then proceed to generate geoms
+        if ws.managed_count() == 1 {
+            /* we only have a main window */
+            debug!("Only main exists, tiling to full window");
+
+            debug!("new window geom: {:?}", usable_geom);
+            vec![
+                LayoutAction::Resize {
+                    id: current_main,
+                    geom: usable_geom,
+                },
+            ]
+        } else { // managed count > 1
+            debug_assert!(ws.managed_count() > 1);
+            debug!("Multiple windows mapped, recalculating");
+
+            let (main, sec) = usable_geom.split_vert_ratio(self.ratio.get());
+
+            // do standard division and round up to nearest integer
+            /* this ensures that if bwidth is odd, we always round up
+            while keeping it unaffected if bwidth is even */
+            let half_bwidth = (bwidth as f32 / 2.0).ceil() as i32;
+            
+            //let odd_bwidth = bwidth % 2 != 0;
+
+            let mut ret = vec![LayoutAction::Resize {
+                id: current_main,
+                geom: main.trim(
+                    half_bwidth, Right
+                ),
+            }];
+
+            // get no of secondary windows
+            let sec_count = if ws.managed_count() == 0 {
+                0 // this is unreachable
+            } else {
+                ws.managed_count() - 1
+            };
+
+            //todo: account for border width
+            let sec_geoms = sec.split_horz_n(sec_count);
+
+            ws.clients_in_layout()
+                .filter(|c| c.id() != current_main)
+                .enumerate()
+                .for_each(|(i, c)| {
+                    ret.push(LayoutAction::Resize {
+                        id: c.id(),
+                        geom: sec_geoms[i],
+                    })
+                });
+
+            ret
+        }
     }
 }
