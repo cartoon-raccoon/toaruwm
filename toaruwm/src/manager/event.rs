@@ -9,7 +9,7 @@ use crate::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
     },
-    Atom, Property, WmHintsFlags, XConn, XError, XEvent, XWindowID,
+    Atom, Property, WmHintsFlags, XConn, XError, XEvent, XWindowID, XAtom,
 };
 
 // todo: update as neccesary to account for ICCCM and EWMH conventions
@@ -242,7 +242,7 @@ fn process_client_message<X: XConn, C: RuntimeConfig>(
 
     let is_fullscreen = |data: &[u32]| {
         data.iter()
-            .flat_map(|&a| state.conn.lookup_atom(a))
+            .flat_map(|&a| state.conn.lookup_atom(XAtom::from(a)))
             .any(|s| s == Atom::NetWmStateFullscreen.as_ref())
     };
 

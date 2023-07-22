@@ -821,7 +821,7 @@ impl NetWindowStates {
             }
         }
         error!("Tried to remove atom not in states");
-        0
+        XAtom::from(0)
     }
 }
 

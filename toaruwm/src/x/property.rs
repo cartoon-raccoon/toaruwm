@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::types::Point;
-use crate::x::core::{Result, XAtom, XConn, XError, XWindowID};
+use crate::x::core::{Xid, Result, XAtom, XConn, XError, XWindowID};
 
 /// X server properties.
 #[derive(Debug, Clone)]
@@ -363,10 +363,10 @@ impl TryFrom<&[u32]> for WmHints {
             accepts_input,
             initial_state,
             icon_pixmap: from[3],
-            icon_window: from[4],
+            icon_window: Xid(from[4]),
             icon_pos,
             icon_mask: from[7],
-            window_group: from[8],
+            window_group: Xid(from[8]),
         })
     }
 }

@@ -31,7 +31,7 @@ pub mod x11rb;
 pub mod xcb;
 
 #[doc(inline)]
-pub use self::core::{Result, XAtom, XConn, XError, XWindow, XWindowID};
+pub use self::core::{Xid, Result, XAtom, XConn, XError, XWindow, XWindowID};
 #[doc(inline)]
 pub use atom::{Atom, Atoms};
 #[doc(inline)]

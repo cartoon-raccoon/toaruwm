@@ -16,7 +16,7 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Xid, PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -39,7 +39,10 @@ macro_rules! root_pointer_grab_mask {
 
 impl XConn for X11RBConn<Initialized> {
     // General X server operations
-    #[instrument(target = "xconn", level = "trace", skip(self))]
+    #[cfg_attr(
+        debug_assertions, 
+        instrument(target = "xconn", level = "trace", skip(self))
+    )]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
         self.conn.flush()?;
 
@@ -61,20 +64,21 @@ impl XConn for X11RBConn<Initialized> {
         // peak funcprog
         Ok(self
             .conn
-            .query_tree(window)?
+            .query_tree(*window)?
             .reply()?
             .children
             .into_iter()
+            .map(|u| Xid(u))
             .collect())
     }
 
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply> {
-        let reply = self.conn.query_pointer(window)?.reply()?;
+        let reply = self.conn.query_pointer(*window)?.reply()?;
 
         Ok(PointerQueryReply {
             same_screen: reply.same_screen,
-            root: reply.root,
-            child: reply.child,
+            root: Xid(reply.root),
+            child: Xid(reply.child),
             root_x: reply.root_x as i32,
             root_y: reply.root_x as i32,
             win_x: reply.win_x as i32,
@@ -83,13 +87,16 @@ impl XConn for X11RBConn<Initialized> {
         })
     }
 
-    #[instrument(target = "xconn", level = "trace", skip(self))]
+    #[cfg_attr(
+        debug_assertions, 
+        instrument(target = "xconn", level = "trace", skip(self))
+    )]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
         let check_id = self.check_win()?;
         self.conn.flush()?;
 
-        let res = self.conn.randr_get_screen_resources(check_id)?.reply()?;
-        let info = self.conn.randr_get_screen_info(check_id)?.reply()?;
+        let res = self.conn.randr_get_screen_resources(*check_id)?.reply()?;
+        let info = self.conn.randr_get_screen_info(*check_id)?.reply()?;
 
         // extra-peak funcprog B)
         // i'll never make something this beautiful again.
@@ -105,12 +112,12 @@ impl XConn for X11RBConn<Initialized> {
             // construct screen
             .map(|(i, r)| {
                 let geom = Geometry::new(r.x as i32, r.y as i32, r.height as i32, r.width as i32);
-                Screen::new(i as i32, geom, info.root, vec![])
+                Screen::new(i as i32, geom, Xid(info.root), vec![])
             })
             .filter(|s| s.true_geom().width > 0)
             .collect();
 
-        self.conn.destroy_window(check_id)?.check()?;
+        self.conn.destroy_window(*check_id)?.check()?;
 
         if crtcs.is_empty() {
             Err(XError::RandrError("Could not get screens".into()))
@@ -126,7 +133,7 @@ impl XConn for X11RBConn<Initialized> {
         trace!("Interning atom {}", atom);
         let x = self.conn.intern_atom(false, atom.as_bytes())?.reply()?;
         trace!("Atom name: {}, atom: {}", atom, x.atom);
-        Ok(x.atom)
+        Ok(Xid(x.atom))
     }
 
     fn lookup_atom(&self, atom: XAtom) -> Result<String> {
@@ -136,7 +143,7 @@ impl XConn for X11RBConn<Initialized> {
             return Ok(name);
         }
         trace!("Name not known, looking up via X connection");
-        let name = String::from_utf8(self.conn.get_atom_name(atom)?.reply()?.name)?;
+        let name = String::from_utf8(self.conn.get_atom_name(*atom)?.reply()?.name)?;
 
         trace!("Got name {}", name);
         if let Ok(mut atoms) = self.atoms.try_borrow_mut() {
@@ -189,7 +196,7 @@ impl XConn for X11RBConn<Initialized> {
             self.conn
                 .grab_key(
                     false,
-                    window,
+                    *window,
                     (kb.modmask | *m).into(),
                     kb.code,
                     GrabMode::ASYNC,
@@ -211,7 +218,7 @@ impl XConn for X11RBConn<Initialized> {
         //let code = KeySymbols::new(&self.conn).get_keycode(kb.keysym).next();
 
         self.conn
-            .ungrab_key(kb.code, window, kb.modmask.into())
+            .ungrab_key(kb.code, *window, kb.modmask.into())
             .map_err(|_| {
                 XError::ServerError(format!(
                     "Unable to ungrab key {} for window {}",
@@ -229,11 +236,11 @@ impl XConn for X11RBConn<Initialized> {
             self.conn
                 .grab_button(
                     false,
-                    window,
+                    *window,
                     root_button_grab_mask!(),
                     GrabMode::ASYNC,
                     GrabMode::ASYNC,
-                    if confine { window } else { x11rb::NONE },
+                    if confine { *window } else { x11rb::NONE },
                     x11rb::NONE,
                     mb.button.into(),
                     (mb.modmask | *m).into(),
@@ -255,7 +262,7 @@ impl XConn for X11RBConn<Initialized> {
 
         Ok(self
             .conn
-            .ungrab_button(mb.button.into(), window, mb.modmask.into())
+            .ungrab_button(mb.button.into(), *window, mb.modmask.into())
             .map_err(|_| {
                 XError::ServerError(format!(
                     "Unable to ungrab button {:?} for window {}",
@@ -272,7 +279,7 @@ impl XConn for X11RBConn<Initialized> {
             .conn
             .grab_pointer(
                 false,
-                winid,
+                *winid,
                 root_pointer_grab_mask!(),
                 GrabMode::ASYNC,
                 GrabMode::ASYNC,
@@ -344,11 +351,11 @@ impl XConn for X11RBConn<Initialized> {
         if !managed {
             data = data.override_redirect(1 /* true */);
         }
-        let wid = self.conn.generate_id()?;
+        let wid = Xid(self.conn.generate_id()?);
         self.conn.create_window(
             depth,
-            wid,
-            self.root.id,
+            *wid,
+            *self.root.id,
             geom.x as i16,
             geom.y as i16,
             geom.width as u16,
@@ -373,7 +380,7 @@ impl XConn for X11RBConn<Initialized> {
     fn map_window(&self, window: XWindowID) -> Result<()> {
         trace!("Mapping window {}", window);
 
-        let cookie = self.conn.map_window(window)?.check();
+        let cookie = self.conn.map_window(*window)?.check();
         if let Err(e) = cookie {
             error!("Could not map window {}: {}", window, e);
             Err(e.into())
@@ -385,7 +392,7 @@ impl XConn for X11RBConn<Initialized> {
     fn unmap_window(&self, window: XWindowID) -> Result<()> {
         trace!("Unmapping window {}", window);
 
-        let cookie = self.conn.unmap_window(window)?.check();
+        let cookie = self.conn.unmap_window(*window)?.check();
         if let Err(e) = cookie {
             error!("Could not unmap window {}: {}", window, e);
             Err(e.into())
@@ -401,13 +408,13 @@ impl XConn for X11RBConn<Initialized> {
             let atomval = self.atom(atom)?;
             let event = ClientMessageEvent {
                 window,
-                data: ClientMessageData::U32([atomval, 0, 0, 0, 0]),
+                data: ClientMessageData::U32([*atomval, 0, 0, 0, 0]),
                 type_: atomval,
             };
             self.send_client_message(window, event)
         } else {
             trace!("Destroying via the destroy window request");
-            self.conn.destroy_window(window)?.check()?;
+            self.conn.destroy_window(*window)?.check()?;
             Ok(())
         }
     }
@@ -424,22 +431,22 @@ impl XConn for X11RBConn<Initialized> {
             U32(dwords) => (32, XClientMessageData::from(dwords)),
         };
 
-        let event = xproto::ClientMessageEvent::new(format, window, data.type_, to_send);
+        let event = xproto::ClientMessageEvent::new(format, *window, *data.type_, to_send);
 
         Ok(self
             .conn
-            .send_event(false, window, EventMask::NO_EVENT, event)?
+            .send_event(false, *window, EventMask::NO_EVENT, event)?
             .check()?)
     }
 
-    #[allow(unused_must_use)]
-    fn set_input_focus(&self, window: XWindowID) {
+    fn set_input_focus(&self, window: XWindowID) -> Result<()> {
         trace!("Setting focus for window {}", window);
         self.conn.set_input_focus(
             xproto::InputFocus::POINTER_ROOT,
-            window,
+            *window,
             x11rb::CURRENT_TIME,
-        ); //?.check()?; //* FIXME: use the error
+        )?.check()?; //* FIXME: use the error
+        Ok(())
     }
 
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()> {
@@ -475,17 +482,17 @@ impl XConn for X11RBConn<Initialized> {
             Atom(atoms) => (
                 xproto::AtomEnum::ATOM,
                 32,
-                atoms.iter().map(|a| self.atom(a).unwrap_or(0)).collect(),
+                atoms.iter().map(|a| self.atom(a).unwrap_or(Xid(0))).collect(),
             ),
-            Cardinal(card) => (xproto::AtomEnum::CARDINAL, 32, vec![card]),
+            Cardinal(card) => (xproto::AtomEnum::CARDINAL, 32, vec![Xid(card)]),
             String(strs) | UTF8String(strs) => {
                 return {
                     let string = strs.join("\0");
                     self.conn
                         .change_property(
                             mode,
-                            window,
-                            prop,
+                            *window,
+                            *prop,
                             xproto::AtomEnum::STRING,
                             8, //format
                             string.as_bytes().len() as u32,
@@ -512,7 +519,7 @@ impl XConn for X11RBConn<Initialized> {
 
         let mut new_data = Vec::<u8>::with_capacity(data_len * 4);
         for dword in data {
-            new_data.write_u32::<LittleEndian>(dword)?;
+            new_data.write_u32::<LittleEndian>(*dword)?;
         }
 
         if new_data.len() % 4 != 0 {
@@ -521,7 +528,7 @@ impl XConn for X11RBConn<Initialized> {
 
         Ok(self
             .conn
-            .change_property(mode, window, prop, ty, format, data_len as u32, &new_data)?
+            .change_property(mode, *window, *prop, ty, format, data_len as u32, &new_data)?
             .check()?)
     }
 
@@ -539,7 +546,7 @@ impl XConn for X11RBConn<Initialized> {
         let attrs = super::convert::convert_cws(attrs);
         Ok(self
             .conn
-            .change_window_attributes(window, &attrs)?
+            .change_window_attributes(*window, &attrs)?
             .check()?)
     }
 
@@ -548,7 +555,7 @@ impl XConn for X11RBConn<Initialized> {
         for attr in attrs {
             let attr2 = attr.into();
             trace!("{:?}", attr2);
-            self.conn.configure_window(window, &attr2)?.check()?;
+            self.conn.configure_window(*window, &attr2)?.check()?;
         }
         Ok(())
     }
@@ -559,7 +566,7 @@ impl XConn for X11RBConn<Initialized> {
         Ok(self
             .conn
             .reparent_window(
-                window, parent, 0, 0, //* FIXME: placeholder values */ */
+                *window, *parent, 0, 0, //* FIXME: placeholder values */ */
             )?
             .check()?)
     }

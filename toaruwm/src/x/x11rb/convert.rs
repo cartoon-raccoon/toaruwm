@@ -10,7 +10,7 @@ use super::Initialized;
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::x::{
-    core::{Result, XError},
+    core::{Xid, Result, XError},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
     x11rb::X11RBConn,
@@ -113,7 +113,7 @@ impl X11RBConn<Initialized> {
         };
 
         Ok(MouseEvent {
-            id: ev.child,
+            id: Xid(ev.child),
             location: Point {
                 x: ev.root_x as i32,
                 y: ev.root_y as i32,
@@ -141,7 +141,7 @@ impl X11RBConn<Initialized> {
             });
 
         Ok(MouseEvent {
-            id: ev.child,
+            id: Xid(ev.child),
             location: Point {
                 x: ev.root_x as i32,
                 y: ev.root_y as i32,
@@ -174,11 +174,11 @@ impl From<&ClientConfig> for ConfigureWindowAux {
             StackingMode(sm) => {
                 let new = ConfigureWindowAux::new();
                 match sm {
-                    Above(sib) => new.stack_mode(StackMode::ABOVE).sibling(*sib),
-                    Below(sib) => new.stack_mode(StackMode::BELOW).sibling(*sib),
-                    TopIf(sib) => new.stack_mode(StackMode::TOP_IF).sibling(*sib),
-                    BottomIf(sib) => new.stack_mode(StackMode::BOTTOM_IF).sibling(*sib),
-                    Opposite(sib) => new.stack_mode(StackMode::OPPOSITE).sibling(*sib),
+                    Above(sib) => new.stack_mode(StackMode::ABOVE).sibling(sib.map(|s| s.val())),
+                    Below(sib) => new.stack_mode(StackMode::BELOW).sibling(sib.map(|s| s.val())),
+                    TopIf(sib) => new.stack_mode(StackMode::TOP_IF).sibling(sib.map(|s| s.val())),
+                    BottomIf(sib) => new.stack_mode(StackMode::BOTTOM_IF).sibling(sib.map(|s| s.val())),
+                    Opposite(sib) => new.stack_mode(StackMode::OPPOSITE).sibling(sib.map(|s| s.val())),
                 }
             }
         }

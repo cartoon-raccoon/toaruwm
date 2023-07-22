@@ -5,8 +5,12 @@
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use core::ops::{
+    BitAnd, BitAndAssign, BitOr, BitOrAssign, Not,
+    Deref, DerefMut,
+};
 use std::str::FromStr;
+use std::fmt::{self, Display};
 
 use thiserror::Error;
 use tracing::{debug, error, warn};
@@ -24,11 +28,71 @@ use crate::types::{ClientAttrs, ClientConfig, Geometry, XWinProperties};
 
 //* ========== X WINDOW THINGS ========== *//
 
-/// An X server ID for a given window.
-pub type XWindowID = u32;
+/// General constant for expressing None when passing X IDs.
+pub const XID_NONE: Xid = Xid::zero();
 
-/// An X Atom, an unsigned 32-bit integer.
-pub type XAtom = u32;
+/// Wrapper type to represent IDs used by the X server.
+/// 
+/// This is used by the server to identify all sorts
+/// of X window resources, including windows and atoms.
+/// 
+/// You can create an Xid from a `u32`:
+/// 
+/// ```rust
+/// use toaruwm::x::Xid;
+/// 
+/// let id = Xid::from(69);
+/// let val = id.val();
+/// 
+/// assert_eq!(val, 69);
+/// ```
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct Xid(pub(crate) u32);
+
+impl Xid {
+    /// Return an Xid set to 0.
+    pub const fn zero() -> Self {
+        Xid(0)
+    }
+
+    /// Returns the internal value of the Xid.
+    pub const fn val(&self) -> u32 {
+        self.0
+    }
+}
+
+impl From<u32> for Xid {
+    fn from(f: u32) -> Xid {
+        Xid(f)
+    }
+}
+
+impl Display for Xid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Xid({})", self.0)
+    }
+}
+
+impl Deref for Xid {
+    type Target = u32;
+
+    fn deref(&self) -> &u32 {
+        &self.0
+    }
+}
+
+impl DerefMut for Xid {
+    fn deref_mut(&mut self) -> &mut u32 {
+        &mut self.0
+    }
+}
+
+/// An X server ID for a given window.
+pub type XWindowID = Xid;
+
+/// An X Atom.
+pub type XAtom = Xid;
 
 /// A marker trait to signal that a type can be treated as a bitmask.
 ///
@@ -112,7 +176,7 @@ impl XWindow {
     /// Creates an `XWindow` with all fields zeroed.
     pub fn zeroed() -> Self {
         XWindow {
-            id: 0,
+            id: Xid(0),
             geom: Geometry::zeroed(),
         }
     }
@@ -304,10 +368,11 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// implementor of `XConn`.
 ///
 /// This crate provides two implementations of XConn: [XCBConn][2] and
-/// X11RBConn.
+/// [X11RBConn][3].
 ///
 /// [1]: crate::manager::WindowManager
 /// [2]: crate::x::xcb::XCBConn
+/// [3]: crate::x::x11rb::X11RBConn
 pub trait XConn {
     //* General X server operations
 
@@ -400,7 +465,7 @@ pub trait XConn {
     fn send_client_message(&self, window: XWindowID, data: ClientMessageEvent) -> Result<()>;
 
     /// Sets the input focus to a given window.
-    fn set_input_focus(&self, window: XWindowID);
+    fn set_input_focus(&self, window: XWindowID) -> Result<()>;
 
     /// Set the geometry for a given window.
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()>;
@@ -617,7 +682,7 @@ pub trait XConn {
             .ok()?;
 
         if let Some(Property::Window(ids)) = prop {
-            if ids[0] == 0 {
+            if ids[0] == Xid(0) {
                 warn!("Received window type but value is 0");
                 None
             } else {

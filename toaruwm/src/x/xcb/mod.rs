@@ -17,13 +17,13 @@ use std::fmt;
 
 use xcb::randr;
 use xcb::x;
-use xcb::{Xid, XidNew};
+use xcb::{Xid as XCBid, XidNew};
 
 use strum::*;
 
 use super::{
     atom::Atom,
-    core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Xid, Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureEvent, ConfigureRequestData, KeypressEvent,
@@ -203,7 +203,7 @@ impl<S: ConnStatus> XCBConn<S> {
         Ok(req_and_reply!(
             self.conn,
             &x::GetGeometry {
-                drawable: x::Drawable::Window(cast!(x::Window, window))
+                drawable: x::Drawable::Window(cast!(x::Window, *window))
             }
         )
         .map(|ok| Geometry {
@@ -256,7 +256,7 @@ impl<S: ConnStatus> XCBConn<S> {
         req_and_check!(
             self.conn,
             &x::ChangeWindowAttributes {
-                window: cast!(x::Window, window),
+                window: cast!(x::Window, *window),
                 value_list: &[x::Cw::Cursor(cursor)]
             }
         )?;
@@ -511,8 +511,8 @@ impl XCBConn<Initialized> {
             self.conn,
             &x::GetProperty {
                 delete: false,
-                window: cast!(x::Window, window),
-                property: cast!(x::Atom, prop),
+                window: cast!(x::Window, *window),
+                property: cast!(x::Atom, *prop),
                 r#type: x::ATOM_ANY,
                 // start at offset 0
                 long_offset: 0,

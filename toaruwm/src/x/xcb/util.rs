@@ -18,7 +18,7 @@ macro_rules! cast {
 /// A macro for extracting id from objects implementing `x::Xid`.
 macro_rules! id {
     ($e:expr) => {
-        $e.resource_id()
+        Xid($e.resource_id())
     };
 }
 

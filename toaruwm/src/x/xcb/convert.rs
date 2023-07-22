@@ -5,16 +5,20 @@ use std::convert::TryFrom;
 use strum::*;
 
 use xcb::x;
-use xcb::{Xid, XidNew};
+use xcb::{Xid as XCBid, XidNew, x::PropEl};
 
 use super::{id, cast, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
 use crate::x::{
-    core::{Result, XError},
+    core::{Xid, Result, XError},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
 };
+
+impl PropEl for Xid {
+    const FORMAT: u8 = 32;
+}
 
 //* mouse button and button index conversions
 #[doc(hidden)]
@@ -152,7 +156,7 @@ macro_rules! _add_sib_if_some {
     ($sib:expr, $mode:expr) => {
         if let Some(s) = $sib {
             vec![
-                x::ConfigWindow::Sibling(cast!(x::Window, *s)),
+                x::ConfigWindow::Sibling(cast!(x::Window, **s)),
                 x::ConfigWindow::StackMode($mode)
             ]
         } else {

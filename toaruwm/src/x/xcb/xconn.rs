@@ -2,7 +2,7 @@
 
 use xcb::randr;
 use xcb::x;
-use xcb::{Xid, XidNew};
+use xcb::{Xid as XCBid, XidNew};
 
 use tracing::instrument;
 use tracing::{error, warn};
@@ -13,7 +13,7 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Xid, PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -24,7 +24,10 @@ use super::XCBConn;
 
 impl XConn for XCBConn<Initialized> {
     // General X server operations
-    #[instrument(target = "xconn", level = "trace", skip(self))]
+    #[cfg_attr(
+        debug_assertions, 
+        instrument(target = "xconn", level = "trace", skip(self))
+    )]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
         self.conn.flush()?;
 
@@ -45,7 +48,7 @@ impl XConn for XCBConn<Initialized> {
         let res: x::QueryTreeReply = req_and_reply!(
             self.conn,
             &x::QueryTree {
-                window: cast!(x::Window, window)
+                window: cast!(x::Window, *window)
             } // get the reply and map its ok to grab its children
         )?;
         let ret = res.children().iter().map(|child| id!(child)).collect();
@@ -56,7 +59,7 @@ impl XConn for XCBConn<Initialized> {
         let reply = req_and_reply!(
             &self.conn,
             &x::QueryPointer {
-                window: cast!(x::Window, window)
+                window: cast!(x::Window, *window)
             }
         )?;
 
@@ -72,7 +75,9 @@ impl XConn for XCBConn<Initialized> {
         })
     }
 
-    #[instrument(target = "xconn", level = "trace", skip(self))]
+    #[cfg_attr(debug_assertions, 
+        instrument(target = "xconn", level = "trace", skip(self))
+    )]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
         let check_id = self.check_win()?;
         self.conn.flush()?;
@@ -80,13 +85,13 @@ impl XConn for XCBConn<Initialized> {
         let res = self
             .conn
             .wait_for_reply(self.conn.send_request(&randr::GetScreenResources {
-                window: cast!(x::Window, check_id),
+                window: cast!(x::Window, *check_id),
             }))?;
 
         let info = req_and_reply!(
             self.conn,
             &randr::GetScreenInfo {
-                window: cast!(x::Window, check_id)
+                window: cast!(x::Window, *check_id)
             }
         )?;
 
@@ -123,7 +128,7 @@ impl XConn for XCBConn<Initialized> {
         req_and_check!(
             self.conn,
             &x::DestroyWindow {
-                window: cast!(x::Window, check_id)
+                window: cast!(x::Window, *check_id)
             }
         )?;
 
@@ -156,7 +161,7 @@ impl XConn for XCBConn<Initialized> {
         let name = req_and_reply!(
             self.conn,
             &x::GetAtomName {
-                atom: cast!(x::Atom, atom)
+                atom: cast!(x::Atom, *atom)
             }
         )?
         .name()
@@ -217,7 +222,7 @@ impl XConn for XCBConn<Initialized> {
                 self.conn,
                 &x::GrabKey {
                     owner_events: false,
-                    grab_window: cast!(x::Window, window),
+                    grab_window: cast!(x::Window, *window),
                     modifiers: (kb.modmask | *m).into(),
                     key: kb.code,
                     pointer_mode: x::GrabMode::Async,
@@ -242,7 +247,7 @@ impl XConn for XCBConn<Initialized> {
             self.conn,
             &x::UngrabKey {
                 key: kb.code,
-                grab_window: cast!(x::Window, window),
+                grab_window: cast!(x::Window, *window),
                 modifiers: x::ModMask::from(kb.modmask),
             }
         )
@@ -263,12 +268,12 @@ impl XConn for XCBConn<Initialized> {
                 self.conn,
                 &x::GrabButton {
                     owner_events: false,
-                    grab_window: cast!(x::Window, window),
+                    grab_window: cast!(x::Window, *window),
                     event_mask: util::ROOT_BUTTON_GRAB_MASK,
                     pointer_mode: x::GrabMode::Async,
                     keyboard_mode: x::GrabMode::Async,
                     confine_to: if confine {
-                        cast!(x::Window, window)
+                        cast!(x::Window, *window)
                     } else {
                         x::Window::none()
                     },
@@ -295,7 +300,7 @@ impl XConn for XCBConn<Initialized> {
             self.conn,
             &x::UngrabButton {
                 button: mb.button.into(),
-                grab_window: cast!(x::Window, window),
+                grab_window: cast!(x::Window, *window),
                 modifiers: mb.modmask(),
             }
         )
@@ -314,7 +319,7 @@ impl XConn for XCBConn<Initialized> {
             self.conn,
             &x::GrabPointer {
                 owner_events: false,
-                grab_window: cast!(x::Window, winid),
+                grab_window: cast!(x::Window, *winid),
                 event_mask: util::ROOT_POINTER_GRAB_MASK,
                 pointer_mode: x::GrabMode::Async,
                 keyboard_mode: x::GrabMode::Async,
@@ -399,7 +404,7 @@ impl XConn for XCBConn<Initialized> {
             &x::CreateWindow {
                 depth,
                 wid,
-                parent: cast!(x::Window, self.root.id),
+                parent: cast!(x::Window, *self.root.id),
                 x: geom.x as i16,
                 y: geom.y as i16,
                 width: geom.width as u16,
@@ -428,7 +433,7 @@ impl XConn for XCBConn<Initialized> {
         let cookie = req_and_check!(
             self.conn,
             &x::MapWindow {
-                window: cast!(x::Window, window)
+                window: cast!(x::Window, *window)
             }
         );
         if let Err(e) = cookie {
@@ -445,7 +450,7 @@ impl XConn for XCBConn<Initialized> {
         let cookie = req_and_check!(
             self.conn,
             &x::UnmapWindow {
-                window: cast!(x::Window, window)
+                window: cast!(x::Window, *window)
             }
         );
         if let Err(e) = cookie {
@@ -463,7 +468,7 @@ impl XConn for XCBConn<Initialized> {
             trace!("Destroying via ICCCM WM_DELETE_WINDOW");
             let event = ClientMessageEvent {
                 window,
-                data: ClientMessageData::U32([atomval, 0, 0, 0, 0]),
+                data: ClientMessageData::U32([*atomval, 0, 0, 0, 0]),
                 type_: atomval,
             };
             return self.send_client_message(window, event);
@@ -472,7 +477,7 @@ impl XConn for XCBConn<Initialized> {
             req_and_check!(
                 self.conn,
                 &x::DestroyWindow {
-                    window: cast!(x::Window, window)
+                    window: cast!(x::Window, *window)
                 }
             )?;
         }
@@ -491,8 +496,8 @@ impl XConn for XCBConn<Initialized> {
         };
 
         let event = x::ClientMessageEvent::new(
-            cast!(x::Window, window),
-            cast!(x::Atom, data.type_),
+            cast!(x::Window, *window),
+            cast!(x::Atom, *data.type_),
             to_send,
         );
 
@@ -500,24 +505,23 @@ impl XConn for XCBConn<Initialized> {
             self.conn,
             &x::SendEvent {
                 propagate: false,
-                destination: x::SendEventDest::Window(cast!(x::Window, window)),
+                destination: x::SendEventDest::Window(cast!(x::Window, *window)),
                 event_mask: x::EventMask::NO_EVENT,
                 event: &event,
             }
         )?)
     }
 
-    #[allow(unused_must_use)]
-    fn set_input_focus(&self, window: XWindowID) {
+    fn set_input_focus(&self, window: XWindowID) -> Result<()> {
         trace!("Setting focus for window {}", window);
-        req_and_check!(
+        Ok(req_and_check!(
             self.conn,
             &x::SetInputFocus {
                 revert_to: x::InputFocus::PointerRoot,
-                focus: cast!(x::Window, window),
+                focus: cast!(x::Window, *window),
                 time: x::CURRENT_TIME
             }
-        ); //* FIXME: use the error
+        )?) //* FIXME: use the error
     }
 
     fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()> {
@@ -546,19 +550,19 @@ impl XConn for XCBConn<Initialized> {
         let mode = x::PropMode::Replace;
         let atom = self.atom(prop)?;
 
-        let (ty, data) = match data {
+        let (ty, data): (x::Atom, Vec<Xid>) = match data {
             Atom(atoms) => (
                 x::ATOM_ATOM,
-                atoms.iter().map(|a| self.atom(a).unwrap_or(0)).collect(),
+                atoms.iter().map(|a| self.atom(a).unwrap_or(Xid(0))).collect(),
             ),
-            Cardinal(card) => (x::ATOM_CARDINAL, vec![card]),
+            Cardinal(card) => (x::ATOM_CARDINAL, vec![Xid(card)]),
             String(strs) | UTF8String(strs) => {
                 return Ok(req_and_check!(
                     self.conn,
                     &x::ChangeProperty {
                         mode,
-                        window: cast!(x::Window, window),
-                        property: cast!(x::Atom, atom),
+                        window: cast!(x::Window, *window),
+                        property: cast!(x::Atom, *atom),
                         r#type: x::ATOM_STRING,
                         data: strs.join("\0").as_bytes()
                     }
@@ -581,10 +585,10 @@ impl XConn for XCBConn<Initialized> {
             self.conn,
             &x::ChangeProperty {
                 mode,
-                window: cast!(x::Window, window),
-                property: cast!(x::Atom, atom),
+                window: cast!(x::Window, *window),
+                property: cast!(x::Atom, *atom),
                 r#type: ty,
-                data: &data
+                data: &(data.iter().map(|v| **v).collect::<Vec<u32>>())
             }
         )?)
     }
@@ -605,7 +609,7 @@ impl XConn for XCBConn<Initialized> {
         req_and_check!(
             self.conn,
             &x::ChangeWindowAttributes {
-                window: cast!(x::Window, window),
+                window: cast!(x::Window, *window),
                 value_list: &attrs
             }
         )?;
@@ -621,7 +625,7 @@ impl XConn for XCBConn<Initialized> {
             req_and_check!(
                 self.conn,
                 &x::ConfigureWindow {
-                    window: cast!(x::Window, window),
+                    window: cast!(x::Window, *window),
                     value_list: &attr2
                 }
             )?
@@ -635,8 +639,8 @@ impl XConn for XCBConn<Initialized> {
         Ok(req_and_check!(
             self.conn,
             &x::ReparentWindow {
-                window: cast!(x::Window, window),
-                parent: cast!(x::Window, parent),
+                window: cast!(x::Window, *window),
+                parent: cast!(x::Window, *parent),
                 x: 0,
                 y: 0 //* FIXME: placeholder values */ */
             }

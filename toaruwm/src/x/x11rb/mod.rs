@@ -18,7 +18,7 @@ use strum::*;
 
 use super::{
     atom::Atom,
-    core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Xid, Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
     cursor,
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureEvent, ConfigureRequestData, KeypressEvent,
@@ -68,7 +68,7 @@ pub struct X11RBConn<S: ConnStatus> {
     idx: usize,
     randr_base: u8,
     atoms: RefCell<Atoms>, // wrap in RefCell for interior mutability
-    cursor: u32,
+    cursor: Xid,
     mousemode: Cell<Option<ButtonIndex>>, // ditto
     _marker: PhantomData<S>,
 }
@@ -90,7 +90,7 @@ impl X11RBConn<Uninitialized> {
             idx,
             randr_base: 0,
             atoms,
-            cursor: 0,
+            cursor: Xid(0),
             mousemode: Cell::new(None),
             _marker: PhantomData,
         })
@@ -129,8 +129,8 @@ impl X11RBConn<Uninitialized> {
         let root = match self.conn.setup().roots.get(self.idx) {
             Some(screen) => {
                 let id = screen.root;
-                let geom = self.get_geometry_inner(id)?;
-                XWindow::with_data(id, geom)
+                let geom = self.get_geometry_inner(Xid(id))?;
+                XWindow::with_data(Xid(id), geom)
             }
             None => return Err(XError::NoScreens),
         };
@@ -163,7 +163,7 @@ impl X11RBConn<Uninitialized> {
 
         // then get replies
         for (name, cookie) in atomvec {
-            atoms.insert(&name, cookie.reply()?.atom);
+            atoms.insert(&name, Xid(cookie.reply()?.atom));
         }
 
         // initialize cursor and set it for the root screen
@@ -189,7 +189,7 @@ impl<S: ConnStatus> X11RBConn<S> {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply
-        Ok(self.conn.get_geometry(window)?.reply().map(|ok| Geometry {
+        Ok(self.conn.get_geometry(*window)?.reply().map(|ok| Geometry {
             // map the ok result into a Geometry
             x: ok.x as i32,
             y: ok.y as i32,
@@ -198,16 +198,16 @@ impl<S: ConnStatus> X11RBConn<S> {
         })?)
     }
     #[inline]
-    pub(crate) fn create_cursor_inner(&mut self, glyph: u16) -> Result<u32> {
+    pub(crate) fn create_cursor_inner(&mut self, glyph: u16) -> Result<Xid> {
         trace!("creating cursor");
 
         let fid = self.conn.generate_id()?;
         self.conn.open_font(fid, "cursor".as_bytes())?.check()?;
 
-        let cid = self.conn.generate_id()?;
+        let cid = Xid(self.conn.generate_id()?);
         self.conn
             .create_glyph_cursor(
-                cid,
+                *cid,
                 fid,
                 fid,
                 glyph,
@@ -224,13 +224,13 @@ impl<S: ConnStatus> X11RBConn<S> {
         Ok(cid)
     }
     #[inline]
-    pub(crate) fn set_cursor_inner(&self, window: XWindowID, cursor: u32) -> Result<()> {
+    pub(crate) fn set_cursor_inner(&self, window: XWindowID, cursor: Xid) -> Result<()> {
         use x11rb::protocol::xproto::ChangeWindowAttributesAux;
 
         trace!("setting cursor for {}", window);
 
         self.conn
-            .change_window_attributes(window, &ChangeWindowAttributesAux::new().cursor(cursor))?
+            .change_window_attributes(*window, &ChangeWindowAttributesAux::new().cursor(*cursor))?
             .check()?;
 
         Ok(())
@@ -311,23 +311,23 @@ impl X11RBConn<Initialized> {
 
             //* Core X protocol events
             Event::ConfigureNotify(event) => Ok(XEvent::ConfigureNotify(ConfigureEvent {
-                from_root: event.event == self.root.id,
-                id: event.window,
+                from_root: event.event == *self.root.id,
+                id: Xid(event.window),
                 geom: Geometry {
                     x: event.x as i32,
                     y: event.y as i32,
                     height: event.height as i32,
                     width: event.width as i32,
                 },
-                is_root: event.window == self.root.id,
+                is_root: event.window == *self.root.id,
             })),
             Event::ConfigureRequest(req) => {
                 use xproto::{ConfigWindow as CWMask, StackMode as XStackMode};
                 use StackMode::*;
 
                 // extract window ids
-                let id = req.window;
-                let parent = req.parent;
+                let id = Xid(req.window);
+                let parent = Xid(req.parent);
                 let is_root = id == self.root.id;
                 if parent == self.root.id {
                     trace!("Top level window configuration request");
@@ -357,7 +357,7 @@ impl X11RBConn<Initialized> {
                 };
                 let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
                     let sib = if req.sibling != x11rb::NONE {
-                        Some(req.sibling)
+                        Some(Xid(req.sibling))
                     } else { None };
                     match req.stack_mode {
                         XStackMode::ABOVE => Some(Above(sib)),
@@ -371,7 +371,7 @@ impl X11RBConn<Initialized> {
                     None
                 };
                 let sibling = if vmask.contains(CWMask::SIBLING) {
-                    Some(req.sibling)
+                    Some(Xid(req.sibling))
                 } else {
                     None
                 };
@@ -395,20 +395,20 @@ impl X11RBConn<Initialized> {
                     .reply()?
                     .override_redirect;
 
-                Ok(XEvent::MapRequest(req.window, override_redirect))
+                Ok(XEvent::MapRequest(Xid(req.window), override_redirect))
             }
             Event::MapNotify(event) => {
-                Ok(XEvent::MapNotify(event.window, event.event == self.root.id))
+                Ok(XEvent::MapNotify(Xid(event.window), event.event == *self.root.id))
             }
             Event::UnmapNotify(event) => Ok(XEvent::UnmapNotify(
-                event.window,
-                event.event == self.root.id,
+                Xid(event.window),
+                event.event == *self.root.id,
             )),
-            Event::DestroyNotify(event) => Ok(XEvent::DestroyNotify(event.window)),
+            Event::DestroyNotify(event) => Ok(XEvent::DestroyNotify(Xid(event.window))),
             Event::EnterNotify(event) => {
                 let grab = event.mode == xproto::NotifyMode::GRAB;
 
-                let id = event.event;
+                let id = Xid(event.event);
                 let abs = Point::new(event.root_x as i32, event.root_y as i32);
                 let rel = Point::new(event.event_x as i32, event.event_y as i32);
 
@@ -419,7 +419,7 @@ impl X11RBConn<Initialized> {
             Event::LeaveNotify(event) => {
                 let grab = event.mode == xproto::NotifyMode::GRAB;
 
-                let id = event.event;
+                let id = Xid(event.event);
                 let abs = Point::new(event.root_x as i32, event.root_y as i32);
                 let rel = Point::new(event.event_x as i32, event.event_y as i32);
 
@@ -428,14 +428,14 @@ impl X11RBConn<Initialized> {
                 Ok(XEvent::LeaveNotify(ptrev, grab))
             }
             Event::ReparentNotify(event) => Ok(XEvent::ReparentNotify(ReparentEvent {
-                from_root: event.event == self.root.id,
-                parent: event.parent,
-                child: event.window,
+                from_root: event.event == *self.root.id,
+                parent: Xid(event.parent),
+                child: Xid(event.window),
                 over_red: event.override_redirect,
             })),
             Event::PropertyNotify(event) => Ok(XEvent::PropertyNotify(PropertyEvent {
-                id: event.window,
-                atom: event.atom,
+                id: Xid(event.window),
+                atom: Xid(event.atom),
                 time: event.time,
                 deleted: event.state == xproto::Property::DELETE,
             })),
@@ -444,7 +444,7 @@ impl X11RBConn<Initialized> {
                 // filter out mod2
                 mask.remove(KeyButMask::from(xproto::KeyButMask::MOD2));
                 Ok(XEvent::KeyPress(
-                    event.child,
+                    Xid(event.child),
                     KeypressEvent {
                         mask: mask.modmask(),
                         keycode: event.detail,
@@ -458,9 +458,9 @@ impl X11RBConn<Initialized> {
             }
             Event::MotionNotify(event) => Ok(XEvent::MouseEvent(self.do_mouse_motion(event)?)),
             Event::ClientMessage(event) => Ok(XEvent::ClientMessage(ClientMessageEvent {
-                window: event.window,
+                window: Xid(event.window),
                 data: ClientMessageData::from(&event),
-                type_: event.type_,
+                type_: Xid(event.type_),
             })),
             unk => Ok(XEvent::Unknown(format!("{:?}", unk))),
         }
@@ -471,8 +471,8 @@ impl X11RBConn<Initialized> {
             .conn
             .get_property(
                 false,
-                window,
-                prop,
+                *window,
+                *prop,
                 xproto::AtomEnum::ANY,
                 // start at offset 0
                 0,
@@ -486,14 +486,14 @@ impl X11RBConn<Initialized> {
             return Ok(None);
         }
 
-        let prop_type = self.lookup_atom(r.type_)?;
+        let prop_type = self.lookup_atom(Xid(r.type_))?;
         trace!("got prop_type {}", prop_type);
 
         Ok(match prop_type.as_str() {
             "ATOM" => Some(Property::Atom({
                 r.value32()
                     .unwrap()
-                    .map(|a| self.lookup_atom(a).unwrap_or_else(|_| "".into()))
+                    .map(|a| self.lookup_atom(Xid(a)).unwrap_or_else(|_| "".into()))
                     .collect()
             })),
             "CARDINAL" => Some(Property::Cardinal(r.value32().unwrap().next().unwrap())),
@@ -511,7 +511,8 @@ impl X11RBConn<Initialized> {
                     .map(|a| a.to_string())
                     .collect(),
             )),
-            "WINDOW" => Some(Property::Window(r.value32().unwrap().collect())),
+            "WINDOW" => Some(Property::Window(r.value32()
+                .unwrap().map(|v| Xid(v)).collect())),
             "WM_HINTS" => Some(Property::WMHints(WmHints::try_from_bytes(
                 &r.value32()
                     .ok_or(XError::ConversionError)?
