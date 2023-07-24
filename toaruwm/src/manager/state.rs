@@ -65,6 +65,12 @@ pub trait RuntimeConfig {
     /// Return information about the window border thickness.
     fn border_px(&self) -> u32;
 
+    /// Return information about the gaps between windows.
+    fn window_gap(&self) -> u32;
+
+    /// Return whether the focus should follow the pointer.
+    fn focus_follows_ptr(&self) -> bool;
+
     /// Return information about unfocused window border color.
     fn unfocused(&self) -> Color;
 
@@ -117,6 +123,8 @@ pub trait RuntimeConfig {
 pub struct WmConfig {
     pub(crate) float_classes: Vec<String>,
     pub(crate) border_px: u32,
+    pub(crate) window_gap: u32,
+    pub(crate) focus_follows_ptr: bool,
     pub(crate) unfocused: Color,
     pub(crate) focused: Color,
     pub(crate) urgent: Color,
@@ -130,6 +138,14 @@ impl RuntimeConfig for WmConfig {
 
     fn border_px(&self) -> u32 {
         self.border_px
+    }
+
+    fn window_gap(&self) -> u32 {
+        self.window_gap
+    }
+
+    fn focus_follows_ptr(&self) -> bool {
+        self.focus_follows_ptr
     }
 
     fn unfocused(&self) -> Color {

@@ -54,6 +54,9 @@ use crate::{Result, ToaruError::*};
 /// - *Float Classes*: the set of window classes that the window
 /// manager will not place under layout.
 /// - *Border Pixel*: The thickness of the window border.
+/// - *Window Gaps*: The gaps between windows.
+/// - *Focus Follows Pointer* Whether the focused window should follow the
+/// pointer's position on the screen.
 /// - *Unfocused*: The border color of unfocused windows.
 /// - *Focused*: The border color of focused windows.
 /// - *Urgent*: The border color of focused windows.
@@ -125,6 +128,10 @@ pub struct ToaruConfig {
     pub(crate) float_classes: Vec<String>,
     /// The width of the window border.
     pub(crate) border_px: u32,
+    /// The gap between windows.
+    pub(crate) window_gap: u32,
+    /// Whether or not the window focus should follow the pointer.
+    pub(crate) focus_follows_ptr: bool,
     /// The color to apply to the borders of an unfocused window.
     pub(crate) unfocused: Color,
     /// The color to apply to the borders of a focused window.
@@ -308,6 +315,8 @@ impl Config for ToaruConfig {
         WmConfig {
             float_classes: self.float_classes,
             border_px: self.border_px,
+            window_gap: self.window_gap,
+            focus_follows_ptr: self.focus_follows_ptr,
             unfocused: self.unfocused,
             focused: self.focused,
             urgent: self.urgent,
@@ -331,12 +340,13 @@ impl Default for ToaruConfig {
             ],
             float_classes: Vec::new(),
             border_px: 2,
+            window_gap: 0,
+            focus_follows_ptr: true,
             unfocused: Color::from(0x555555),
             focused: Color::from(0xdddddd),
             urgent: Color::from(0xee0000),
             keys: {
                 let mut keys = HashMap::new();
-                keys.insert("gap_px".into(), Box::new(0u32) as Box<dyn Any>);
                 keys.insert("main_ratio_inc".into(), Box::new(0.05f32) as Box<dyn Any>);
 
                 keys
@@ -390,6 +400,18 @@ impl ToaruConfigBuilder {
     /// Sets the border thickness, in pixels.
     pub fn border_px(mut self, border_px: u32) -> Self {
         self.inner.border_px = border_px;
+        self
+    }
+
+    /// Sets the gap between windows.
+    pub fn window_gap(mut self, window_gap: u32) -> Self {
+        self.inner.window_gap = window_gap;
+        self
+    }
+
+    /// Sets whether the focus should follow the pointer.
+    pub fn focus_follows_ptr(mut self, focus_follows_ptr: bool) -> Self {
+        self.inner.focus_follows_ptr = focus_follows_ptr;
         self
     }
 
