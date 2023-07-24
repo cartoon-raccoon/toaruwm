@@ -230,20 +230,12 @@ impl<T> Ring<T> {
 
     /// Returns a reference to the focused element.
     pub fn focused(&self) -> Option<&T> {
-        if let Some(i) = self.focused {
-            return self.get(i);
-        }
-
-        None
+        self.focused.and_then(|idx| self.get(idx))
     }
 
     /// Returns a mutable reference to the focused element.
     pub fn focused_mut(&mut self) -> Option<&mut T> {
-        if let Some(i) = self.focused {
-            return self.get_mut(i);
-        }
-
-        None
+        self.focused.and_then(|idx| self.get_mut(idx))
     }
 
     /// Pushes an element to the front of the Ring.
