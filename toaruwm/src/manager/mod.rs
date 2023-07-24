@@ -405,6 +405,12 @@ where
         }
     }
 
+    /// Starts an external command and maintains a handle to it.
+    #[allow(unused_variables)]
+    pub fn start_external<S: AsRef<OsStr>>(&mut self, cmd: S, args: &[S]) {
+        todo!()
+    }
+
     /// Provides a WMState for introspection.
     pub fn state(&self) -> WmState<'_, X, C> {
         WmState {
@@ -681,7 +687,9 @@ where
         Ok(EventAction::from_xevent(event, self.state()))
     }
 
-    #[instrument(level = "debug", skip(self, actions, mousebinds, keybinds))]
+    #[cfg_attr(debug_assertions, 
+        instrument(level = "debug", skip(self, actions, mousebinds, keybinds))
+    )]
     fn handle_event(
         &mut self,
         actions: Vec<EventAction>,
@@ -704,7 +712,7 @@ where
                 ConfigureClient(data) => self.configure_client(data)?,
                 ClientToWorkspace(id, idx) => self.client_to_workspace(id, idx)?,
                 RunKeybind(kb, id) => self.run_keybind(kb, keybinds, id),
-                RunMousebind(mb, id, pt) => self.run_mousebind(mb, mousebinds, id, pt),
+                RunMousebind(mb, id, pt) => self.run_mousebind(mb, mousebinds, id, pt)?,
                 ToggleClientFullscreen(id, should_fs) => self.set_fullscreen(id, should_fs)?,
                 ToggleUrgency(id) => self.toggle_urgency(id)?,
                 HandleError(err, evt) => self.handle_error(err, evt),
@@ -861,21 +869,17 @@ where
         bdgs: &mut Mousebinds<X, C>,
         id: XWindowID,
         pt: Point,
-    ) {
+    ) -> Result<()> {
         match mb.kind {
             // assume that we want to do something with the pointer,
             // so grab it
             MouseEventKind::Press => {
-                self.conn
-                    .grab_pointer(self.root.id, 0)
-                    .unwrap_or_else(|e| error!("{}", e));
+                self.conn.grab_pointer(self.root.id, 0)?;
                 self.selected = Some(id);
                 self.last_mouse_pos = pt;
             }
             MouseEventKind::Release => {
-                self.conn
-                    .ungrab_pointer()
-                    .unwrap_or_else(|e| error!("{}", e));
+                self.conn.ungrab_pointer()?;
                 self.selected = None;
                 self.last_mouse_pos = pt;
             }
@@ -887,6 +891,7 @@ where
         } else {
             warn!("Binding not found for mouse event");
         }
+        Ok(())
     }
 
     fn set_fullscreen(&mut self, _id: XWindowID, _should_fullscreen: bool) -> Result<()> {
