@@ -58,7 +58,15 @@ pub enum Selector<'a, T> {
 /// An internal data structure to manage items as a ring buffer.
 ///
 /// Provides an interface where the data is a ring of items,
-/// with a single item in focus.
+/// with a single item in focus. This focus can be cycled backwards
+/// and forwards without changing the underlying sequence of items 
+/// in the Ring. The Ring can also be rotated to change its sequence
+/// of items, and the focus will still point to the same item.
+/// 
+/// # Helper Types
+/// 
+/// Rings make use of a few helper types for insert/removal/selection
+/// operations. These types are the [`InsertPoint`] and [`Selector`].
 /// 
 /// # Guarantees
 /// 
@@ -291,9 +299,12 @@ impl<T> Ring<T> {
     /// 
     /// Is a no-op if `from` is out of bounds.
     pub fn move_to(&mut self, from: usize, to: usize) {
-        if let Some(item) = self.remove(from) {
-            self.insert(InsertPoint::Index(to), item);
-        }
+        // try to remove
+        self.remove(from)
+            // if remove works, carry on and try to insert
+            .and_then(|item| self.insert(InsertPoint::Index(to), item))
+            // if insert still returns something, just append and return nothing
+            .and_then(|fail| {self.append(fail); None::<()>});
     }
 
     /// Removes an element from the Ring at `idx`, returning it if
@@ -365,6 +376,10 @@ impl<T> Ring<T> {
     /// item becomes the focus, replacing whatever was in focus, which
     /// gets slid up by 1.
     /// 
+    /// If the item cannot be inserted (i.e. because the given
+    /// index was out of bounds), `Some(item)` is returned, else
+    /// `None` is returned.
+    /// 
     /// # Example
     /// 
     /// ```rust
@@ -387,13 +402,13 @@ impl<T> Ring<T> {
     /// //      ^
     /// assert_eq!(*ring.focused().expect("no focus"), 69);
     /// ```
-    pub fn insert(&mut self, point: InsertPoint, item: T) {
+    pub fn insert(&mut self, point: InsertPoint, item: T) -> Option<T> {
         use Direction::*;
         use InsertPoint::*;
 
         if self.is_empty() {
             self.push(item);
-            return
+            return None
         }
 
         debug_assert!(self.focused.is_some());
@@ -402,8 +417,14 @@ impl<T> Ring<T> {
         match point {
             Index(idx) => {
                 if !self.is_in_bounds(idx) {
-                    /* fail silently */
-                    return
+                    if idx == self.len() {
+                        // if we are off by one, just append
+                        self.append(item);
+                        return None
+                    } else {
+                        // if we are truly out of bounds, return
+                        return Some(item)
+                    }
                 }
                 self.items.insert(idx, item);
                 if idx <= f_idx {
@@ -414,33 +435,39 @@ impl<T> Ring<T> {
                     debug_assert!(self.is_in_bounds(f_idx + 1));
                     self.set_focused(f_idx + 1);
                 }
+                None
             }
             Focused => {
                 self.items.insert(f_idx, item);
                 /* don't change the focus idx, since this
                 now replaces the previous focus */
+                None
             }
             AfterFocused => { // we must preserve the focus here
                 debug_assert!(self.is_in_bounds(f_idx));
                 if self.would_wrap(Forward) {
                     self.append(item);
+                    None
                 } else {
-                    self.insert(InsertPoint::Index(f_idx + 1), item);
+                    self.insert(InsertPoint::Index(f_idx + 1), item)
                 }
             }
             BeforeFocused => { // we must preserve the focus here
                 debug_assert!(self.is_in_bounds(f_idx));
                 if self.would_wrap(Backward) {
                     self.push(item);
+                    None
                 } else {
-                    self.insert(InsertPoint::Index(f_idx - 1), item);
+                    self.insert(InsertPoint::Index(f_idx - 1), item)
                 }
             }
             First => {
                 self.push(item);
+                None
             }
             Last => {
                 self.append(item);
+                None
             }
         }
     }
