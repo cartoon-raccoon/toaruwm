@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 
 use strum::*;
 
+use thiserror::Error;
 use custom_debug_derive::Debug;
 
 use crate::manager::{RuntimeConfig, WindowManager};
@@ -14,8 +15,7 @@ use crate::x::{
     event::KeypressEvent,
     input::{KeyCode, ModMask},
 };
-use crate::{Result, ToaruError};
-
+use crate::ToaruError;
 pub use crate::x::input::MouseEventKind;
 
 /// A type representing a modifier key tied to a certain keybind.
@@ -157,7 +157,10 @@ impl Keymap {
             assert_eq!(tokens[0], "keycode");
             assert_eq!(tokens[2], "=");
 
-            let keycode = tokens[1].parse::<u8>()?;
+            let keycode = tokens[1].parse::<u8>()
+                .map_err(|e| BindingError::KeymapError(
+                    format!("error while constructing keymap: {}", e)
+                ))?;
             let keysyms: Vec<String> = if tokens.len() > 3 {
                 tokens[3..].iter().map(|s| s.to_string()).collect()
             } else {
@@ -181,7 +184,10 @@ impl Keymap {
     /// Meta = M,
     pub fn parse_keybinding(&self, kb: &str) -> Result<Keybind> {
         let mut modifiers: Vec<ModKey> = Vec::new();
-        let mut code = None;
+
+        /* if None, we know that no keycode was specified,
+        which is an error */
+        let mut code: Option<::core::result::Result<u8, &str>> = None;
         for token in kb.split('-') {
             match token {
                 "C" => {
@@ -197,19 +203,36 @@ impl Keymap {
                     modifiers.push(ModKey::Meta);
                 }
                 n => {
-                    code = self.lookup_key(n);
+                    code = Some(self.lookup_key(n).ok_or(n));
                 }
             }
         }
 
-        if let Some(code) = code {
-            Ok(Keybind {
-                modmask: modifiers.into(),
-                code,
-            })
-        } else {
-            Err(ToaruError::ParseKeybind(kb.into()))
+        if code.is_none() {
+            return Err(BindingError::InvalidKeybind(
+                format!(
+                    "error while parsing keybind `{}`: missing key",
+                    kb
+                )
+            ))
         }
+
+        let code = code.unwrap();
+
+        code.map(|c| Keybind {
+            modmask: modifiers.into(),
+            code: c
+        }).map_err(|e| BindingError::InvalidKeybind(
+            format!(
+                "Error while parsing keybind `{}` no such key {}", 
+                kb, e
+            )
+        ))
+    }
+
+    /// Generates a specification string from a given keybind.
+    pub fn generate_spec(&self, _: Keybind) -> Result<String> {
+        todo!()
     }
 
     fn lookup_key(&self, s: &str) -> Option<KeyCode> {
@@ -222,6 +245,35 @@ impl Keymap {
     }
 }
 
+/// A result type for bindings.
+pub type Result<T> = ::core::result::Result<T, BindingError>;
+
+/// An error raised processing keybinds.
+#[derive(Debug, Clone, Error)]
+pub enum BindingError {
+    /// An error occurred while constructing a keymap.
+    #[error("{0}")]
+    KeymapError(String),
+    /// A keybind specification was invalid for some reason.
+    #[error("{0}")]
+    InvalidKeybind(String),
+}
+
+impl From<BindingError> for ToaruError {
+    fn from(f: BindingError) -> ToaruError {
+        ToaruError::Bindings(f)
+    }
+}
+
+use std::io;
+
+#[doc(hidden)]
+impl From<io::Error> for BindingError {
+    fn from(f: io::Error) -> BindingError {
+        BindingError::KeymapError(f.to_string())
+    }
+}
+
 // macro_rules! _impl_bindings {
 //     ($inner:expr, $bind:ty) => {
 
@@ -229,20 +281,26 @@ impl Keymap {
 // }
 
 //todo
-/// An ergonomic wrapper for creating a [`Keybind`].
+/// An ergonomic wrapper for creating a [`Keybinds`].
 #[macro_export]
-macro_rules! keybind {
-    () => {};
+macro_rules! keybinds {
+    ($($kb:expr => |$wm:ident| {$($code:stmt)*}),*) => {{
+        let mut kbs: Keybinds<_, _> = Keybinds::new();
+
+        $(
+            kbs.insert(expr, |$wm| {$($code)*});
+        )*
+
+        kbs
+    }};
 }
 
 //todo
-/// An ergonomic wrapper for creating a [`Mousebind`].
+/// An ergonomic wrapper for creating a [`Mousebinds`].
 #[macro_export]
-macro_rules! mousebind {
+macro_rules! mousebinds {
     () => {};
 }
-
-//todo: create a macro for tying everything together.
 
 /// A function is run when a keybind is invoked.
 pub type KeyCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;

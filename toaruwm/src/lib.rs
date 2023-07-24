@@ -133,13 +133,13 @@
 //! personal configuration.
 //! 
 //! Of course, you are still free to use your own bars such as Polybar:
-//! ToaruWM is planned to have full support for [EWMH], which are what
+//! ToaruWM is planned to have support for [EWMH], which are what
 //! makes window managers aware of things like bars and fullscreen,
 //! and account for them accordingly.
 //!
 //! ## Compliance
 //!
-//! ToaruWM is (planned to be) fully compliant with EWMH, and
+//! ToaruWM is (planned to be) mostly compliant with EWMH, and
 //! with most sections of the [ICCCM], particularly the ones that 
 //! were deemed most important for interoperability with various 
 //! X clients, such as notification daemons, pop-up windows, 
@@ -186,9 +186,9 @@ pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
 use crate::manager::state::{RuntimeConfig, WmConfig};
 use crate::x::Initialized;
+use crate::bindings::BindingError;
 
 use std::io;
-use std::num::ParseIntError;
 
 /// Convenience type definition for a WindowManager
 /// using a WmConfig as its RuntimeConfig.
@@ -237,13 +237,9 @@ pub enum ToaruError {
     #[error("Error while running program: {0}")]
     SpawnProc(String),
 
-    /// Unable to parse an X data type into a type known to ToaruWM.
-    #[error("Could not parse X data type from integer")]
-    ParseInt,
-
-    /// An error occurred when parsing a keybind specification.
-    #[error("Could not parse keybind \"{0}\"")]
-    ParseKeybind(String),
+    /// An error occurred while parsing keybinds.
+    #[error(transparent)]
+    Bindings(BindingError),
 
     /// Unable to convert external data into an internal Toaru datatype.
     #[error("Could not convert external data type for internal use")]
@@ -274,11 +270,50 @@ pub enum ToaruError {
     OtherError(String),
 }
 
-//todo
+//todo: example
 /// Quickly construct a ToaruError.
 #[macro_export]
-macro_rules! error {
-    () => {};
+macro_rules! toaruerr {
+    // XConnError
+    (xconn: $t:expr) => {
+        ToaruError::XConnError($t)
+    };
+    // SpawnProc
+    (spawn: $t:expr) => {
+        ToaruError::SpawnProc($t)
+    };
+    // ParseKeybind
+    (bindings: $t:expr) => {
+        ToaruError::Bindings($t)
+    };
+    // ConversionError
+    (converr: $t:expr) => {
+        ToaruError::ConversionError
+    };
+    // UnknownClient
+    (unknowncl: $t:expr) => {
+        ToaruError::UnknownClient($t)
+    };
+    // UnknownWorkspace
+    (unknownws: $t:expr) => {
+        ToaruError::UnknownWorkspace($t)
+    };
+    // InvalidPoint
+    (invalidpt: $x:expr, $y:expr) => {
+        ToaruError::InvalidPoint($x, $y)
+    };
+    // LayoutConflict
+    (layoutcf: $t:expr) => {
+        ToaruError::LayoutConflict($t)
+    };
+    // InvalidConfig
+    (invalidcfg: $t:expr) => {
+        ToaruError::InvalidConfig($t)
+    };
+    // OtherError
+    (other: $t:expr) => {
+        ToaruError::OtherError($t)
+    };
 }
 
 impl From<XError> for ToaruError {
@@ -290,12 +325,6 @@ impl From<XError> for ToaruError {
 impl From<io::Error> for ToaruError {
     fn from(e: io::Error) -> ToaruError {
         ToaruError::SpawnProc(e.to_string())
-    }
-}
-
-impl From<ParseIntError> for ToaruError {
-    fn from(_: ParseIntError) -> ToaruError {
-        ToaruError::ParseInt
     }
 }
 
