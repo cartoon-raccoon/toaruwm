@@ -34,10 +34,12 @@ use crate::x::{
 /// A `ClientRing` also plays an important role in enforcing window
 /// stacking, keeping all off-layout clients on top.
 #[derive(Debug, Clone)]
-pub struct ClientRing(Ring<Box<Client>>);
+pub struct ClientRing(Ring<Client>);
+/* we still need to change focus on this everytime so we know
+which window to cycle focus to */
 
 impl Deref for ClientRing {
-    type Target = Ring<Box<Client>>;
+    type Target = Ring<Client>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -57,52 +59,10 @@ impl ClientRing {
         Self(Ring::new())
     }
 
-    /// Inserts a client at a point in the Ring by its layout status.
-    /// 
-    /// If a window is on layout, insert it at the partition point
-    /// between windows that are on layout and those that are not.
-    /// 
-    /// In doing this, all windows on layout are kept below those
-    /// that are not.
-    //* precondition: the ring is already partitioned correctly */
-    pub fn add_by_layout_status(&mut self, win: Client) {
-        if self.is_empty() || win.is_off_layout() {
-            self.push(Box::new(win));
-        } else {
-            /* assume that we are already partitioned */
-            /* since all workspace calls to add a window eventually
-            call this to actually add the window,
-            we just need to prove this function is correct. */
-            let idx = self.partition_idx();
-            self.insert(InsertPoint::Index(idx), Box::new(win));
-        }
-    }
+    /// Adds the Client at a given index.
+    pub fn add_at_index(&mut self, idx: usize, win: Client) {
+        self.insert(InsertPoint::Index(idx), win);
 
-    /// Moves the window with ID `id` to the top of its respective
-    /// stack.
-    /// 
-    /// If the window is off layout, it is moved to the front of
-    /// the queue; if it is on layout, it is moved to the first
-    /// index of the stacked windows.
-    pub fn bubble_to_top(&mut self, id: XWindowID) {
-        if self.is_empty() {return}
-        let Some(c) = self.lookup(id) else {return};
-        let idx = self.get_idx(id).unwrap();
-
-        if c.is_off_layout() {
-            self.move_front(idx);
-        } else {
-            let n_idx = self.partition_idx();
-            self.move_to(idx, n_idx);
-        }
-    }
-
-    /// Gets the index where the first window on layout resides.
-    /// 
-    /// Assumes the `ClientRing` is indeed partitioned.
-    //* precondition: the ring is already partitioned correctly */
-    pub fn partition_idx(&self) -> usize {
-        self.items.partition_point(|c| c.is_off_layout())
     }
 
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
@@ -111,7 +71,7 @@ impl ClientRing {
             return None
         };
 
-        self.remove(i).map(|c| *c)
+        self.remove(i)
     }
 
     /// Wrapper around `Ring::index` that takes a window ID.
@@ -122,7 +82,7 @@ impl ClientRing {
     /// Returns a reference to the client containing the given window ID.
     pub fn lookup(&self, id: XWindowID) -> Option<&Client> {
         if let Some(i) = self.get_idx(id) {
-            self.get(i).map(|c| c.deref())
+            self.get(i)
         } else {
             None
         }
@@ -130,11 +90,7 @@ impl ClientRing {
 
     /// Returns a mutable reference to the client containing the given ID.
     pub fn lookup_mut(&mut self, id: XWindowID) -> Option<&mut Client> {
-        if let Some(i) = self.get_idx(id) {
-            self.get_mut(i).map(|c| c.deref_mut())
-        } else {
-            None
-        }
+        self.get_idx(id).and_then(|i| self.get_mut(i))
     }
 
     /// Tests whether the Ring contains a client with the given ID.
@@ -639,5 +595,110 @@ impl Client {
     /// Tests whether the client supports this protocol.
     pub fn supports(&self, prtcl: XAtom) -> bool {
         self.protocols.contains(&prtcl)
+    }
+}
+
+/// Maintains the focusing order of the windows of screen.
+#[derive(Debug, Clone)]
+pub(crate) struct FocusStack(Ring<XWindowID>);
+
+impl Deref for FocusStack {
+    type Target = Ring<XWindowID>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for FocusStack {
+    fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
+        &mut self.0
+    }
+}
+
+#[allow(dead_code)]
+impl FocusStack {
+    /// Creates a new FocusStack.
+    pub fn new() -> Self {
+        Self(Ring::new())
+    }
+
+    pub fn add_by_layout_status(&mut self, id: XWindowID, clients: &ClientRing) {
+        let Some(cl) = clients.lookup(id) else {
+            warn!("could not find client with id {} in clientring", id);
+            return
+        };
+
+        if cl.is_off_layout() {
+            self.push(id);
+        } else {
+            let idx = self.partition_idx(clients);
+            self.insert(InsertPoint::Index(idx), id);
+        }
+    }
+
+    pub fn set_focused_by_winid(&mut self, id: XWindowID) {
+        if let Some(idx) = self.get_idx(id) {
+            self.set_focused(idx);
+        } else {
+            warn!("No window with id {} found", id)
+        }
+    }
+
+    pub fn remove_by_id(&mut self, id: XWindowID) -> Option<XWindowID> {
+        self.get_idx(id).and_then(|idx| self.remove(idx))
+    }
+
+    pub fn on_layout<'ws>(&'ws self, cl: &'ws ClientRing) -> impl Iterator<Item = &'ws XWindowID> {
+        self.iter().filter(|id| {
+            !(cl.lookup(**id).expect("could not find client").is_off_layout())
+        })
+    }
+
+    pub fn off_layout<'ws>(&'ws self, cl: &'ws ClientRing) -> impl Iterator<Item = &'ws XWindowID> {
+        self.iter().filter(|id| {
+            cl.lookup(**id).expect("could not find client").is_off_layout()
+        })
+    }
+
+    /// Moves the window with ID `id` to the top of its respective
+    /// stack.
+    /// 
+    /// If the window is off layout, it is moved to the front of
+    /// the queue; if it is on layout, it is moved to the first
+    /// index of the stacked windows.
+    pub fn bubble_to_top(&mut self, id: XWindowID, c: &ClientRing) {
+        if self.is_empty() {return}
+        let Some(idx) = c.get_idx(id) else {
+            warn!("could not find window with ID {} in clientring", id);
+            return
+        };
+        let Some(cl) = c.lookup(id) else {
+            warn!("could not find window with ID {} in clientring", id);
+            return
+        };
+
+        if cl.is_off_layout() {
+            self.move_front(idx);
+        } else {
+            let n_idx = self.partition_idx(c);
+            debug!("get partition idx {}, len {}", n_idx, self.len());
+            self.move_to(idx, n_idx);
+        }
+    }
+
+    /// Wrapper around `Ring::index` that takes a window ID.
+    pub fn get_idx(&self, id: XWindowID) -> Option<usize> {
+        self.0.index(Selector::Condition(&|win| *win == id))
+    }
+    
+    /// Gets the index where the first window on layout resides.
+    /// 
+    /// Assumes the `ClientRing` is indeed partitioned.
+    //* precondition: the ring is already partitioned correctly */
+    pub fn partition_idx(&self, clients: &ClientRing) -> usize {
+        self.0.items.partition_point(|c| clients.lookup(*c)
+            .expect("no client found")
+            .is_off_layout())
     }
 }
