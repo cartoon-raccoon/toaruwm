@@ -20,10 +20,8 @@ use crate::x::{
 /// directly.
 #[derive(Debug, Clone)]
 pub enum EventAction {
-    /// Focus the specified client.
-    ClientFocus(XWindowID),
-    /// Unfocus the specified client.
-    ClientUnfocus(XWindowID),
+    /// Move focus to the specified client.
+    MoveClientFocus(XWindowID),
     /// Change the WM_NAME property of the specified client.
     ClientNameChange(XWindowID),
     /// Detect screens and reconfigure layout.
@@ -94,7 +92,7 @@ impl EventAction {
             }
             UnmapNotify(id, from_root) => {
                 debug!(target: "manager::event","unmap notify for window {}", id);
-                if from_root {
+                if from_root || state.is_managing(id) {
                     None
                 } else {
                     Some(vec![UnmapClient(id)])
@@ -116,7 +114,7 @@ impl EventAction {
             LeaveNotify(ev, grab) => {
                 debug!(target: "manager::event","leave notify for window {}; grab: {}", ev.id, grab);
                 if !grab && state.is_managing(ev.id) {
-                    Some(vec![ClientUnfocus(ev.id), SetFocusedScreen(Some(ev.abs))])
+                    Some(vec![SetFocusedScreen(Some(ev.abs))])
                 } else {
                     None
                 }
@@ -181,22 +179,18 @@ fn process_map_request<X: XConn, C: RuntimeConfig>(
 }
 
 fn process_enter_notify<X: XConn, C: RuntimeConfig>(
-    pt: PointerEvent,
+    ptrev: PointerEvent,
     state: WmState<'_, X, C>,
 ) -> Option<Vec<EventAction>> {
     use EventAction::*;
 
-    let mut actions = vec![ClientFocus(pt.id), SetFocusedScreen(Some(pt.abs))];
+    let mut actions = vec![MoveClientFocus(ptrev.id), SetFocusedScreen(Some(ptrev.abs))];
 
-    if let Some(focused) = state.desktop.current_client() {
-        // unfocus previous client
-        if focused.id() != pt.id {
-            actions.insert(0, ClientUnfocus(focused.id()))
-        }
+    if let Some(_focused) = state.desktop.current_client() { //fixme: is this necessary?
         // if next client is set to urgent, unset its urgent flag
-        if let Some(c) = state.lookup_client(pt.id) {
+        if let Some(c) = state.lookup_client(ptrev.id) {
             if c.is_urgent() {
-                actions.push(ToggleUrgency(pt.id));
+                actions.push(ToggleUrgency(ptrev.id));
             }
         }
     }

@@ -88,8 +88,8 @@ macro_rules! _rm_if_under_layout {
 ///
 /// # Structure
 ///
-/// A WindowManager combines an `XConn` and a `Desktop` which
-/// combines `Workspaces`. As the top-level struct, `WindowManager`
+/// A WindowManager combines an [`XConn`] and a [`Desktop`] which
+/// combines [`Workspace`][1]s. As the top-level struct, `WindowManager`
 /// has methods that apply to its sub-structures, and thus are
 /// organized accordingly: `WindowManager`-level, `Desktop`-level,
 /// and `Workspace`-level.
@@ -150,6 +150,8 @@ macro_rules! _rm_if_under_layout {
 /// The Window Manager employs a basic error handler that simply logs
 /// errors to stdout, but can be changed with
 /// `WindowManager::set_error_handler`.
+/// 
+/// [1]: crate::core::Workspace
 pub struct WindowManager<X, C>
 where
     X: XConn,
@@ -585,7 +587,7 @@ where
     /// 
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
+    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn move_window_ptr(&mut self, pt: Point) {
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
@@ -609,7 +611,7 @@ where
     ///
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
+    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn resize_window_ptr(&mut self, pt: Point) {
         let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
@@ -700,8 +702,7 @@ where
 
         for action in actions {
             match action {
-                ClientFocus(id) => self.update_focus(id)?,
-                ClientUnfocus(id) => self.client_unfocus(id)?,
+                MoveClientFocus(id) => self.update_focus(id)?,
                 ClientNameChange(id) => self.client_name_change(id)?,
                 ScreenReconfigure => self.screen_reconfigure()?,
                 SetFocusedScreen(pt) => self.set_focused_screen(pt)?,
@@ -751,12 +752,6 @@ where
 
     fn focused_client_id(&self) -> Option<XWindowID> {
         self.desktop.current_client().map(|c| c.id())
-    }
-
-    /// Unfocuses a client
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn client_unfocus(&mut self, id: XWindowID) -> Result<()> {
-        Ok(())
     }
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
@@ -821,6 +816,7 @@ where
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     fn unmap_client(&mut self, id: XWindowID) -> Result<()> {
+        // the client itself handles the unmapping, so we just handle internal state
         self.desktop.current_mut().del_window(
             id,
             &self.conn,
@@ -862,7 +858,7 @@ where
         }
     }
 
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
+    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
     fn run_mousebind(
         &mut self,
         mb: Mousebind,
