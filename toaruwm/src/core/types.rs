@@ -736,11 +736,11 @@ pub enum MouseMode {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BorderStyle {
     /// The colour to be applied to the focused window.
-    Focused(Color),
+    Focused,
     /// The colour to be applied to an unfocused window.
-    Unfocused(Color),
+    Unfocused,
     /// The colour to applied when a window is marked as urgent.
-    Urgent(Color),
+    Urgent,
 }
 
 /// Configuration options for a Client.
@@ -768,7 +768,7 @@ pub enum ClientConfig {
 #[derive(Clone, Copy, Debug)]
 pub enum ClientAttrs {
     /// The colour of the border.
-    BorderColour(BorderStyle),
+    BorderColour(Color),
     /// Client event mask.
     EnableClientEvents,
     /// Disable client events.

@@ -10,7 +10,10 @@ use std::collections::HashMap;
 
 use custom_debug_derive::Debug;
 
-use crate::core::{types::Color, Client, Desktop, Ring, Workspace};
+use crate::core::{
+    types::{Color, BorderStyle}, 
+    Client, Desktop, Ring, Workspace
+};
 use crate::x::{XConn, XWindow, XWindowID};
 
 /// An object that can provide information about window manager
@@ -65,20 +68,14 @@ pub trait RuntimeConfig {
     /// Return information about the window border thickness.
     fn border_px(&self) -> u32;
 
+    /// The border color associated with a given [`BorderStyle`].
+    fn border_style(&self, style: BorderStyle) -> Color;
+
     /// Return information about the gaps between windows.
     fn window_gap(&self) -> u32;
 
     /// Return whether the focus should follow the pointer.
     fn focus_follows_ptr(&self) -> bool;
-
-    /// Return information about unfocused window border color.
-    fn unfocused(&self) -> Color;
-
-    /// Return information about focused window border color.
-    fn focused(&self) -> Color;
-
-    /// Return information about urgent window border color.
-    fn urgent(&self) -> Color;
 
     /// Retrieve arbitrary key value pairs from storage.
     ///
@@ -139,6 +136,13 @@ impl RuntimeConfig for WmConfig {
     fn border_px(&self) -> u32 {
         self.border_px
     }
+    fn border_style(&self, style: BorderStyle) -> Color {
+        match style {
+            BorderStyle::Focused => self.focused,
+            BorderStyle::Unfocused => self.unfocused,
+            BorderStyle::Urgent => self.urgent,
+        }
+    }
 
     fn window_gap(&self) -> u32 {
         self.window_gap
@@ -148,17 +152,6 @@ impl RuntimeConfig for WmConfig {
         self.focus_follows_ptr
     }
 
-    fn unfocused(&self) -> Color {
-        self.unfocused
-    }
-
-    fn focused(&self) -> Color {
-        self.focused
-    }
-
-    fn urgent(&self) -> Color {
-        self.urgent
-    }
 
     fn get_key(&self, key: &str) -> Option<&dyn Any> {
         self.keys.get(&key.to_string()).map(|v| v as &dyn Any)

@@ -487,9 +487,7 @@ impl Workspace {
         if self.windows.lookup(window).is_some() {
             conn.change_window_attributes(
                 window,
-                &[ClientAttrs::BorderColour(BorderStyle::Unfocused(
-                    cfg.unfocused(),
-                ))],
+                &[ClientAttrs::BorderColour(cfg.border_style(BorderStyle::Unfocused))],
             )
             .unwrap_or_else(|e| error!("{}", e));
         } else {
@@ -791,8 +789,6 @@ impl Workspace {
         X: XConn,
         C: RuntimeConfig,
     {
-        use BorderStyle::*;
-
         // disable events
         conn.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
             .unwrap_or_else(|e| warn!("{}", e));
@@ -840,7 +836,7 @@ impl Workspace {
 
         let win = self.windows.lookup_mut(window).unwrap();
         //* focus to current window visually...
-        win.set_border(conn, Focused(cfg.focused()));
+        win.set_border(conn, cfg.border_style(BorderStyle::Focused));
         //* ...server-ly...
         conn.set_input_focus(window)
             .unwrap_or_else(|e| warn!("{}", e));

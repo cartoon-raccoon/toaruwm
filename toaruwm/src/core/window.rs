@@ -14,7 +14,9 @@ use tracing::{debug, error, warn};
 
 use super::{Ring, Selector, ring::InsertPoint};
 
-use crate::core::types::{BorderStyle, ClientAttrs, ClientConfig, Geometry, NetWindowStates};
+use crate::core::types::{
+    BorderStyle, Color, ClientAttrs, ClientConfig, Geometry, NetWindowStates
+};
 use crate::manager::RuntimeConfig;
 use crate::x::{
     core::{XAtom, XConn, XWindow, XWindowID},
@@ -370,7 +372,7 @@ impl Client {
             self.set_supported(conn);
         }
         if self.urgent {
-            self.set_border(conn, BorderStyle::Urgent(cfg.urgent()));
+            self.set_border(conn, cfg.border_style(BorderStyle::Urgent));
         }
         debug!("Updated properties: {:#?}", self);
     }
@@ -394,7 +396,7 @@ impl Client {
         self.urgent = conn.get_urgency(self.id());
 
         if self.urgent {
-            self.set_border(conn, BorderStyle::Urgent(cfg.urgent()));
+            self.set_border(conn, cfg.border_style(BorderStyle::Urgent));
         }
     }
 
@@ -407,7 +409,7 @@ impl Client {
     /// Sets the border of the Client.
     ///
     /// Should only be used internally.
-    pub fn set_border<X: XConn>(&mut self, conn: &X, border: BorderStyle) {
+    pub fn set_border<X: XConn>(&mut self, conn: &X, border: Color) {
         conn.change_window_attributes(self.id(), &[ClientAttrs::BorderColour(border)])
             .unwrap_or_else(|e| error!("{}", e));
     }

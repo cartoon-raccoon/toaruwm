@@ -9,7 +9,7 @@ use xcb::{Xid as XCBid, XidNew, x::PropEl};
 
 use super::{id, cast, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
-use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Point};
+use crate::types::{ClientAttrs, ClientConfig, Point};
 use crate::x::{
     core::{Xid, Result, XError},
     event::MouseEvent,
@@ -214,15 +214,10 @@ pub const ROOT_EVENT_MASK: EventMask = EventMask::PROPERTY_CHANGE
 
 impl From<&ClientAttrs> for Cw {
     fn from(from: &ClientAttrs) -> Cw {
-        use BorderStyle::*;
         use ClientAttrs::*;
 
         match from {
-            BorderColour(bs) => match bs {
-                Focused(c) => Cw::BorderPixel(c.as_u32()),
-                Unfocused(c) => Cw::BorderPixel(c.as_u32()),
-                Urgent(c) => Cw::BorderPixel(c.as_u32()),
-            },
+            BorderColour(c) => Cw::BorderPixel(c.as_u32()),
             EnableClientEvents => Cw::EventMask(ENABLE_CLIENT_EVENTS),
             DisableClientEvents => Cw::EventMask(DISABLE_CLIENT_EVENTS),
             RootEventMask => Cw::EventMask(ROOT_EVENT_MASK),
