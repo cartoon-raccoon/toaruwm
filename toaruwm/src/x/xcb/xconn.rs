@@ -13,7 +13,7 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{Xid, PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -25,7 +25,7 @@ use super::XCBConn;
 impl XConn for XCBConn<Initialized> {
     // General X server operations
     #[cfg_attr(
-        debug_assertions, 
+        debug_assertions,
         instrument(target = "xconn", level = "trace", skip(self))
     )]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -75,7 +75,8 @@ impl XConn for XCBConn<Initialized> {
         })
     }
 
-    #[cfg_attr(debug_assertions, 
+    #[cfg_attr(
+        debug_assertions,
         instrument(target = "xconn", level = "trace", skip(self))
     )]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
@@ -553,7 +554,10 @@ impl XConn for XCBConn<Initialized> {
         let (ty, data): (x::Atom, Vec<Xid>) = match data {
             Atom(atoms) => (
                 x::ATOM_ATOM,
-                atoms.iter().map(|a| self.atom(a).unwrap_or(Xid(0))).collect(),
+                atoms
+                    .iter()
+                    .map(|a| self.atom(a).unwrap_or(Xid(0)))
+                    .collect(),
             ),
             Cardinal(card) => (x::ATOM_CARDINAL, vec![Xid(card)]),
             String(strs) | UTF8String(strs) => {

@@ -1,7 +1,7 @@
 //! Basic core types used throughout this crate at a high level.
-//! 
+//!
 //! # Important Note
-//! 
+//!
 //! For types pertaining to the cartesian plane,
 //! all of them assume the default X server window gravity (NorthWest).
 //!
@@ -37,7 +37,7 @@ pub enum Cardinal {
 }
 
 /// A subset of Cardinal with only Left and Right variants.
-/// 
+///
 /// It is disjoint with `CardinalY`.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -47,7 +47,7 @@ pub enum CardinalX {
 }
 
 /// A subset of Cardinal with only Up and Down variants.
-/// 
+///
 /// It is disjoint with `CardinalX`.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,7 +58,7 @@ pub enum CardinalY {
 
 /// The direction in which `Point`s and `Geometry`s
 /// should take reference to when calculating offsets.
-/// 
+///
 /// For example, if a Geometry takes a Gravity of `NorthWest`,
 /// then when the Geometry is resized, it will resize
 /// towards the top-left corner.
@@ -88,12 +88,12 @@ pub enum Gravity {
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Point.
-/// 
+///
 /// # Note
-/// 
+///
 /// The (0, 0) reference is by default taken from the top left
 /// corner of the 2D plane.
-/// 
+///
 /// [1]: std::cmp::PartialEq
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -141,7 +141,7 @@ impl Point {
 
     /// Calculates the distance to another point, using the
     /// Pythagorean theorem.
-    /// 
+    ///
     /// Since most things in this crate take integer values,
     /// you will probably want to round this up/down to
     /// the nearest integer value before coercing to an
@@ -149,9 +149,7 @@ impl Point {
     pub fn distance_to(&self, other: Point) -> f64 {
         let (x, y) = self.calculate_offset(other);
 
-        let ret = (
-            (x as f64).powi(2) + (y as f64).powi(2)
-        ).sqrt();
+        let ret = ((x as f64).powi(2) + (y as f64).powi(2)).sqrt();
 
         assert!(!ret.is_nan());
         ret
@@ -159,25 +157,25 @@ impl Point {
 
     /// Creates a Point with `delta` in the given direction
     /// (unidirectional offset).
-    /// 
+    ///
     /// Only moves the point in one direction.
     // todo: example
     pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
         use Cardinal::*;
 
-        let Point { x , y } = *self;
+        let Point { x, y } = *self;
 
         match dir {
             Up => Point { x, y: y - delta },
             Down => Point { x, y: y + delta },
             Left => Point { x: x - delta, y },
-            Right => Point { x: x + delta, y }
+            Right => Point { x: x + delta, y },
         }
     }
 
     /// Creates a Point offset by `dx, dy` in the given directions
     /// (bidirectional offset).
-    /// 
+    ///
     /// Moves the point in both directions.
     pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
         use CardinalX::*;
@@ -186,10 +184,22 @@ impl Point {
         let Point { x, y } = *self;
 
         match (dirx, diry) {
-            (Left, Up) => Point { x: x - dx, y: y - dy},
-            (Left, Down) => Point { x: x - dx, y: y + dy },
-            (Right, Down) => Point { x: x + dx, y: y + dy},
-            (Right, Up) => Point { x: x + dx, y: y - dy},
+            (Left, Up) => Point {
+                x: x - dx,
+                y: y - dy,
+            },
+            (Left, Down) => Point {
+                x: x - dx,
+                y: y + dy,
+            },
+            (Right, Down) => Point {
+                x: x + dx,
+                y: y + dy,
+            },
+            (Right, Up) => Point {
+                x: x + dx,
+                y: y - dy,
+            },
         }
     }
 
@@ -197,14 +207,16 @@ impl Point {
     pub fn unidir_offset_in_place(&mut self, delta: i32, dir: Cardinal) {
         let Point { x, y } = self.unidir_offset(delta, dir);
 
-        self.x = x; self.y = y;
+        self.x = x;
+        self.y = y;
     }
 
     /// Offsets itself by `dx, dy` in the given directions.
     pub fn bidir_offset_in_place(&mut self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) {
         let Point { x, y } = self.bidir_offset(dx, dy, dirx, diry);
 
-        self.x = x; self.y = y;
+        self.x = x;
+        self.y = y;
     }
 }
 
@@ -212,9 +224,9 @@ impl Point {
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
 /// another Geometry.
-/// 
+///
 /// # Note on X Window Gravity
-/// 
+///
 /// Geometries follow the X Window System default
 /// of taking their gravity from the top-left corner,
 /// that is, (0, 0) is considered the top left corner
@@ -300,8 +312,10 @@ impl Geometry {
     /// with the given dimensions `height` and `width`.
     pub fn at_origin(height: i32, width: i32) -> Geometry {
         Self {
-            x: 0, y: 0,
-            height, width
+            x: 0,
+            y: 0,
+            height,
+            width,
         }
     }
 
@@ -604,16 +618,16 @@ impl Geometry {
     /// trims the bottom).
     ///
     /// This returns a new Geometry.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::types::{Geometry, Cardinal::*};
-    /// 
+    ///
     /// let g1 = Geometry::new(0, 0, 100, 160);
     /// /* trim off 5 from the left and 10 from the top */
     /// let g2 = g1.trim(5, Left).trim(10, Up);
-    /// 
+    ///
     /// assert_eq!(g2, Geometry {
     ///     x: 5, y: 10, height: 90, width: 155
     /// });
@@ -632,29 +646,40 @@ impl Geometry {
     /// Creates a new Geometry offset by `delta` pixels in the given
     /// direction `dir` (unidirectional offset).
     pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Geometry {
-        let Geometry { x, y, height, width } = *self;
+        let Geometry {
+            x,
+            y,
+            height,
+            width,
+        } = *self;
 
         let Point { x, y } = Point { x, y }.unidir_offset(delta, dir);
 
         Geometry {
-            x, y,
+            x,
+            y,
             height,
-            width
+            width,
         }
     }
 
     /// Creates a new Geometry offset by `dx, dy` pixels in the given
     /// directions `dirx, diry` (bidirectional offset).
     pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Geometry {
-        let Geometry { x, y, height, width } = *self;
+        let Geometry {
+            x,
+            y,
+            height,
+            width,
+        } = *self;
 
         let Point { x, y } = Point { x, y }.bidir_offset(dx, dy, dirx, diry);
 
         Geometry {
-            x, y,
+            x,
+            y,
             height,
-            width
-
+            width,
         }
     }
 }
@@ -701,8 +726,8 @@ impl Color {
         let (r, g, b, a) = self.rgba();
 
         (
-            r as f32 / 255.0, 
-            g as f32 / 255.0, 
+            r as f32 / 255.0,
+            g as f32 / 255.0,
             b as f32 / 255.0,
             a as f32 / 255.0,
         )

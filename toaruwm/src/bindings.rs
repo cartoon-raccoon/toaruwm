@@ -5,18 +5,18 @@ use std::process::{Command, Stdio};
 
 use strum::*;
 
-use thiserror::Error;
 use custom_debug_derive::Debug;
+use thiserror::Error;
 
 use crate::manager::{RuntimeConfig, WindowManager};
 use crate::types::Point;
+pub use crate::x::input::MouseEventKind;
 use crate::x::{
     core::XConn,
     event::KeypressEvent,
     input::{KeyCode, ModMask},
 };
 use crate::ToaruError;
-pub use crate::x::input::MouseEventKind;
 
 /// A type representing a modifier key tied to a certain keybind.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumIter)]
@@ -157,10 +157,9 @@ impl Keymap {
             assert_eq!(tokens[0], "keycode");
             assert_eq!(tokens[2], "=");
 
-            let keycode = tokens[1].parse::<u8>()
-                .map_err(|e| BindingError::KeymapError(
-                    format!("error while constructing keymap: {}", e)
-                ))?;
+            let keycode = tokens[1].parse::<u8>().map_err(|e| {
+                BindingError::KeymapError(format!("error while constructing keymap: {}", e))
+            })?;
             let keysyms: Vec<String> = if tokens.len() > 3 {
                 tokens[3..].iter().map(|s| s.to_string()).collect()
             } else {
@@ -209,25 +208,24 @@ impl Keymap {
         }
 
         if code.is_none() {
-            return Err(BindingError::InvalidKeybind(
-                format!(
-                    "error while parsing keybind `{}`: missing key",
-                    kb
-                )
-            ))
+            return Err(BindingError::InvalidKeybind(format!(
+                "error while parsing keybind `{}`: missing key",
+                kb
+            )));
         }
 
         let code = code.unwrap();
 
         code.map(|c| Keybind {
             modmask: modifiers.into(),
-            code: c
-        }).map_err(|e| BindingError::InvalidKeybind(
-            format!(
-                "Error while parsing keybind `{}` no such key {}", 
+            code: c,
+        })
+        .map_err(|e| {
+            BindingError::InvalidKeybind(format!(
+                "Error while parsing keybind `{}` no such key {}",
                 kb, e
-            )
-        ))
+            ))
+        })
     }
 
     /// Generates a specification string from a given keybind.

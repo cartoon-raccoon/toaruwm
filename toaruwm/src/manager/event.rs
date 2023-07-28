@@ -9,7 +9,7 @@ use crate::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
     },
-    Atom, Property, WmHintsFlags, XConn, XError, XEvent, XWindowID, XAtom,
+    Atom, Property, WmHintsFlags, XAtom, XConn, XError, XEvent, XWindowID,
 };
 
 // todo: update as neccesary to account for ICCCM and EWMH conventions
@@ -186,7 +186,8 @@ fn process_enter_notify<X: XConn, C: RuntimeConfig>(
 
     let mut actions = vec![MoveClientFocus(ptrev.id), SetFocusedScreen(Some(ptrev.abs))];
 
-    if let Some(_focused) = state.desktop.current_client() { //fixme: is this necessary?
+    if let Some(_focused) = state.desktop.current_client() {
+        //fixme: is this necessary?
         // if next client is set to urgent, unset its urgent flag
         if let Some(c) = state.lookup_client(ptrev.id) {
             if c.is_urgent() {

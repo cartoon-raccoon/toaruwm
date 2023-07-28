@@ -27,11 +27,11 @@
 //! such as an autostart script, either by invoking a shell script
 //! or directly in the window manager. Hooks can also be triggered
 //! on various events, such as mapping/unmapping of a certain window.
-//! 
+//!
 //! ToaruWM was designed to be all about choices. You write it the way
 //! you want, from the ground up; what we do is provide the tools
 //! to make it easier for you to do so.
-//! 
+//!
 //! ## Usage
 //!
 //! Note that this crate, as it exists on Crates.io, is not a binary
@@ -41,7 +41,7 @@
 //! the way you want it. As such, you will need a working knowledge
 //! of Rust, of which the [book](https://doc.rust-lang.org/book/) will
 //! provide more than enough for you to get something up and running.
-//! 
+//!
 //! The core of this crate is the central [`WindowManager`] struct;
 //! it is the entry point to this crate, and everything else in this
 //! crate is built around it. To start exploring this crate, reading
@@ -119,19 +119,19 @@
 //! wm.run(keybinds, mousebinds).unwrap();
 //!
 //! ```
-//! 
+//!
 //! ## Extensions and Add-Ons
 //!
 //! ToaruWM core has internal support for widgets and extensions through
 //! the [`Widget`](widget::Widget) trait.
-//! 
+//!
 //! Additionally, the ToaruWM ecosystem takes the same approach as QTile:
 //! everything _and_ the kitchen sink. A number of extensions and add-ons
 //! such as bars, widgets, and configuration options will be provided
 //! through the planned `toarulib` crate, which will contain
 //! many different additional widgets that you can add you your own
 //! personal configuration.
-//! 
+//!
 //! Of course, you are still free to use your own bars such as Polybar:
 //! ToaruWM is planned to have support for [EWMH], which are what
 //! makes window managers aware of things like bars and fullscreen,
@@ -140,19 +140,19 @@
 //! ## Compliance
 //!
 //! ToaruWM is (planned to be) mostly compliant with EWMH, and
-//! with most sections of the [ICCCM], particularly the ones that 
-//! were deemed most important for interoperability with various 
-//! X clients, such as notification daemons, pop-up windows, 
+//! with most sections of the [ICCCM], particularly the ones that
+//! were deemed most important for interoperability with various
+//! X clients, such as notification daemons, pop-up windows,
 //! full-screen clients, etc.
-//! 
+//!
 //! Important to note is that this project does not, and will _never_
 //! have, full compliance with ICCCM, partly because parts of ICCCM
-//! have been superseded by EWMH, and also because other parts of ICCCM 
+//! have been superseded by EWMH, and also because other parts of ICCCM
 //! are just [not worth implementing][1].
 //!
 //! For the full details on compliance, see the `COMPLIANCE` file
 //! in this project's git repository.
-//! 
+//!
 //! [EWMH]: https://en.wikipedia.org/wiki/Extended_Window_Manager_Hints
 //! [ICCCM]: https://en.wikipedia.org/wiki/Inter-Client_Communication_Conventions_Manual
 //! [1]: http://www.call-with-current-continuation.org/rants/icccm.txt
@@ -184,9 +184,9 @@ pub use crate::x::core::XConn;
 #[doc(inline)]
 pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
 
+use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
 use crate::x::Initialized;
-use crate::bindings::BindingError;
 
 use std::io;
 

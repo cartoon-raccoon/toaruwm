@@ -23,7 +23,7 @@ use strum::*;
 
 use super::{
     atom::Atom,
-    core::{Xid, Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
     cursor,
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureEvent, ConfigureRequestData, KeypressEvent,
@@ -397,7 +397,9 @@ impl XCBConn<Initialized> {
                 let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
                     let sib = if req.sibling() != x::WINDOW_NONE {
                         Some(id!(req.sibling()))
-                    } else { None };
+                    } else {
+                        None
+                    };
                     match req.stack_mode() {
                         XStackMode::Above => Some(Above(sib)),
                         XStackMode::Below => Some(Below(sib)),

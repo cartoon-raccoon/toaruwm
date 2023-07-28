@@ -20,9 +20,9 @@ use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
 use toaruwm::bindings::{
     mb, ButtonIndex as Idx, Keybinds, Keymap, ModKey, MouseEventKind::*, Mousebinds,
 };
+use toaruwm::manager::config::NO_CHECKS;
 use toaruwm::types::{Cardinal::*, Direction::*};
 use toaruwm::{hook, ToaruConfig, WindowManager};
-use toaruwm::manager::config::NO_CHECKS;
 use toaruwm::{InitX11RB, ToaruWM};
 
 // convenience typedef
@@ -69,9 +69,7 @@ pub fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         // register as global
         .try_init()?;
 
-    let config = ToaruConfig::builder()
-        .border_px(4)
-        .finish(NO_CHECKS)?;
+    let config = ToaruConfig::builder().border_px(4).finish(NO_CHECKS)?;
 
     //* 1: Setup X Connection and allocate new WM object
     let mut manager = toaruwm::x11rb_backed_wm(config)?;

@@ -59,30 +59,30 @@ pub enum Selector<'a, T> {
 ///
 /// Provides an interface where the data is a ring of items,
 /// with a single item in focus. This focus can be cycled backwards
-/// and forwards without changing the underlying sequence of items 
+/// and forwards without changing the underlying sequence of items
 /// in the Ring. The Ring can also be rotated to change its sequence
 /// of items, and the focus will still point to the same item.
-/// 
+///
 /// # Helper Types
-/// 
+///
 /// Rings make use of a few helper types for insert/removal/selection
 /// operations. These types are the [`InsertPoint`] and [`Selector`].
-/// 
+///
 /// # Guarantees
-/// 
+///
 /// Since so many structures within ToaruWM make use of a Ring,
 /// it has to make certain guarantees about its behaviour that
 /// these structures can rely on to make certain assumptions.
-/// 
+///
 /// These guarantees are:
-/// 
+///
 /// 1. The only time there is no focused item is when the ring is empty.
 /// The focus is automatically set when the first item is pushed, and
 /// unset when the last item is removed.
-/// 
+///
 /// 2. The item pointed to by the focused item will not change unless
 /// explicitly changed by the user, or the focused item is removed.
-/// 
+///
 /// 3. The focus will always point to a valid item. It will never point
 /// to an index that is out of bounds.
 #[derive(Clone, Debug, Default)]
@@ -175,7 +175,7 @@ impl<T> Ring<T> {
     #[inline]
     /// Checks if the focus would wrap to the other end of
     /// the Ring if moved in the given direction.
-    /// 
+    ///
     /// Always returns false if no focus is set.
     fn would_wrap(&self, direction: Direction) -> bool {
         use Direction::*;
@@ -201,7 +201,7 @@ impl<T> Ring<T> {
 
     /// Check if the given index points to a valid item.
     fn is_in_bounds(&self, idx: usize) -> bool {
-        idx <= self.len() - 1
+        idx < self.len()
     }
 
     /// Returns the index of the element that is
@@ -214,10 +214,10 @@ impl<T> Ring<T> {
     }
 
     /// Sets the element to be in focus by index.
-    /// 
+    ///
     /// If the requested focus is out of bounds,
     /// it is set to the first element.
-    /// 
+    ///
     /// Is a no-op if the Ring is empty.
     #[inline(always)]
     pub fn set_focused(&mut self, idx: usize) {
@@ -269,10 +269,10 @@ impl<T> Ring<T> {
     }
 
     /// Pops the element off the front.
-    /// 
+    ///
     /// If the focus was on the front element,
     /// the focus moves to the next in line.
-    /// 
+    ///
     /// Returns None if the Ring is empty.
     pub fn pop_front(&mut self) -> Option<T> {
         let ret = self.items.pop_front();
@@ -289,14 +289,14 @@ impl<T> Ring<T> {
     }
 
     /// Moves the element at index `idx` to the front (index 0).
-    /// 
+    ///
     /// Is a no-op if `idx` is out of bounds.
     pub fn move_front(&mut self, idx: usize) {
         self.move_to(idx, 0);
     }
 
     /// Moves the element at index `from` to index `to`.
-    /// 
+    ///
     /// Is a no-op if `from` is out of bounds.
     pub fn move_to(&mut self, from: usize, to: usize) {
         // try to remove
@@ -304,7 +304,10 @@ impl<T> Ring<T> {
             // if remove works, carry on and try to insert
             .and_then(|item| self.insert(InsertPoint::Index(to), item))
             // if insert still returns something, just append and return nothing
-            .and_then(|fail| {self.append(fail); None::<()>});
+            .and_then(|fail| {
+                self.append(fail);
+                None::<()>
+            });
     }
 
     /// Removes an element from the Ring at `idx`, returning it if
@@ -321,7 +324,7 @@ impl<T> Ring<T> {
         // if empty, unset our focus
         if self.items.is_empty() {
             self.unset_focused();
-            return Some(ret)
+            return Some(ret);
         }
 
         /* do focus checks */
@@ -329,7 +332,7 @@ impl<T> Ring<T> {
             if idx < f_idx {
                 /* we removed an element in front of the focused
                 element.
-                in order to maintain our guarantee, we need to 
+                in order to maintain our guarantee, we need to
                 change the focus to continue to point to the
                 same element.
                 slide the focus down by one.
@@ -342,7 +345,7 @@ impl<T> Ring<T> {
 
             /* we don't need to account for cases where
             idx > f_idx, as the focused item won't change
-            in that case. 
+            in that case.
             if idx == f_idx, then we've removed the
             focused item, and the focus should slide
             to the next in line.*/
@@ -365,38 +368,38 @@ impl<T> Ring<T> {
     }
 
     /// Insert an item into the Ring with an insert point.
-    /// 
+    ///
     /// If the Ring is empty, it pushes the item, disregarding the
     /// insert point.
     ///
     /// If insert point revolves around the focused item and nothing has focus,
     /// it appends the item to the end of the ring.
-    /// 
+    ///
     /// If the insert point is the focused item, then the inserted
     /// item becomes the focus, replacing whatever was in focus, which
     /// gets slid up by 1.
-    /// 
+    ///
     /// If the item cannot be inserted (i.e. because the given
     /// index was out of bounds), `Some(item)` is returned, else
     /// `None` is returned.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use toaruwm::core::{Ring, ring::InsertPoint};
-    /// 
+    ///
     /// let mut ring = Ring::new();
     /// for i in 1..10 {
     ///     ring.append(i);
     /// }
     /// // [1, 2, 3, 4, 5, 6, 7, 8, 9]
     /// //  ^
-    /// 
+    ///
     /// ring.insert(InsertPoint::BeforeFocused, 10);
     /// //[10, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     /// //     ^
     /// assert_eq!(*ring.focused().expect("no focus"), 1);
-    /// 
+    ///
     /// ring.insert(InsertPoint::Focused, 69);
     /// // [10, 69, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     /// //      ^
@@ -408,7 +411,7 @@ impl<T> Ring<T> {
 
         if self.is_empty() {
             self.push(item);
-            return None
+            return None;
         }
 
         debug_assert!(self.focused.is_some());
@@ -420,10 +423,10 @@ impl<T> Ring<T> {
                     if idx == self.len() {
                         // if we are off by one, just append
                         self.append(item);
-                        return None
+                        return None;
                     } else {
                         // if we are truly out of bounds, return
-                        return Some(item)
+                        return Some(item);
                     }
                 }
                 self.items.insert(idx, item);
@@ -443,7 +446,8 @@ impl<T> Ring<T> {
                 now replaces the previous focus */
                 None
             }
-            AfterFocused => { // we must preserve the focus here
+            AfterFocused => {
+                // we must preserve the focus here
                 debug_assert!(self.is_in_bounds(f_idx));
                 if self.would_wrap(Forward) {
                     self.append(item);
@@ -452,7 +456,8 @@ impl<T> Ring<T> {
                     self.insert(InsertPoint::Index(f_idx + 1), item)
                 }
             }
-            BeforeFocused => { // we must preserve the focus here
+            BeforeFocused => {
+                // we must preserve the focus here
                 debug_assert!(self.is_in_bounds(f_idx));
                 if self.would_wrap(Backward) {
                     self.push(item);
@@ -698,7 +703,7 @@ mod test {
 
         assert!(ring.focused().is_none());
 
-        ring.push(1); 
+        ring.push(1);
         // [1]
         //  ^
         assert_eq!(*ring.focused().expect("no focus"), 1);

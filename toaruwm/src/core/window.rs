@@ -1,9 +1,9 @@
 //! Types used to represent and manage individual windows.
-//! 
+//!
 //! This core of this module is the `Client` type, which represents
 //! an individual window on the X server that is also managed
 //! by a `WindowManager`.
-//! 
+//!
 //! See the [`Client`] documentation for more details.
 
 use std::collections::HashSet;
@@ -12,10 +12,10 @@ use std::ops::{Deref, DerefMut};
 use tracing::instrument;
 use tracing::{debug, error, warn};
 
-use super::{Ring, Selector, ring::InsertPoint};
+use super::{ring::InsertPoint, Ring, Selector};
 
 use crate::core::types::{
-    BorderStyle, Color, ClientAttrs, ClientConfig, Geometry, NetWindowStates
+    BorderStyle, ClientAttrs, ClientConfig, Color, Geometry, NetWindowStates,
 };
 use crate::manager::RuntimeConfig;
 use crate::x::{
@@ -26,13 +26,13 @@ use crate::x::{
 /// A ring of Clients.
 ///
 /// Contains additional methods more specific to window management.
-/// 
+///
 /// It implements `Deref` and `DerefMut` to `Ring`, so you can
 /// use all `Ring` methods on it.
 ///
 /// The focused element of this ring is the window that currently
 /// has the input focus.
-/// 
+///
 /// A `ClientRing` also plays an important role in enforcing window
 /// stacking, keeping all off-layout clients on top.
 #[derive(Debug, Clone)]
@@ -54,8 +54,13 @@ impl DerefMut for ClientRing {
     }
 }
 
-impl ClientRing {
+impl Default for ClientRing {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
+impl ClientRing {
     /// Creates a new ClientRing.
     pub fn new() -> Self {
         Self(Ring::new())
@@ -64,7 +69,6 @@ impl ClientRing {
     /// Adds the Client at a given index.
     pub fn add_at_index(&mut self, idx: usize, win: Client) {
         self.insert(InsertPoint::Index(idx), win);
-
     }
 
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
@@ -279,9 +283,9 @@ impl Client {
     }
 
     /// Mark a Client as outside of the layout.
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// This only changes the internal state of the window.
     /// It is the caller's responsibility to effect
     /// any server-side implications of this change based on
@@ -291,9 +295,9 @@ impl Client {
     }
 
     /// Mark a Client as inside of the layout.
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// This only changes the internal state of the window.
     /// It is the caller's responsibility to effect
     /// any server-side implications of this change based on
@@ -653,24 +657,30 @@ impl FocusStack {
 
     pub fn on_layout<'ws>(&'ws self, cl: &'ws ClientRing) -> impl Iterator<Item = &'ws XWindowID> {
         self.iter().filter(|id| {
-            !(cl.lookup(**id).expect("could not find client").is_off_layout())
+            !(cl.lookup(**id)
+                .expect("could not find client")
+                .is_off_layout())
         })
     }
 
     pub fn off_layout<'ws>(&'ws self, cl: &'ws ClientRing) -> impl Iterator<Item = &'ws XWindowID> {
         self.iter().filter(|id| {
-            cl.lookup(**id).expect("could not find client").is_off_layout()
+            cl.lookup(**id)
+                .expect("could not find client")
+                .is_off_layout()
         })
     }
 
     /// Moves the window with ID `id` to the top of its respective
     /// stack.
-    /// 
+    ///
     /// If the window is off layout, it is moved to the front of
     /// the queue; if it is on layout, it is moved to the first
     /// index of the stacked windows.
     pub fn bubble_to_top(&mut self, id: XWindowID, c: &ClientRing) {
-        if self.is_empty() {return}
+        if self.is_empty() {
+            return;
+        }
         let Some(idx) = c.get_idx(id) else {
             warn!("could not find window with ID {} in clientring", id);
             return
@@ -693,14 +703,14 @@ impl FocusStack {
     pub fn get_idx(&self, id: XWindowID) -> Option<usize> {
         self.0.index(Selector::Condition(&|win| *win == id))
     }
-    
+
     /// Gets the index where the first window on layout resides.
-    /// 
+    ///
     /// Assumes the `ClientRing` is indeed partitioned.
     //* precondition: the ring is already partitioned correctly */
     pub fn partition_idx(&self, clients: &ClientRing) -> usize {
-        self.0.items.partition_point(|c| clients.lookup(*c)
-            .expect("no client found")
-            .is_off_layout())
+        self.0
+            .items
+            .partition_point(|c| clients.lookup(*c).expect("no client found").is_off_layout())
     }
 }

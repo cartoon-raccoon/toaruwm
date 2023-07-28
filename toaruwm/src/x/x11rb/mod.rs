@@ -18,7 +18,7 @@ use strum::*;
 
 use super::{
     atom::Atom,
-    core::{Xid, Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
     cursor,
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureEvent, ConfigureRequestData, KeypressEvent,
@@ -189,13 +189,17 @@ impl<S: ConnStatus> X11RBConn<S> {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply
-        Ok(self.conn.get_geometry(*window)?.reply().map(|ok| Geometry {
-            // map the ok result into a Geometry
-            x: ok.x as i32,
-            y: ok.y as i32,
-            height: ok.height as i32,
-            width: ok.width as i32,
-        })?)
+        Ok(self
+            .conn
+            .get_geometry(*window)?
+            .reply()
+            .map(|ok| Geometry {
+                // map the ok result into a Geometry
+                x: ok.x as i32,
+                y: ok.y as i32,
+                height: ok.height as i32,
+                width: ok.width as i32,
+            })?)
     }
     #[inline]
     pub(crate) fn create_cursor_inner(&mut self, glyph: u16) -> Result<Xid> {
@@ -358,7 +362,9 @@ impl X11RBConn<Initialized> {
                 let stack_mode = if vmask.contains(CWMask::STACK_MODE) {
                     let sib = if req.sibling != x11rb::NONE {
                         Some(Xid(req.sibling))
-                    } else { None };
+                    } else {
+                        None
+                    };
                     match req.stack_mode {
                         XStackMode::ABOVE => Some(Above(sib)),
                         XStackMode::BELOW => Some(Below(sib)),
@@ -397,9 +403,10 @@ impl X11RBConn<Initialized> {
 
                 Ok(XEvent::MapRequest(Xid(req.window), override_redirect))
             }
-            Event::MapNotify(event) => {
-                Ok(XEvent::MapNotify(Xid(event.window), event.event == *self.root.id))
-            }
+            Event::MapNotify(event) => Ok(XEvent::MapNotify(
+                Xid(event.window),
+                event.event == *self.root.id,
+            )),
             Event::UnmapNotify(event) => Ok(XEvent::UnmapNotify(
                 Xid(event.window),
                 event.event == *self.root.id,
@@ -511,8 +518,9 @@ impl X11RBConn<Initialized> {
                     .map(|a| a.to_string())
                     .collect(),
             )),
-            "WINDOW" => Some(Property::Window(r.value32()
-                .unwrap().map(|v| Xid(v)).collect())),
+            "WINDOW" => Some(Property::Window(
+                r.value32().unwrap().map(Xid).collect(),
+            )),
             "WM_HINTS" => Some(Property::WMHints(WmHints::try_from_bytes(
                 &r.value32()
                     .ok_or(XError::ConversionError)?

@@ -1,47 +1,35 @@
 SHORT-TERM TODO:
 
+- make Keymap no longer completely dependent on xmodmap
+    (add keysym lookup, xkb support)
+    - add xkb support
+- finish the bindings and toaruerror macros
+- ensure workspace and layouts account for all config keys
+    (currently window gaps and focus_follows pointer are not honored)
+- make DTiled account for window gaps and borders
+- add cfg_attr to all instrument attributes to compile only under debug assertions
 - finish implementing the dummy connection
 - create an elegant way to handle borders
     (can be integrated with handling window gaps)
 - workspace methods to return error?
-- implement Config and use it
-- finalise cursor interface
-- create macros for creating bindings and inserting them into binding mappings
 - Fullscreen toggling (EWMH and manual)
 - implement Debug properly for user-facing types
-- add hooks to allow users to modfify a client before it is mapped
+- add hooks to allow users to modify a client before it is mapped
 - hooks on grabbing and managing existing windows (startup hooks done)
 - make XCBConn and X11RBConn conversion methods more generic
 - make keybinds use keysyms and account for modkey state 
     (since some keysyms are only accessible when using modkeys)
 
+
 LONG-TERM TODO:
 
-- convert layout engine into a trait? use trait object to generate layout?
-  (this would allow users to define their own special layouts)
-  - also: only core layout functionality should be in here, everything else in toarulib
+- complete the Widget trait
 - multi-screen support (set focused screen, assign workspace to screen, etc)
 - figure out restarting in-place
-- make master a region of windows, instead of one window?
-- make src/ one workspace of two within this repo
-i.e:
-  root/
-  |  Cargo.toml
-  |  README.md
-  |  src/ (main binary executable)
-  |
-  |---toaruwm/ (project core)
-  |      Cargo.toml
-  |      src/
-  |
-  |---toarulib/ (add-ons and extensions (e.g. bars, widgets))
-         Cargo.toml
-         src/
-
+- make master a region of windows, instead of one window (implement this as a layout)
 - hypothesis-based testing for workspace and window manager functionality
 - make this whole project async ;P (this will be fun)
 - add multi-display support (via randr)
-- add xkb support
 
 tests:
 - map window, unmap window
@@ -72,11 +60,3 @@ multi-screen policy:
     
     when fullscreen is toggled, the window takes up the entire screen
     but does not intrude into other workspaces
-
-Dynamic tiling:
-- Adding windows
-    if no windows exist, make new window master
-    follow master-slave example
-- Removing windows
-    remove window, then select new master from windows
-    reconfigure window layout

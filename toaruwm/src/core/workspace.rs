@@ -76,15 +76,15 @@ impl WorkspaceSpec {
 ///
 /// Most Workspace methods involve adding or removing windows, swapping
 /// layouts, or modifying layouts.
-/// 
+///
 /// # Common Method Parameters
-/// 
+///
 /// You may notice that a lot of the methods on `Workspace` have many
 /// scary-looking trait bounds; this is because they are also
 /// generic over the two types `WindowManager` itself is generic over:
 /// an [`XConn`], and a [`RuntimeConfig`]. These two provide an interface
 /// that the `Workspace` needs to perform a lot of its functionality.
-/// 
+///
 /// Generally speaking, if you're using `WindowManager` itself, chances
 /// are you won't have to call many of these methods directly.
 ///
@@ -97,9 +97,9 @@ impl WorkspaceSpec {
 /// or update the layouts as necessary.
 ///
 /// See [`Layout`] for more information.
-/// 
+///
 /// # Stacking Policy
-/// 
+///
 /// While Workspaces have no notion of layout policy, they are aware
 /// that there are layouts managing the placement of their windows.
 /// Thus, they implement a stacking policy where any window off layout
@@ -258,29 +258,25 @@ impl Workspace {
     /// Returns an iterator over all the clients currently in the layout.
     #[inline]
     pub fn clients_in_layout(&self) -> impl Iterator<Item = &Client> {
-        self.windows.iter()
-            .filter(|w| !w.is_off_layout())
+        self.windows.iter().filter(|w| !w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently in the layout.
     #[inline]
     pub fn clients_in_layout_mut(&mut self) -> impl Iterator<Item = &mut Client> {
-        self.windows.iter_mut()
-            .filter(|w| !w.is_off_layout())
+        self.windows.iter_mut().filter(|w| !w.is_off_layout())
     }
 
     /// Returns an iterator over all the clients currently off the layout.
     #[inline]
     pub fn clients_off_layout(&self) -> impl Iterator<Item = &Client> {
-        self.windows.iter()
-            .filter(|w| w.is_off_layout())
+        self.windows.iter().filter(|w| w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently off the layout.
     #[inline]
     pub fn clients_off_layout_mut(&mut self) -> impl Iterator<Item = &mut Client> {
-        self.windows.iter_mut()
-            .filter(|w| w.is_off_layout())
+        self.windows.iter_mut().filter(|w| w.is_off_layout())
     }
 
     /// Tests whether the workspace is empty.`
@@ -423,7 +419,10 @@ impl Workspace {
     }
 
     /// Deletes the window from the workspaces and returns it.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, conn, scr, cfg)))]
+    #[cfg_attr(
+        debug_assertions,
+        instrument(level = "debug", skip(self, conn, scr, cfg))
+    )]
     pub fn del_window<X, C>(
         &mut self,
         id: XWindowID,
@@ -480,14 +479,16 @@ impl Workspace {
     where
         X: XConn,
         C: RuntimeConfig,
-    {   
+    {
         /* all we do is change border color, focus_window
         handles everything else */
         // remove focus if window to unfocus is currently focused
         if self.windows.lookup(window).is_some() {
             conn.change_window_attributes(
                 window,
-                &[ClientAttrs::BorderColour(cfg.border_style(BorderStyle::Unfocused))],
+                &[ClientAttrs::BorderColour(
+                    cfg.border_style(BorderStyle::Unfocused),
+                )],
             )
             .unwrap_or_else(|e| error!("{}", e));
         } else {
@@ -585,7 +586,7 @@ impl Workspace {
 
     /// Removes the focused window from being managed by the layout, effectively
     /// turning it into a floating window regardless of the current layout style.
-    /// 
+    ///
     /// This will also stack the window above any other windows.
     pub fn remove_from_layout<X, C>(&mut self, conn: &X, id: XWindowID, scr: &Screen, cfg: &C)
     where
@@ -781,7 +782,7 @@ impl Workspace {
     ///
     /// - Stacks the given window at the top in the layer that it resides in.
     /// - Sets the input focus to it.
-    /// 
+    ///
     /// Note 1: This does not change the internal sequence of the `ClientRing`.
     /// Note 2: THE WINDOW MUST EXIST.
     fn stack_and_focus_window<X, C>(&mut self, conn: &X, cfg: &C, window: XWindowID)
@@ -802,7 +803,6 @@ impl Workspace {
             debug!("window {} is off layout, stacking above everything", window);
             let win = self.windows.lookup_mut(window).unwrap();
             win.configure(conn, &[ClientConfig::StackingMode(StackMode::Above(None))]);
-
         } else if let Some(last_off_layout) = self.focuses.off_layout(&self.windows).last() {
             // if window is in layout but there are existing clients off layout
             // in this case, stack below the last off layout
@@ -815,11 +815,13 @@ impl Workspace {
             );
             // else, stack it just below the last window off layout
             let win = self.windows.lookup_mut(window).unwrap();
-            win.configure(conn, &[
-                ClientConfig::StackingMode(StackMode::Below(Some(last_off_layout)))
-            ]);
+            win.configure(
+                conn,
+                &[ClientConfig::StackingMode(StackMode::Below(Some(
+                    last_off_layout,
+                )))],
+            );
         } else {
-
             debug!("{:?}", self.focuses);
             // if we got none, we can assume there are no off-layout windows
 

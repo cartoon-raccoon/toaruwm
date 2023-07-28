@@ -235,7 +235,7 @@ impl Default for Layouts {
     /// [`Floating`] layout.
     fn default() -> Self {
         let mut ret = Ring::new();
-        ret.append(Box::new(Floating{}) as Box<dyn Layout>);
+        ret.append(Box::new(Floating {}) as Box<dyn Layout>);
 
         ret
     }

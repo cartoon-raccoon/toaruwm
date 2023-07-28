@@ -5,12 +5,9 @@
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use core::ops::{
-    BitAnd, BitAndAssign, BitOr, BitOrAssign, Not,
-    Deref, DerefMut,
-};
-use std::str::FromStr;
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, DerefMut, Not};
 use std::fmt::{self, Display};
+use std::str::FromStr;
 
 use thiserror::Error;
 use tracing::{debug, error, warn};
@@ -32,22 +29,22 @@ use crate::types::{ClientAttrs, ClientConfig, Geometry, XWinProperties};
 pub const XID_NONE: Xid = Xid::zero();
 
 /// Wrapper type to represent IDs used by the X server.
-/// 
+///
 /// This is used by the server to identify all sorts
 /// of X window resources, including windows and atoms.
-/// 
+///
 /// You can create an Xid from a `u32`:
-/// 
+///
 /// ```rust
 /// use toaruwm::x::Xid;
-/// 
+///
 /// let id = Xid::from(69);
 /// let val = id.val();
-/// 
+///
 /// assert_eq!(val, 69);
 /// ```
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash, Default)]
 pub struct Xid(pub(crate) u32);
 
 impl Xid {
@@ -108,33 +105,33 @@ where
 impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
 
 /// Window stacking modes defined by the X Protocol.
-/// 
+///
 /// Each variant may carry a `sibling` window ID, that
 /// changes the semantics of the `StackMode`.
-/// 
+///
 /// The exact semantics of this difference are explained
 /// [here](https://tronche.com/gui/x/xlib/window/configure.html).
 #[derive(Clone, Copy, Debug)]
 pub enum StackMode {
     /// Stack the window at the top of the stack.
-    /// 
+    ///
     /// If a sibling is specified, the window is instead stacked
     /// just above the specified sibling.
     Above(Option<XWindowID>),
     /// Stack the window at the bottom of the stack.
-    /// 
+    ///
     /// If a sibling is specified, the window is instead stacked
     /// just below the specified sibling.
     Below(Option<XWindowID>),
     /// If any sibling occludes the window, the window
     /// is stacked at the top of the stack.
-    /// 
+    ///
     /// If a sibling is specified, then the window is
     /// stacked only if the sibling occludes it.
     TopIf(Option<XWindowID>),
     /// If the window occludes any sibling, the window
     /// is stacked at the bottom of the stack.
-    /// 
+    ///
     /// If a sibling is specified, then the window is
     /// stacked only if it occludes any sibling.
     BottomIf(Option<XWindowID>),
@@ -355,10 +352,14 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// often mapping directly to X server protocol requests, with type
 /// conversion to present dependency-agnostic types.
 ///
+/// # Atom Management
+///
 /// An XConn implementation should also provide a way to manage X atoms.
 /// Its `atom()` method should intern an Atom if not known, and
 /// the implementation should store this in its internal state in some way.
 /// While this functionality is not required, it is heavily encouraged.
+///
+/// # Usage in a WindowManager
 ///
 /// An implementation of `XConn` is required for using a [WindowManager][1].
 /// The backend library used does not directly appear inside `WindowManager`.
@@ -366,6 +367,13 @@ pub type Result<T> = ::core::result::Result<T, XError>;
 /// library, possibly using XLib, and in theory this crate can run on
 /// any display server implementing the X protocol, given a proper
 /// implementor of `XConn`.
+///
+/// # X Server Extension Support
+///
+/// Implementors of `XConn` should include support for various X server
+/// extensions, including RandR and XKB.
+///
+/// # Implementors
 ///
 /// This crate provides two implementations of XConn: [XCBConn][2] and
 /// [X11RBConn][3].
@@ -791,6 +799,12 @@ pub trait XConn {
         AUTO_FLOAT_WINDOW_TYPES.iter().any(|a| win_type.contains(a))
     }
 }
+
+/// A type that can send RandR requests.
+pub trait RandR {}
+
+/// A type that can send XKB requests.
+pub trait Xkb {}
 
 /// Abstracts over methods that all XConn implementations use internally.
 pub(crate) trait XConnInner: XConn {}

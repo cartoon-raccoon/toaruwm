@@ -16,7 +16,7 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{Xid, PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID},
+    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -40,7 +40,7 @@ macro_rules! root_pointer_grab_mask {
 impl XConn for X11RBConn<Initialized> {
     // General X server operations
     #[cfg_attr(
-        debug_assertions, 
+        debug_assertions,
         instrument(target = "xconn", level = "trace", skip(self))
     )]
     fn poll_next_event(&self) -> Result<Option<XEvent>> {
@@ -68,7 +68,7 @@ impl XConn for X11RBConn<Initialized> {
             .reply()?
             .children
             .into_iter()
-            .map(|u| Xid(u))
+            .map(Xid)
             .collect())
     }
 
@@ -88,7 +88,7 @@ impl XConn for X11RBConn<Initialized> {
     }
 
     #[cfg_attr(
-        debug_assertions, 
+        debug_assertions,
         instrument(target = "xconn", level = "trace", skip(self))
     )]
     fn all_outputs(&self) -> Result<Vec<Screen>> {
@@ -441,11 +441,13 @@ impl XConn for X11RBConn<Initialized> {
 
     fn set_input_focus(&self, window: XWindowID) -> Result<()> {
         trace!("Setting focus for window {}", window);
-        self.conn.set_input_focus(
-            xproto::InputFocus::POINTER_ROOT,
-            *window,
-            x11rb::CURRENT_TIME,
-        )?.check()?; //* FIXME: use the error
+        self.conn
+            .set_input_focus(
+                xproto::InputFocus::POINTER_ROOT,
+                *window,
+                x11rb::CURRENT_TIME,
+            )?
+            .check()?; //* FIXME: use the error
         Ok(())
     }
 
@@ -482,7 +484,10 @@ impl XConn for X11RBConn<Initialized> {
             Atom(atoms) => (
                 xproto::AtomEnum::ATOM,
                 32,
-                atoms.iter().map(|a| self.atom(a).unwrap_or(Xid(0))).collect(),
+                atoms
+                    .iter()
+                    .map(|a| self.atom(a).unwrap_or(Xid(0)))
+                    .collect(),
             ),
             Cardinal(card) => (xproto::AtomEnum::CARDINAL, 32, vec![Xid(card)]),
             String(strs) | UTF8String(strs) => {

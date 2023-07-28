@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use custom_debug_derive::Debug;
 
 use crate::core::{
-    types::{Color, BorderStyle}, 
-    Client, Desktop, Ring, Workspace
+    types::{BorderStyle, Color},
+    Client, Desktop, Ring, Workspace,
 };
 use crate::x::{XConn, XWindow, XWindowID};
 
@@ -34,7 +34,7 @@ use crate::x::{XConn, XWindow, XWindowID};
 ///
 /// It is then up to the caller to see if this object is of the
 /// needed type, by calling [`downcast_ref`][1] on it:
-/// 
+///
 ///
 /// ```rust
 /// use toaruwm::manager::RuntimeConfig;
@@ -52,13 +52,13 @@ use crate::x::{XConn, XWindow, XWindowID};
 ///     }
 /// }
 /// ```
-/// 
+///
 /// A provided method, `get_key_static`, does this call for you,
 /// but the trade-off is that it cannot be called on a trait object.
 ///
-/// See the [module-level documentation][2] on the [`Any`] trait for 
+/// See the [module-level documentation][2] on the [`Any`] trait for
 /// more details.
-/// 
+///
 /// [1]: https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref
 /// [2]: std::any
 pub trait RuntimeConfig {
@@ -84,18 +84,18 @@ pub trait RuntimeConfig {
     fn get_key(&self, key: &str) -> Option<&dyn Any>;
 
     /// A monomorphizable, easier-to-use version of `get_key`.
-    /// 
+    ///
     /// Rust's restrictions on trait objects prevent `get_key`
     /// from returning generic types, thus it has to return
     /// a trait object (i.e. `&dyn Any`), and rely on the caller
     /// to call `downcast_ref` themselves to get the concrete
     /// type. This method does that call for you.
-    /// 
+    ///
     /// Unfortunately, this means that this method cannot be
     /// called on a trait object.
     fn get_key_static<V: Any>(&self, key: &str) -> Option<&V>
     where
-        Self: Sized
+        Self: Sized,
     {
         self.get_key(key).and_then(|v| v.downcast_ref::<V>())
     }
@@ -151,7 +151,6 @@ impl RuntimeConfig for WmConfig {
     fn focus_follows_ptr(&self) -> bool {
         self.focus_follows_ptr
     }
-
 
     fn get_key(&self, key: &str) -> Option<&dyn Any> {
         self.keys.get(&key.to_string()).map(|v| v as &dyn Any)

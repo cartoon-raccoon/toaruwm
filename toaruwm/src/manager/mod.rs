@@ -53,8 +53,7 @@ macro_rules! handle_err {
 /// Removes the focused window if under layout.
 macro_rules! _rm_if_under_layout {
     ($_self:expr, $id:expr) => {
-        let is_under_layout = $_self.desktop.current()
-            .has_window_in_layout($id);
+        let is_under_layout = $_self.desktop.current().has_window_in_layout($id);
 
         if is_under_layout {
             $_self.desktop.current_mut().remove_from_layout(
@@ -64,7 +63,7 @@ macro_rules! _rm_if_under_layout {
                 &$_self.config,
             );
         }
-    }
+    };
 }
 
 /// The main window manager object that owns the event loop,
@@ -150,7 +149,7 @@ macro_rules! _rm_if_under_layout {
 /// The Window Manager employs a basic error handler that simply logs
 /// errors to stdout, but can be changed with
 /// `WindowManager::set_error_handler`.
-/// 
+///
 /// [1]: crate::core::Workspace
 pub struct WindowManager<X, C>
 where
@@ -584,7 +583,7 @@ where
     }
 
     /// Grabs the pointer and moves the window the pointer is on.
-    /// 
+    ///
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
     //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
@@ -689,7 +688,8 @@ where
         Ok(EventAction::from_xevent(event, self.state()))
     }
 
-    #[cfg_attr(debug_assertions, 
+    #[cfg_attr(
+        debug_assertions,
         instrument(level = "debug", skip(self, actions, mousebinds, keybinds))
     )]
     fn handle_event(

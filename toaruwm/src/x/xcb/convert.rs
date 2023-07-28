@@ -5,13 +5,13 @@ use std::convert::TryFrom;
 use strum::*;
 
 use xcb::x;
-use xcb::{Xid as XCBid, XidNew, x::PropEl};
+use xcb::{x::PropEl, Xid as XCBid, XidNew};
 
-use super::{id, cast, Initialized, XCBConn};
+use super::{cast, id, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Point};
 use crate::x::{
-    core::{Xid, Result, XError},
+    core::{Result, XError, Xid},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
 };
@@ -157,12 +157,12 @@ macro_rules! _add_sib_if_some {
         if let Some(s) = $sib {
             vec![
                 x::ConfigWindow::Sibling(cast!(x::Window, **s)),
-                x::ConfigWindow::StackMode($mode)
+                x::ConfigWindow::StackMode($mode),
             ]
         } else {
             vec![x::ConfigWindow::StackMode($mode)]
         }
-    }
+    };
 }
 
 // converting ClientConfigs to (u16, u32) slices for xcb
@@ -189,7 +189,7 @@ impl From<&ClientConfig> for Vec<x::ConfigWindow> {
                 Below(sib) => _add_sib_if_some!(sib, x::StackMode::Below),
                 TopIf(sib) => _add_sib_if_some!(sib, x::StackMode::TopIf),
                 BottomIf(sib) => _add_sib_if_some!(sib, x::StackMode::BottomIf),
-                Opposite(sib) =>  _add_sib_if_some!(sib, x::StackMode::Opposite),
+                Opposite(sib) => _add_sib_if_some!(sib, x::StackMode::Opposite),
             },
         }
     }
