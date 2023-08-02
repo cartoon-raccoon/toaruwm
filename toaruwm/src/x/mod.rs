@@ -94,6 +94,14 @@ pub mod status {
     impl private::Sealed for Initialized {}
 }
 
+pub(crate) const MAX_LONG_LENGTH: u32 = 1024;
+
+pub(crate) const RANDR_MAJ: u32 = 1;
+pub(crate) const RANDR_MIN: u32 = 4;
+
+pub(crate) const XKB_MAJ: u16 = 2;
+pub(crate) const XKB_MIN: u16 = 0;
+
 // various backend-agnostic conversion implementations
 
 use std::string::FromUtf8Error;

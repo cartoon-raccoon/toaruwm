@@ -16,7 +16,9 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
+    core::{
+        PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid,
+    },
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -120,7 +122,7 @@ impl XConn for X11RBConn<Initialized> {
         self.conn.destroy_window(*check_id)?.check()?;
 
         if crtcs.is_empty() {
-            Err(XError::RandrError("Could not get screens".into()))
+            Err(XError::NoScreens)
         } else {
             Ok(crtcs)
         }

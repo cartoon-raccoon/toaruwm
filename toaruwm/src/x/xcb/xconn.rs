@@ -96,7 +96,7 @@ impl XConn for XCBConn<Initialized> {
             }
         )?;
 
-        let crtcs = res
+        let crtcs: Vec<Screen> = res
             .crtcs()
             .iter()
             // could do this with flat_map, but that just seems confusing
@@ -125,6 +125,10 @@ impl XConn for XCBConn<Initialized> {
             })
             .filter(|s| s.true_geom().width > 0)
             .collect();
+
+        if crtcs.is_empty() {
+            return Err(XError::NoScreens)
+        }
 
         req_and_check!(
             self.conn,

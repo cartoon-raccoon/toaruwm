@@ -5,10 +5,13 @@ use core::marker::PhantomData;
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
+use tracing::debug;
+
 use x11rb::connection::Connection;
 use x11rb::protocol::{
-    randr,
+    randr, xkb,
     randr::ConnectionExt as RConnectionExt,
+    xkb::ConnectionExt as XKBConnectionExt,
     xproto::{self, ConnectionExt as XConnectionExt, Depth, Screen},
     Event,
 };
@@ -18,7 +21,10 @@ use strum::*;
 
 use super::{
     atom::Atom,
-    core::{Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
+    core::{
+        Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid,
+        RandrErrorKind, XKBErrorKind,
+    },
     cursor,
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureEvent, ConfigureRequestData, KeypressEvent,
@@ -31,13 +37,14 @@ use super::{
 use crate::bindings::ButtonIndex;
 use crate::types::{Geometry, Point};
 
+use super::{
+    MAX_LONG_LENGTH,
+    RANDR_MAJ, RANDR_MIN,
+    XKB_MAJ, XKB_MIN,
+};
+
 mod convert;
 mod xconn;
-
-const MAX_LONG_LENGTH: u32 = 1024;
-
-const RANDR_MAJ: u32 = 1;
-const RANDR_MIN: u32 = 4;
 
 /// A connection to an X server, backed by the x11rb library.
 ///
@@ -78,7 +85,7 @@ impl X11RBConn<Uninitialized> {
     pub fn connect() -> Result<Self> {
         // initialize xcb connection
         let (conn, idx) = x11rb::connect(None)?;
-        trace!("Connected to x server, got preferred screen {}", idx);
+        debug!("Connected to x server, got preferred screen {}", idx);
         // wrap it in an ewmh connection just for fun
 
         // initialize our atom handler
@@ -101,29 +108,21 @@ impl X11RBConn<Uninitialized> {
     /// It does the following:
     ///
     /// - Verifies the randr version is compatible.
-    /// - Initializes the randr extension.
+    /// - Initializes the RandR and XKB extensions.
     /// - Initializes the root window and its dimensions.
     /// - Interns all known [atoms][1].
     /// - Creates and sets the cursor.
     ///
     /// [1]: crate::x::atom::Atom
+    #[must_use = 
+        "this consumes the connection and returns an initialized one"]
     pub fn init(mut self) -> Result<X11RBConn<Initialized>> {
-        // validate randr version
-        let res = self
-            .conn
-            .randr_query_version(RANDR_MAJ, RANDR_MIN)?
-            .reply()?;
 
-        let (maj, min) = (res.major_version, res.minor_version);
+        // initialize randr and validate version
+        let randr_base = self.initialize_randr()?;
 
-        trace!("Got randr version {}.{}", maj, min);
-
-        if maj != RANDR_MAJ || min < RANDR_MIN {
-            return Err(XError::RandrError(format!(
-                "Received randr version {}.{}, requires v{}.{} or higher",
-                maj, min, RANDR_MAJ, RANDR_MIN
-            )));
-        }
+        // initialize xkb
+        self.initialize_xkb()?;
 
         // get root window id
         let root = match self.conn.setup().roots.get(self.idx) {
@@ -134,17 +133,7 @@ impl X11RBConn<Uninitialized> {
             }
             None => return Err(XError::NoScreens),
         };
-        trace!("Got root: {:?}", self.root);
-
-        // initialize randr and get its event mask
-        let randr_base = self
-            .conn
-            .query_extension(randr::X11_EXTENSION_NAME.as_bytes())?
-            //.ok_or_else(|| XError::RandrError("could not load randr".into()))?
-            .reply()?
-            .first_event;
-
-        trace!("Got randr_base {}", self.randr_base);
+        debug!("Got root: {:?}", self.root);
 
         let atomcount = Atom::iter().count();
         let mut atomvec = Vec::with_capacity(atomcount);
@@ -236,6 +225,72 @@ impl<S: ConnStatus> X11RBConn<S> {
         self.conn
             .change_window_attributes(*window, &ChangeWindowAttributesAux::new().cursor(*cursor))?
             .check()?;
+
+        Ok(())
+    }
+
+    pub(crate) fn initialize_randr(&self) -> Result<u8> {
+        debug!("Initializing RandR");
+
+        let reply = self
+            .conn
+            .query_extension(randr::X11_EXTENSION_NAME.as_bytes())
+            .or_else(|_| Err(
+                XError::RandrError(RandrErrorKind::Other("could not load randr".into()))
+            ))?
+            .reply()?;
+
+        if !reply.present {
+            return Err(XError::RandrError(RandrErrorKind::NotPresent))
+        }
+
+        let res = self
+            .conn
+            .randr_query_version(RANDR_MAJ, RANDR_MIN)?
+            .reply()?;
+
+        let (maj, min) = (res.major_version, res.minor_version);
+
+        debug!("Got randr version {}.{}", maj, min);
+
+        if maj != RANDR_MAJ || min < RANDR_MIN {
+            return Err(XError::RandrError(RandrErrorKind::IncompatibleVer(maj, min)));
+        }
+
+        // get randr event mask
+        let randr_base = reply.first_event;
+
+        trace!("Got randr_base {}", randr_base);
+
+        Ok(randr_base)
+    }
+
+    pub(crate) fn initialize_xkb(&self) -> Result<()> {
+        debug!("Initializing XKB");
+
+        let present = self.conn
+            .query_extension(xkb::X11_EXTENSION_NAME.as_bytes())?
+            .reply()?
+            .present;
+
+        if !present {
+            return Err(XError::XKBError(XKBErrorKind::NotPresent))
+        }
+
+        let reply = self.conn
+            .xkb_use_extension(XKB_MAJ as u16, XKB_MIN as u16)?
+            .reply()?;
+
+        let (maj, min) = (reply.server_major, reply.server_minor);
+
+        debug!("Got XKB version {}.{}", maj, min);
+
+        if !(maj == XKB_MAJ || min == XKB_MIN) {
+            trace!("re-initializing XKB to match versions");
+            self.conn
+                .xkb_use_extension(maj, min)?
+                .reply()?;
+        }
 
         Ok(())
     }
