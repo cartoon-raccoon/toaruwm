@@ -13,7 +13,10 @@ use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
-    core::{PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid},
+    core::{
+        PointerQueryReply, Result, WindowClass, XAtom, XConn,
+        XCore, XError, XWindow, XWindowID, Xid
+    },
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
     property::*,
@@ -22,7 +25,9 @@ use crate::x::{
 
 use super::XCBConn;
 
-impl XConn for XCBConn<Initialized> {
+impl XConn for XCBConn<Initialized> {}
+
+impl XCore for XCBConn<Initialized> {
     // General X server operations
     #[cfg_attr(
         debug_assertions,

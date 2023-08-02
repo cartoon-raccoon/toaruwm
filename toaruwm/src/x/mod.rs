@@ -22,6 +22,7 @@
 
 pub mod atom;
 pub mod core;
+pub mod traits;
 pub mod cursor;
 pub mod event;
 pub mod input;
@@ -31,11 +32,13 @@ pub mod x11rb;
 pub mod xcb;
 
 #[doc(inline)]
-pub use self::core::{Result, XAtom, XConn, XError, XWindow, XWindowID, Xid};
+pub use self::core::{Result, XAtom, XError, XWindow, XWindowID, Xid};
 #[doc(inline)]
 pub use atom::{Atom, Atoms};
 #[doc(inline)]
 pub use event::XEvent;
+#[doc(inline)]
+pub use traits::{XConn, RandR, Xkb};
 pub(crate) use property::*;
 
 #[doc(inline)]

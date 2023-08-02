@@ -17,7 +17,8 @@ use crate::core::Screen;
 use crate::types::{ClientAttrs, ClientConfig, Geometry};
 use crate::x::{
     core::{
-        PointerQueryReply, Result, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid,
+        PointerQueryReply, Result, WindowClass, XAtom, XConn,
+        XCore, XError, XWindow, XWindowID, Xid,
     },
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
@@ -39,7 +40,9 @@ macro_rules! root_pointer_grab_mask {
     };
 }
 
-impl XConn for X11RBConn<Initialized> {
+impl XConn for X11RBConn<Initialized> {}
+
+impl XCore for X11RBConn<Initialized> {
     // General X server operations
     #[cfg_attr(
         debug_assertions,

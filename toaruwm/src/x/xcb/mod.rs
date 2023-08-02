@@ -26,8 +26,8 @@ use strum::*;
 use super::{
     atom::Atom,
     core::{
-        Result, StackMode, WindowClass, XAtom, XConn, XError, XWindow, XWindowID, Xid,
-        RandrErrorKind, XKBErrorKind,
+        Result, StackMode, WindowClass, XAtom, XCore, XError, XWindow, XWindowID, Xid,
+        RandR, Xkb, RandrErrorKind, XKBErrorKind,
     },
     cursor,
     event::{
@@ -251,8 +251,10 @@ impl<S: ConnStatus> XCBConn<S> {
 
         Ok(())
     }
+}
 
-    pub(crate) fn initialize_randr(&self) -> Result<u8> {
+impl<S: ConnStatus> RandR for XCBConn<S> {
+    fn initialize_randr(&self) -> Result<u8> {
         let reply = req_and_reply!(
             self.conn,
             &x::QueryExtension {
@@ -290,8 +292,10 @@ impl<S: ConnStatus> XCBConn<S> {
 
         Ok(randr_base)
     }
+}
 
-    pub(crate) fn initialize_xkb(&self) -> Result<()> {
+impl<S: ConnStatus> Xkb for XCBConn<S> {
+    fn initialize_xkb(&self) -> Result<()> {
         let reply = req_and_reply!(
             self.conn,
             &x::QueryExtension {
