@@ -203,14 +203,14 @@ pub type InitXCB = XCBConn<Initialized>;
 pub type InitX11RB = X11RBConn<Initialized>;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
-    let conn = XCBConn::connect()?;
-    let conn = conn.init()?;
+// pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
+//     let conn = XCBConn::connect()?;
+//     let conn = conn.init()?;
 
-    let wm = WindowManager::new(conn, config)?;
+//     let wm = WindowManager::new(conn, config)?;
 
-    Ok(wm)
-}
+//     Ok(wm)
+// }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
 pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {

@@ -153,7 +153,7 @@ macro_rules! _rm_if_under_layout {
 /// [1]: crate::core::Workspace
 pub struct WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// The X Connection
@@ -167,7 +167,7 @@ where
     /// The root window.
     root: XWindow,
     /// A main error handler function.
-    ehandler: Box<dyn ErrorHandler<X, C>>,
+    ehandler: Box<dyn ErrorHandler<X, C> + Send>,
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
     selected: Option<XWindowID>,
@@ -182,7 +182,7 @@ where
 /// General `WindowManager`-level commands.
 impl<X, C> WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Constructs a new WindowManager object.
@@ -427,7 +427,7 @@ where
     /// Set an error handler for WindowManager.
     pub fn set_error_handler<E>(&mut self, ehandler: E)
     where
-        E: ErrorHandler<X, C> + 'static,
+        E: ErrorHandler<X, C> + Send + 'static,
     {
         self.ehandler = Box::new(ehandler);
     }
@@ -454,7 +454,7 @@ where
 /// Desktop-level commands.
 impl<X, C> WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Goes to the specified workspace.
@@ -523,7 +523,7 @@ where
 /// Workspace-level commands.
 impl<X, C> WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Cycles the focused window.
@@ -678,7 +678,7 @@ where
 //* Private Methods *//
 impl<X, C> WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Receive the next event from the connection and process it
@@ -914,7 +914,7 @@ where
 
 impl<X, C> fmt::Debug for WindowManager<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -318,7 +318,7 @@ pub type MouseCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>, Point)>;
 #[derive(Default, Debug)]
 pub struct Keybinds<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     bindings: HashMap<Keybind, KeyCallback<X, C>>,
@@ -326,7 +326,7 @@ where
 
 impl<X, C> Keybinds<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Creates a new Keybinds object.
@@ -379,7 +379,7 @@ where
 #[derive(Default, Debug)]
 pub struct Mousebinds<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     bindings: HashMap<Mousebind, MouseCallback<X, C>>,
@@ -387,7 +387,7 @@ where
 
 impl<X, C> Mousebinds<X, C>
 where
-    X: XConn,
+    X: XConn + Send,
     C: RuntimeConfig,
 {
     /// Creates a new `Mousebinds` object.

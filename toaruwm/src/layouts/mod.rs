@@ -63,7 +63,7 @@ use update::Update;
 /// Layouts will usually be used as a trait object by the window manager.
 /// Since trait objects cannot be based on `Clone`, `Layout` requires
 /// a `boxed` method that clones the object as needed.
-pub trait Layout {
+pub trait Layout: Send {
     /// The name of the Layout, used to display in some kind of status bar.
     fn name(&self) -> &str;
 

@@ -81,7 +81,7 @@ pub trait RuntimeConfig {
     ///
     /// Should return None if the key does not exist in
     /// storage.
-    fn get_key(&self, key: &str) -> Option<&dyn Any>;
+    fn get_key(&self, key: &str) -> Option<&(dyn Any + Send)>;
 
     /// A monomorphizable, easier-to-use version of `get_key`.
     ///
@@ -125,7 +125,7 @@ pub struct WmConfig {
     pub(crate) unfocused: Color,
     pub(crate) focused: Color,
     pub(crate) urgent: Color,
-    pub(crate) keys: HashMap<String, Box<dyn Any>>,
+    pub(crate) keys: HashMap<String, Box<dyn Any + Send>>,
 }
 
 impl RuntimeConfig for WmConfig {
@@ -152,8 +152,8 @@ impl RuntimeConfig for WmConfig {
         self.focus_follows_ptr
     }
 
-    fn get_key(&self, key: &str) -> Option<&dyn Any> {
-        self.keys.get(&key.to_string()).map(|v| v as &dyn Any)
+    fn get_key(&self, key: &str) -> Option<&(dyn Any + Send)> {
+        self.keys.get(&key.to_string()).map(|v| v as &(dyn Any + Send))
     }
 }
 

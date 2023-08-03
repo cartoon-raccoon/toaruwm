@@ -139,7 +139,7 @@ pub struct ToaruConfig {
     /// The color to apply to the borders of a window marked as urgent.
     pub(crate) urgent: Color,
     /// Storage for any user-defined keys.
-    pub(crate) keys: HashMap<String, Box<dyn Any>>,
+    pub(crate) keys: HashMap<String, Box<dyn Any + Send>>,
 }
 
 //* I would use an Option<F> instead of doing this bodge, but
@@ -226,7 +226,7 @@ impl ToaruConfig {
     pub fn insert_key<K, V>(&mut self, key: K, value: V)
     where
         K: Into<String>,
-        V: Any,
+        V: Any + Send,
     {
         self.keys.insert(key.into(), Box::new(value) as Box<V>);
     }
@@ -347,7 +347,7 @@ impl Default for ToaruConfig {
             urgent: Color::from(0xee0000),
             keys: {
                 let mut keys = HashMap::new();
-                keys.insert("main_ratio_inc".into(), Box::new(0.05f32) as Box<dyn Any>);
+                keys.insert("main_ratio_inc".into(), Box::new(0.05f32) as Box<dyn Any + Send>);
 
                 keys
             },
@@ -437,11 +437,11 @@ impl ToaruConfigBuilder {
     pub fn other_key<K, V>(mut self, key: K, value: V) -> Self
     where
         K: Into<String>,
-        V: Any,
+        V: Any + Send,
     {
         self.inner
             .keys
-            .insert(key.into(), Box::new(value) as Box<dyn Any>);
+            .insert(key.into(), Box::new(value) as Box<dyn Any + Send>);
         self
     }
 
