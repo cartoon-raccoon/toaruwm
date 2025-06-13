@@ -15,6 +15,9 @@ xcb = { version = "1.2", features = ["randr", "xkb"] }
 x11 = "2.21"
 x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cursor", "randr", "xkb"] }
 
+smithay = { version = "0.6", features = ["wayland_frontend", "backend_drm", "backend_libinput", "backend_udev"] }
+input = "0.9"
+
 log = "0.4"
 tracing = {version = "0.1", features = ["attributes", "log"] }
 
