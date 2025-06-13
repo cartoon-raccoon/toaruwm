@@ -11,7 +11,7 @@ use bitflags::bitflags;
 
 use crate::{
     bindings::{ButtonIndex, Keybind, ModKey, Mousebind},
-    x::core::BitMask,
+    backend::x::core::BitMask,
 };
 
 //* Re-exports

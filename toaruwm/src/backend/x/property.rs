@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::types::Point;
-use crate::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
+use crate::backend::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
 
 /// X server properties.
 #[derive(Debug, Clone)]
