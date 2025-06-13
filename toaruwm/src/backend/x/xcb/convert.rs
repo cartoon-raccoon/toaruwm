@@ -9,8 +9,9 @@ use xcb::{x::PropEl, Xid as XCBid, XidNew};
 
 use super::{cast, id, Initialized, XCBConn};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
-use crate::types::{ClientAttrs, ClientConfig, Point};
+use crate::types::{Point};
 use crate::backend::x::{
+    types::{ClientAttrs, ClientConfig},
     core::{Result, XError, Xid},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},

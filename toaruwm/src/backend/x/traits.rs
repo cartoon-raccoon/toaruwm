@@ -49,11 +49,10 @@ use super::{
     atom::{Atom, AUTO_FLOAT_WINDOW_TYPES, UNMANAGED_WINDOW_TYPES},
     event::{ClientMessageEvent, XEvent},
     property::{Property, WmHints, WmSizeHints, WindowState},
+    types::{ClientAttrs, ClientConfig, XWinProperties},
 };
 use crate::core::Screen;
-use crate::types::{
-    ClientAttrs, ClientConfig, Geometry, XWinProperties,
-};
+use crate::core::types::{Geometry};
 
 /// A trait used to define the interface between ToaruWM and the X server.
 ///
@@ -556,4 +555,5 @@ pub trait Xkb {
 }
 
 /// Abstracts over methods that all XConn implementations use internally.
+#[allow(dead_code)]
 pub(crate) trait XConnInner: XConn {}

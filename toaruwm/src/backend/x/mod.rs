@@ -28,6 +28,7 @@ pub mod cursor;
 pub mod event;
 pub mod input;
 pub mod property;
+pub mod types;
 
 pub mod x11rb;
 pub mod xcb;

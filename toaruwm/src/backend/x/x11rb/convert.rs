@@ -7,8 +7,9 @@ use x11rb::protocol::xproto;
 use strum::*;
 
 use super::Initialized;
+use crate::backend::x::types::{ClientAttrs, ClientConfig};
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
-use crate::types::{ClientAttrs, ClientConfig, Point};
+use crate::types::{Point};
 use crate::backend::x::{
     core::{Result, XError, Xid},
     event::MouseEvent,

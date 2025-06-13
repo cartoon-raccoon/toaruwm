@@ -18,8 +18,11 @@ use crate::core::{
 };
 use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
 use crate::manager::RuntimeConfig;
-use crate::types::{BorderStyle, ClientAttrs, ClientConfig, Direction};
-use crate::backend::x::{core::StackMode, XConn, XWindowID};
+use crate::types::{BorderStyle, Direction};
+use crate::backend::x::{
+    core::StackMode, XConn, XWindowID,
+    types::{ClientAttrs, ClientConfig},
+};
 use crate::Result;
 
 /// A specification describing a workspace.

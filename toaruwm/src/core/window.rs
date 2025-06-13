@@ -15,10 +15,11 @@ use tracing::{debug, error, warn};
 use super::{ring::InsertPoint, Ring, Selector};
 
 use crate::core::types::{
-    BorderStyle, ClientAttrs, ClientConfig, Color, Geometry, NetWindowStates,
+    BorderStyle, Color, Geometry, 
 };
 use crate::manager::RuntimeConfig;
 use crate::backend::x::{
+    types::{ClientAttrs, ClientConfig, NetWindowStates},
     core::{XAtom, XConn, XWindow, XWindowID},
     property::WindowState,
 };
