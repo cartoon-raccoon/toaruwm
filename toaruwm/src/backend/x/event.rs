@@ -148,6 +148,7 @@ pub struct MouseEvent {
 }
 
 /// A trait for converting backend types to a MouseEvent type.
+#[allow(dead_code)]
 pub(crate) trait ButtonEvent {}
 
 /// A ClientMessageEvent sent by the X server.

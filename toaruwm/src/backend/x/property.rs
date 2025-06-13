@@ -189,7 +189,7 @@ impl Default for WindowState {
 bitflags! {
 
 /// The flags used inside WmHints.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct WmHintsFlags: u32 {
     /// The input hint is set
     const INPUT_HINT            = 0b0000000001;
@@ -211,7 +211,7 @@ pub struct WmHintsFlags: u32 {
 }
 
 /// The flags used inside WmSizeHints.
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct WmSizeHintsFlags: u32 {
     /// User-specified x and y
     const US_POSITION   = 0b0000000001;

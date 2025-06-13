@@ -180,6 +180,7 @@ pub enum Atom {
 
 /// An error generated when an `XAtom` could not be converted
 /// into a known `Atom` variant.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Error)]
 #[error("Could not get known atom from given atom {0}")]
 pub struct TryFromAtomError(XAtom);

@@ -18,7 +18,7 @@ use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, ClientAttrs, Direction, Point, Ring, Selector};
-use crate::x::{
+use crate::backend::x::{
     event::ConfigureRequestData, input::MouseEventKind, Atom, Property, XConn, XError, XEvent,
     XWindow, XWindowID,
 };
