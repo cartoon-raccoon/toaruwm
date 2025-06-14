@@ -7,8 +7,20 @@
 //!
 //! For X server-specific types, see [`crate::x::core`].
 
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+
 #[doc(inline)]
 pub use crate::core::{Ring, Selector};
+
+use std::hash::Hash;
+use std::fmt::Debug;
+
+/// A type that can uniquely identify any client connected to a
+/// running ToaruWM instance.
+/// 
+/// It is backend-agnostic, and each backend provides their own
+/// type that implements this trait.
+pub trait ToaruClientId: Debug + Clone + Eq + Hash {}
 
 /// Specifies a direction.
 #[allow(missing_docs)]
@@ -759,3 +771,16 @@ pub enum BorderStyle {
     /// The colour to applied when a window is marked as urgent.
     Urgent,
 }
+
+/// A marker trait to signal that a type can be treated as a bitmask.
+///
+/// This means that the type supports bitmask operations such as
+/// bitwise AND, bitwise OR, bitwise NOT, etc.
+pub trait BitMask
+where
+    Self: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized,
+{
+}
+
+// Blanket implementation for Bitmask
+impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}

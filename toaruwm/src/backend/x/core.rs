@@ -5,19 +5,18 @@
 //! This module defines core types and traits used throughout this
 //! crate for directly interacting with the X server.
 
-use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Deref, DerefMut, Not};
+use core::ops::{Deref, DerefMut};
 use std::fmt::{self, Display};
 
 use thiserror::Error;
 use tracing::{debug, error};
 use strum::EnumIs;
 
-
 use super::{
     atom::Atom,
     input::KeyButMask,
 };
-use crate::types::Geometry;
+use crate::types::{Geometry, ToaruClientId};
 use crate::backend::BackendError;
 
 #[doc(inline)]
@@ -88,21 +87,10 @@ impl DerefMut for Xid {
 /// An X server ID for a given window.
 pub type XWindowID = Xid;
 
+impl ToaruClientId for XWindowID {}
+
 /// An X Atom.
 pub type XAtom = Xid;
-
-/// A marker trait to signal that a type can be treated as a bitmask.
-///
-/// This means that the type supports bitmask operations such as
-/// bitwise AND, bitwise OR, bitwise NOT, etc.
-pub trait BitMask
-where
-    Self: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized,
-{
-}
-
-// Blanket implementation for Bitmask
-impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
 
 /// Window stacking modes defined by the X Protocol.
 ///
