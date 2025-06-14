@@ -2,7 +2,7 @@
 name = "toaruwm"
 version = "0.1.0"
 authors = ["cartoon-raccoon <shaughn.chan@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,12 +18,12 @@ x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cur
 log = "0.4"
 tracing = {version = "0.1", features = ["attributes", "log"] }
 
-strum = { version = "0.19.2", features = ["derive"] }
-strum_macros = "0.19.2"
+strum = { version = "0.27.1", features = ["derive"] }
+strum_macros = "0.27.1"
 
-custom_debug_derive = "0.5.1"
+custom_debug_derive = "0.6.1"
 
-bitflags = "1.2.1"
+bitflags = "2.5.0"
 byteorder = "1.4.3"
 
 nix = "0.20"

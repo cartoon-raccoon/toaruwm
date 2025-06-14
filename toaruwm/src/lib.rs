@@ -174,19 +174,19 @@ pub mod core;
 pub mod layouts;
 pub mod manager;
 pub mod widget;
-pub mod x;
+pub mod backend;
 
 pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Config, ToaruConfig, WindowManager};
 #[doc(inline)]
-pub use crate::x::core::XConn;
+pub use crate::backend::x::core::XConn;
 #[doc(inline)]
-pub use crate::x::{x11rb::X11RBConn, xcb::XCBConn};
+pub use crate::backend::x::{x11rb::X11RBConn, xcb::XCBConn};
 
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::x::Initialized;
+use crate::backend::x::Initialized;
 
 use std::io;
 
@@ -222,7 +222,7 @@ pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
     Ok(wm)
 }
 
-use crate::x::core::{XError, XWindowID};
+use crate::backend::x::core::{XError, XWindowID};
 use thiserror::Error;
 
 /// Everything that could possibly go wrong while ToaruWM is running.

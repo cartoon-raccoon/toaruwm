@@ -4,7 +4,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::core::{Client, Screen};
 use crate::types::Geometry;
-use crate::x::{
+use crate::backend::x::{
     core::{PointerQueryReply, Result, XAtom, XConn, XError, XWindow, XWindowID},
     event::XEvent,
 };

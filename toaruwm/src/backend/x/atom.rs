@@ -19,7 +19,7 @@ use super::core::XAtom;
 /// ToaruWM internal representations of X atoms.
 ///
 /// This allows for some measure of type safety around dealing with atoms.
-#[derive(AsRefStr, Display, EnumString, EnumIter, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(AsRefStr, Display, EnumString, EnumIter, EnumIs, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Atom {
     /// ATOM
     #[strum(serialize = "ATOM")]
@@ -180,6 +180,7 @@ pub enum Atom {
 
 /// An error generated when an `XAtom` could not be converted
 /// into a known `Atom` variant.
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, Error)]
 #[error("Could not get known atom from given atom {0}")]
 pub struct TryFromAtomError(XAtom);

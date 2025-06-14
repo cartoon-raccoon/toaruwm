@@ -11,7 +11,7 @@ use bitflags::bitflags;
 
 use crate::{
     bindings::{ButtonIndex, Keybind, ModKey, Mousebind},
-    x::core::BitMask,
+    backend::x::core::BitMask,
 };
 
 //* Re-exports
@@ -41,6 +41,7 @@ bitflags! {
 /// Bitmask representing one or a combination of modifier keys.
 ///
 /// See definition in the X Server Protocol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModMask: u16 {
     /// The Shift key.
     const SHIFT   = 1 << 0;
@@ -61,6 +62,7 @@ pub struct ModMask: u16 {
 }
 
 /// Bitmask representing one or a combination of mouse buttons.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ButtonMask: u16 {
     /// Mouse button left.
     const M1 = 1 << 8;
@@ -96,6 +98,7 @@ pub struct ButtonMask: u16 {
 /// assert_eq!(combined, (KeyButMask::SHIFT|KeyButMask::M1));
 /// ```
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct KeyButMask: u16 {
     const SHIFT   = ModMask::SHIFT.bits();
     const LOCK    = ModMask::LOCK.bits();

@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 //! Types and traits providing a unified interface with the X server.
 //!
 //! This module provides ToaruWM's main interface to the X server.

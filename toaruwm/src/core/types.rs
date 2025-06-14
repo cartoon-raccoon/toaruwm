@@ -13,7 +13,7 @@ use tracing::error;
 
 #[doc(inline)]
 pub use crate::core::{Ring, Selector};
-use crate::x::{
+use crate::backend::x::{
     core::{StackMode, XAtom, XConn},
     property::{WindowState, WmHints, WmSizeHints},
 };

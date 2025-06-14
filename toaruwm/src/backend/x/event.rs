@@ -1,5 +1,7 @@
 //! Types for working with X events.
 
+use strum::{EnumIs};
+
 use super::{
     core::{StackMode, XAtom},
     input::{KeyCode, ModMask},
@@ -11,7 +13,7 @@ use crate::types::{Geometry, Point};
 /// Low-level wrapper around actual X server events.
 ///
 /// Translated to EventActions by `WindowManager`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumIs)]
 pub enum XEvent {
     /// Notification that a client has changed its configuration.
     ConfigureNotify(ConfigureEvent),
@@ -148,6 +150,7 @@ pub struct MouseEvent {
 }
 
 /// A trait for converting backend types to a MouseEvent type.
+#[allow(dead_code)]
 pub(crate) trait ButtonEvent {}
 
 /// A ClientMessageEvent sent by the X server.

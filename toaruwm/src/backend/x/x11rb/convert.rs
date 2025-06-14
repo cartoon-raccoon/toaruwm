@@ -9,7 +9,7 @@ use strum::*;
 use super::Initialized;
 use crate::bindings::{ButtonIndex, ModKey, Mousebind};
 use crate::types::{ClientAttrs, ClientConfig, Point};
-use crate::x::{
+use crate::backend::x::{
     core::{Result, XError, Xid},
     event::MouseEvent,
     input::{ButtonMask, KeyButMask, ModMask, MouseEventKind},
@@ -92,7 +92,7 @@ impl From<xproto::KeyButMask> for KeyButMask {
 
 impl X11RBConn<Initialized> {
     /// Converts generic events into mouse events.
-    pub(in crate::x::x11rb) fn do_mouse_press(
+    pub(in crate::backend::x::x11rb) fn do_mouse_press(
         &self,
         ev: xproto::ButtonPressEvent,
         rel: bool,
@@ -126,7 +126,7 @@ impl X11RBConn<Initialized> {
         })
     }
 
-    pub(in crate::x::x11rb) fn do_mouse_motion(
+    pub(in crate::backend::x::x11rb) fn do_mouse_motion(
         &self,
         ev: xproto::MotionNotifyEvent,
     ) -> Result<MouseEvent> {
