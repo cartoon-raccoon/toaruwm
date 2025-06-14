@@ -3,11 +3,13 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+use strum::{EnumIs};
+
 use crate::types::Point;
 use crate::backend::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
 
 /// X server properties.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumIs)]
 pub enum Property {
     /// a list of Atoms (u32), expressed as strings.
     Atom(Vec<String>),
@@ -70,29 +72,6 @@ impl Property {
         }
     }
 }
-
-// generate Property::is_<var> methods
-macro_rules! derive_is {
-    ($name:ident, $var:pat) => {
-        impl Property {
-            /// Checks whether the property is indeed the variant.
-            pub fn $name(&self) -> bool {
-                matches!(self, $var)
-            }
-        }
-    };
-}
-
-derive_is!(is_atom, Self::Atom(_));
-derive_is!(is_card, Self::Cardinal(_));
-derive_is!(is_string, Self::String(_));
-derive_is!(is_utf8str, Self::UTF8String(_));
-derive_is!(is_window, Self::Window(_));
-derive_is!(is_wmhints, Self::WMHints(_));
-derive_is!(is_sizehints, Self::WMSizeHints(_));
-derive_is!(is_u8list, Self::U8List(_, _));
-derive_is!(is_u16list, Self::U16List(_, _));
-derive_is!(is_u32list, Self::U32List(_, _));
 
 impl fmt::Display for Property {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

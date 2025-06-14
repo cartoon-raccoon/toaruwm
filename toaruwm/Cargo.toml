@@ -29,8 +29,8 @@ input = "0.9"
 log = "0.4"
 tracing = {version = "0.1", features = ["attributes", "log"] }
 
-strum = { version = "0.19.2", features = ["derive"] }
-strum_macros = "0.19.2"
+strum = { version = "0.27.1", features = ["derive"] }
+strum_macros = "0.27.1"
 
 custom_debug_derive = "0.6.1"
 
