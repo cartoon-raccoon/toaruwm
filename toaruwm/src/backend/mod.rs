@@ -23,7 +23,7 @@ pub trait Backend {
 
 /// An error raised by the backend. It encapsulates an error raised by
 /// either type of backend.
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error)]
 pub enum BackendError {
     /// The error raised by an X11 backend.
     /// 

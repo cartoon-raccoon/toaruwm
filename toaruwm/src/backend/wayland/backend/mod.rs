@@ -1,7 +1,7 @@
 pub mod drm;
 pub mod winit;
 
-pub use drm::DrmBackend;
+pub use drm::{DrmBackend, DrmError};
 pub use winit::WinitBackend;
 
 /// Automatically creates a new backend based on 
