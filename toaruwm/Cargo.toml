@@ -22,6 +22,8 @@ smithay = { version = "0.6", features = [
     "backend_udev", 
     "backend_session"] }
 
+smithay-drm-extras = "0.1.0"
+
 input = "0.9"
 
 log = "0.4"

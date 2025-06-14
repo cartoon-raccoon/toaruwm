@@ -184,9 +184,12 @@ pub use crate::backend::x::core::XConn;
 #[doc(inline)]
 pub use crate::backend::x::{x11rb::X11RBConn, xcb::XCBConn};
 
+use crate::backend::BackendError;
+
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::backend::x::Initialized;
+use crate::backend::x::{Initialized, XError, core::XWindowID};
+use crate::backend::wayland::WaylandError;
 
 use std::io;
 
@@ -222,16 +225,15 @@ pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
     Ok(wm)
 }
 
-use crate::backend::x::core::{XError, XWindowID};
 use thiserror::Error;
 
 /// Everything that could possibly go wrong while ToaruWM is running.
 #[non_exhaustive]
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error)]
 pub enum ToaruError {
     /// An error with the underlying X connection.
     #[error(transparent)]
-    XConnError(XError),
+    BackendError(BackendError),
 
     /// Unable to spawn process.
     #[error("Error while running program: {0}")]
@@ -316,9 +318,23 @@ macro_rules! toaruerr {
     };
 }
 
+impl From<BackendError> for ToaruError {
+    fn from(e: BackendError) -> ToaruError {
+        ToaruError::BackendError(e)
+    }
+}
+
 impl From<XError> for ToaruError {
     fn from(e: XError) -> ToaruError {
-        ToaruError::XConnError(e)
+        let e = BackendError::from(e);
+        ToaruError::BackendError(e)
+    }
+}
+
+impl From<WaylandError> for ToaruError {
+    fn from(e: WaylandError) -> ToaruError {
+        let e = BackendError::from(e);
+        ToaruError::BackendError(e)
     }
 }
 
