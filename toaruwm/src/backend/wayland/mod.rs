@@ -1,10 +1,11 @@
-#![allow(missing_docs)]
+#![allow(missing_docs)] // fixme: remove when we get a working prototype
 
 use thiserror::Error;
 
 use smithay::reexports::{
     wayland_server::{
         Display,
+        backend::ClientId as WlClientId,
     },
 };
 
@@ -21,14 +22,47 @@ pub mod backend;
 pub use state::WlState;
 
 use super::BackendError;
+use self::backend::{
+    WaylandBackend,
+    drm::{DrmBackend, DrmError},
+};
+use crate::core::types::ToaruClientId;
 
-use backend::drm::DrmError;
+/// An ID representing a Wayland client.
+/// 
+/// Implements [`ToaruClientId`].
+pub type ClientId = WlClientId;
 
+impl ToaruClientId for ClientId {}
+
+/// The 
 #[derive(Debug)]
-pub struct Wayland {
+pub struct Wayland<B: WaylandBackend> {
     pub(crate) display: Display<WlState>,
-
+    pub(crate) backend: B,
 }
+
+impl<B: WaylandBackend> Wayland<B> {
+    /// Creates a new Wayland compositor, autoselecting the appropriate
+    /// backend based on the current state of the system.
+    pub fn new() -> Result<Wayland<B>, WaylandError> {
+        let backend = backend::backend_autocreate()?;
+
+        todo!()
+    }
+
+    /// Creates a new Wayland compositor, backed by a [`DrmBackend`].
+    pub fn new_with_drm() -> Result<Wayland<DrmBackend>, WaylandError> {
+        let backend = DrmBackend::new()?;
+
+        todo!()
+    }
+
+    pub fn new_with_winit() -> Result<Self, WaylandError> {
+        todo!()
+    }
+}
+
 
 #[derive(Debug, Error)]
 pub enum WaylandError {

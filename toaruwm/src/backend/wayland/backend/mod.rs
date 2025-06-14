@@ -4,10 +4,12 @@ pub mod winit;
 pub use drm::{DrmBackend, DrmError};
 pub use winit::WinitBackend;
 
+use super::WaylandError;
+
 /// Automatically creates a new backend based on 
-// pub fn backend_autocreate() -> impl WaylandBackend {
-//     todo!()
-// }
+pub(crate) fn backend_autocreate() -> Result<impl WaylandBackend, WaylandError> {
+    DrmBackend::new()
+}
 
 /// A backend that manages input/output devices, rendering, and DRM access.
 /// 

@@ -16,6 +16,7 @@ use smithay::backend::{
 };
 
 use crate::backend::wayland::WaylandError;
+use super::WaylandBackend;
 
 #[derive(Debug)]
 pub struct DrmBackend {
@@ -66,6 +67,16 @@ impl DrmBackend {
             primary_node,
             gpu_manager
         })
+    }
+}
+
+impl WaylandBackend for DrmBackend {
+    fn name(&self) -> &str {
+        "drm"
+    }
+
+    fn render(&mut self) {
+        
     }
 }
 
