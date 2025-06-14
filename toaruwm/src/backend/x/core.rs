@@ -10,6 +10,7 @@ use std::fmt::{self, Display};
 
 use thiserror::Error;
 use tracing::{debug, error};
+use strum::EnumIs;
 
 
 use super::{
@@ -109,7 +110,7 @@ impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign
 ///
 /// The exact semantics of this difference are explained
 /// [here](https://tronche.com/gui/x/xlib/window/configure.html).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, EnumIs)]
 pub enum StackMode {
     /// Stack the window at the top of the stack.
     ///
