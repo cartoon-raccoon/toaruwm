@@ -9,7 +9,7 @@ use super::{
 
 use crate::core::Workspace;
 use crate::types::{Cardinal, Geometry};
-use crate::backend::x::XWindowID;
+use crate::platform::x::XWindowID;
 
 /// A simple dynamic tiling layout, with a main window
 /// and a stack on the side.

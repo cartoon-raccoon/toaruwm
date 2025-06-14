@@ -15,7 +15,7 @@ use smithay::backend::{
     }
 };
 
-use crate::backend::wayland::WaylandError;
+use crate::platform::wayland::WaylandError;
 use super::WaylandBackend;
 
 #[derive(Debug)]

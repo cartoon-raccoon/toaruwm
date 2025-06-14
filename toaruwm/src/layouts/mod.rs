@@ -10,7 +10,7 @@ use tracing::debug;
 use crate::core::{Ring, Screen, Workspace};
 use crate::manager::RuntimeConfig;
 use crate::types::Geometry;
-use crate::backend::x::XWindowID;
+use crate::platform::x::XWindowID;
 use crate::{Result, ToaruError, XConn};
 
 /// A simple no-frills floating layout.

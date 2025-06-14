@@ -1,4 +1,6 @@
-//! Traits and structs for the backend of the [WindowManager].
+//! Traits and structs for the platform the [WindowManager] runs on.
+//! 
+//! There are two possible platforms: X11 and Wayland.
 
 use thiserror::Error;
 
@@ -24,7 +26,7 @@ pub trait Backend {
 /// An error raised by the backend. It encapsulates an error raised by
 /// either type of backend.
 #[derive(Debug, Error)]
-pub enum BackendError {
+pub enum PlatformError {
     /// The error raised by an X11 backend.
     /// 
     /// This variant is only ever returned when an X11 backend is in use.
@@ -37,7 +39,7 @@ pub enum BackendError {
     WaylandError(WaylandError),
 }
 
-impl BackendError {
+impl PlatformError {
     /// Returns an immutable reference to the contained XError type, if present.
     /// 
     /// Returns `Some` if it is an `XError``, `None` otherwise.

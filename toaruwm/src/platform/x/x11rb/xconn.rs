@@ -15,7 +15,7 @@ use super::Initialized;
 use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{Geometry};
-use crate::backend::x::{
+use crate::platform::x::{
     types::{ClientAttrs, ClientConfig},
     core::{
         PointerQueryReply, Result, WindowClass, XAtom, XConn,

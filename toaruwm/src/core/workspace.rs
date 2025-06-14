@@ -19,7 +19,7 @@ use crate::core::{
 use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::types::{BorderStyle, Direction};
-use crate::backend::x::{
+use crate::platform::x::{
     core::StackMode, XConn, XWindowID,
     types::{ClientAttrs, ClientConfig},
 };

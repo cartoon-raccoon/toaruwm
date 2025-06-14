@@ -18,8 +18,8 @@ use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::log::DefaultErrorHandler;
 use crate::types::{Cardinal, Direction, Point, Ring, Selector};
-use crate::backend::BackendError;
-use crate::backend::x::{
+use crate::platform::PlatformError;
+use crate::platform::x::{
     types::ClientAttrs,
     event::ConfigureRequestData, input::MouseEventKind, Atom, Property, XConn, XError, XEvent,
     XWindow, XWindowID,
@@ -361,7 +361,7 @@ where
             let event = self.process_next_event().or_else(|e| {
                 match e {
                     // only return if the error is a connection error
-                    ToaruError::BackendError(BackendError::XError(XError::Connection(_))) => Err(e),
+                    ToaruError::BackendError(PlatformError::XError(XError::Connection(_))) => Err(e),
                     // else, handle error and map to an Ok(None)
                     e => {
                         (self.ehandler).call(self.state(), e);

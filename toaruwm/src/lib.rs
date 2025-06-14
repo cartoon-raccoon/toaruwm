@@ -174,22 +174,22 @@ pub mod core;
 pub mod layouts;
 pub mod manager;
 pub mod widget;
-pub mod backend;
+pub mod platform;
 
 pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Config, ToaruConfig, WindowManager};
 #[doc(inline)]
-pub use crate::backend::x::core::XConn;
+pub use crate::platform::x::core::XConn;
 #[doc(inline)]
-pub use crate::backend::x::{x11rb::X11RBConn, xcb::XCBConn};
+pub use crate::platform::x::{x11rb::X11RBConn, xcb::XCBConn};
 
-use crate::backend::BackendError;
+use crate::platform::PlatformError;
 
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::backend::x::{Initialized, XError, core::XWindowID};
-use crate::backend::wayland::WaylandError;
+use crate::platform::x::{Initialized, XError, core::XWindowID};
+use crate::platform::wayland::WaylandError;
 
 use std::io;
 
@@ -233,7 +233,7 @@ use thiserror::Error;
 pub enum ToaruError {
     /// An error with the underlying X connection.
     #[error(transparent)]
-    BackendError(BackendError),
+    BackendError(PlatformError),
 
     /// Unable to spawn process.
     #[error("Error while running program: {0}")]
@@ -318,22 +318,22 @@ macro_rules! toaruerr {
     };
 }
 
-impl From<BackendError> for ToaruError {
-    fn from(e: BackendError) -> ToaruError {
+impl From<PlatformError> for ToaruError {
+    fn from(e: PlatformError) -> ToaruError {
         ToaruError::BackendError(e)
     }
 }
 
 impl From<XError> for ToaruError {
     fn from(e: XError) -> ToaruError {
-        let e = BackendError::from(e);
+        let e = PlatformError::from(e);
         ToaruError::BackendError(e)
     }
 }
 
 impl From<WaylandError> for ToaruError {
     fn from(e: WaylandError) -> ToaruError {
-        let e = BackendError::from(e);
+        let e = PlatformError::from(e);
         ToaruError::BackendError(e)
     }
 }

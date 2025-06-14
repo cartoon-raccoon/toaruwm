@@ -6,7 +6,7 @@ use std::fmt;
 use strum::{EnumIs};
 
 use crate::types::Point;
-use crate::backend::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
+use crate::platform::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
 
 /// X server properties.
 #[derive(Debug, Clone, EnumIs)]

@@ -18,7 +18,7 @@ use crate::core::types::{
     BorderStyle, Color, Geometry, 
 };
 use crate::manager::RuntimeConfig;
-use crate::backend::x::{
+use crate::platform::x::{
     types::{ClientAttrs, ClientConfig, NetWindowStates},
     core::{XAtom, XConn, XWindow, XWindowID},
     property::WindowState,

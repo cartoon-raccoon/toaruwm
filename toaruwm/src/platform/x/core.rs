@@ -17,7 +17,7 @@ use super::{
     input::KeyButMask,
 };
 use crate::types::{Geometry, ToaruClientId};
-use crate::backend::BackendError;
+use crate::platform::PlatformError;
 
 #[doc(inline)]
 pub use super::traits::{XCore, XConn, RandR, Xkb};
@@ -334,9 +334,9 @@ pub enum XError {
     OtherError(String),
 }
 
-impl From<XError> for BackendError {
-    fn from(from: XError) -> BackendError {
-        BackendError::XError(from)
+impl From<XError> for PlatformError {
+    fn from(from: XError) -> PlatformError {
+        PlatformError::XError(from)
     } 
 }
 

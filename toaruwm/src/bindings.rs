@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::manager::{RuntimeConfig, WindowManager};
 use crate::types::Point;
-pub use crate::backend::x::input::MouseEventKind;
-use crate::backend::x::{
+pub use crate::platform::x::input::MouseEventKind;
+use crate::platform::x::{
     core::XConn,
     event::KeypressEvent,
     input::{KeyCode, ModMask},

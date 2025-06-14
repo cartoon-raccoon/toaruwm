@@ -17,7 +17,7 @@ use crate::core::{Client, Workspace};
 use crate::layouts::{Layout, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
-use crate::backend::x::{Atom, Property, XConn, XWindowID};
+use crate::platform::x::{Atom, Property, XConn, XWindowID};
 use crate::{Result, ToaruError::*};
 
 use super::WorkspaceSpec;

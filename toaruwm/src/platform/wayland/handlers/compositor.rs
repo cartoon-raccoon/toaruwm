@@ -11,7 +11,7 @@ use smithay::wayland::{
 
 use smithay::delegate_compositor;
 
-use crate::backend::wayland::{WlState, state::ClientState};
+use crate::platform::wayland::{WlState, state::ClientState};
 
 impl CompositorHandler for WlState {
     fn compositor_state(&mut self) -> &mut CompositorState {

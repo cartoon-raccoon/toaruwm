@@ -12,7 +12,7 @@ use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::bindings::{Keybind, Mousebind};
 use crate::core::Screen;
 use crate::types::{Geometry};
-use crate::backend::x::{
+use crate::platform::x::{
     types::{ClientAttrs, ClientConfig},
     core::{
         PointerQueryReply, Result, WindowClass, XAtom, XConn,

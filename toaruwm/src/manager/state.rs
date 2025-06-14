@@ -14,7 +14,7 @@ use crate::core::{
     types::{BorderStyle, Color},
     Client, Desktop, Ring, Workspace,
 };
-use crate::backend::x::{XConn, XWindow, XWindowID};
+use crate::platform::x::{XConn, XWindow, XWindowID};
 
 /// An object that can provide information about window manager
 /// configuration at runtime.

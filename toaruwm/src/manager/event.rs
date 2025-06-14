@@ -5,7 +5,7 @@ use tracing::{debug, info};
 use crate::bindings::{Keybind, Mousebind};
 use crate::core::types::Point;
 use crate::manager::{RuntimeConfig, WmState};
-use crate::backend::x::{
+use crate::platform::x::{
     event::{
         ClientMessageData, ClientMessageEvent, ConfigureRequestData, PointerEvent, PropertyEvent,
     },

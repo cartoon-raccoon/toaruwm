@@ -21,7 +21,7 @@ pub mod backend;
 
 pub use state::WlState;
 
-use super::BackendError;
+use super::PlatformError;
 use self::backend::{
     WaylandBackend,
     drm::{DrmBackend, DrmError},
@@ -74,8 +74,8 @@ pub enum WaylandError {
     DrmError(DrmError),
 }
 
-impl From<WaylandError> for BackendError {
-    fn from(e: WaylandError) -> BackendError {
-        BackendError::WaylandError(e)
+impl From<WaylandError> for PlatformError {
+    fn from(e: WaylandError) -> PlatformError {
+        PlatformError::WaylandError(e)
     }
 }
