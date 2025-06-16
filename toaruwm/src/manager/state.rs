@@ -10,11 +10,11 @@ use std::collections::HashMap;
 
 use custom_debug_derive::Debug;
 
-use crate::core::{
+use crate::{core::{
     types::{BorderStyle, Color},
     Client, Desktop, Ring, Workspace,
-};
-use crate::platform::x::{XConn, XWindow, XWindowID};
+}, types::ClientId};
+use crate::platform::Platform;
 
 /// An object that can provide information about window manager
 /// configuration at runtime.
@@ -162,43 +162,41 @@ impl RuntimeConfig for WmConfig {
 #[derive(std::fmt::Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum State {}
 
-/// Provides introspection into the state of the window manager.
+/// Provides introspection into the state of the running `Toaru` instance.
 ///
-/// The `'wm` lifetime refers to the lifetime of the parent
-/// `WindowManager` type.
+/// The `'t` lifetime refers to the lifetime of the parent
+/// `Toaru` type.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
-pub struct WmState<'wm, X, C>
+pub struct ToaruState<'t, P, C>
 where
-    X: XConn,
-    C: RuntimeConfig,
+    P: Platform,
+    C: RuntimeConfig
 {
     /// The `XConn` implementation currently being used.
     #[debug(skip)]
-    pub conn: &'wm X,
+    pub conn: &'t P,
     /// The inner configuration of the WindowManager.
-    pub config: &'wm C,
+    pub config: &'t C,
     /// The workspaces maintained by the window manager.
-    pub workspaces: &'wm Ring<Workspace>,
-    /// The root window.
-    pub root: XWindow,
+    pub workspaces: &'t Ring<Workspace<P>>,
     /// The selected window, if any.
-    pub selected: Option<XWindowID>,
-    pub(crate) desktop: &'wm Desktop,
+    pub selected: Option<&'t P::Client>,
+    pub(crate) desktop: &'t Desktop<P>,
 }
 
-impl<'wm, X, C> WmState<'wm, X, C>
+impl<'t, P, C> ToaruState<'t, P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
     /// Looks up a client with the given X ID.
-    pub fn lookup_client(&self, id: XWindowID) -> Option<&Client> {
+    pub fn lookup_client(&self, id: &P::Client) -> Option<&Client<P>> {
         self.desktop.current().windows.lookup(id)
     }
 
     /// Checks whether the window `id` is currently managed.
-    pub fn is_managing(&self, id: XWindowID) -> bool {
+    pub fn is_managing(&self, id: &P::Client) -> bool {
         self.desktop.is_managing(id)
     }
 }

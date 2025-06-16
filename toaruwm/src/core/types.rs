@@ -20,7 +20,14 @@ use std::fmt::Debug;
 /// 
 /// It is backend-agnostic, and each backend provides their own
 /// type that implements this trait.
-pub trait ToaruClientId: Debug + Clone + Eq + Hash {}
+pub trait ClientId: Debug + Clone + Eq + Hash {}
+
+/// Data about a given client.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClientData {
+    geom: Geometry,
+    urgent: bool,
+}
 
 /// Specifies a direction.
 #[allow(missing_docs)]

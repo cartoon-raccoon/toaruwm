@@ -16,8 +16,8 @@ use tracing::debug;
 use crate::core::{Client, Workspace};
 use crate::layouts::{Layout, Layouts};
 use crate::manager::RuntimeConfig;
-use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
-use crate::platform::x::{Atom, Property, XConn, XWindowID};
+use crate::platform::{Platform, PlatformHandleDyn};
+use crate::types::{Cardinal, Direction, Geometry, Ring, Selector, ClientId};
 use crate::{Result, ToaruError::*};
 
 use super::WorkspaceSpec;
@@ -25,8 +25,6 @@ use super::WorkspaceSpec;
 /// Represents a physical monitor.
 #[derive(Clone, Debug)]
 pub struct Screen {
-    /// The ID of the root window.
-    pub(crate) root_id: XWindowID,
     /// The usable geometry of the Screen.
     pub(crate) effective_geom: Geometry,
     /// The actual geometry of the Screen.
@@ -39,9 +37,8 @@ pub struct Screen {
 
 impl Screen {
     /// Creates a new Screen.
-    pub fn new(screen_idx: i32, geom: Geometry, root_id: XWindowID, wix: Vec<String>) -> Self {
+    pub fn new(screen_idx: i32, geom: Geometry, wix: Vec<String>) -> Self {
         Self {
-            root_id,
             effective_geom: geom,
             true_geom: geom,
             idx: screen_idx,
@@ -76,19 +73,20 @@ impl Screen {
 * separately.
 */
 #[derive(Debug)]
-pub struct Desktop {
+pub struct Desktop<P: Platform> {
     // * focused should never be none
-    pub(crate) workspaces: Ring<Workspace>,
+    pub(crate) workspaces: Ring<Workspace<P>>,
     last_ws: usize,
 }
 
-impl Desktop {
+impl<P: Platform> Desktop<P> {
     /// Creates a new `Desktop`.
-    pub fn new<N, R, L>(wksps: N, layouts: L) -> Result<Self>
+    pub fn new<N, R, L>(wksps: N, layouts: L) -> Result<Self, P>
     where
         N: IntoIterator<IntoIter = R>,
         R: DoubleEndedIterator<Item = WorkspaceSpec>,
-        L: IntoIterator<Item = Box<dyn Layout>>,
+        L: IntoIterator<Item = Box<dyn Layout<P>>>,
+        P: Platform,
     {
         let mut desktop = Self {
             workspaces: {
@@ -118,12 +116,12 @@ impl Desktop {
     }
 
     /// Test whether a certain window is already managed.
-    pub fn is_managing(&self, id: XWindowID) -> bool {
+    pub fn is_managing(&self, id: &P::Client) -> bool {
         self.workspaces.iter().any(|ws| ws.contains_window(id))
     }
 
     /// Get a reference to the focused client of the focused workspace.
-    pub fn current_client(&self) -> Option<&Client> {
+    pub fn current_client(&self) -> Option<&Client<P>> {
         match self.workspaces.focused() {
             Some(ws) => ws.focused_client(),
             None => None,
@@ -132,7 +130,7 @@ impl Desktop {
 
     /// Get a mutable reference to the focused client of the focused
     /// workspace.
-    pub fn current_client_mut(&mut self) -> Option<&mut Client> {
+    pub fn current_client_mut(&mut self) -> Option<&mut Client<P>> {
         match self.workspaces.focused_mut() {
             Some(ws) => ws.focused_client_mut(),
             None => None,
@@ -140,12 +138,12 @@ impl Desktop {
     }
 
     /// Returns a reference to the current workspace.
-    pub fn current(&self) -> &Workspace {
+    pub fn current(&self) -> &Workspace<P> {
         &self.workspaces[self.current_idx()]
     }
 
     /// Returns a mutable reference to the current workspace.
-    pub fn current_mut(&mut self) -> &mut Workspace {
+    pub fn current_mut(&mut self) -> &mut Workspace<P> {
         let current = self.current_idx();
         &mut self.workspaces[current]
     }
@@ -165,7 +163,7 @@ impl Desktop {
 
     /// Get a reference to the workspace containing the window
     /// and the window's index in the workspace.
-    pub fn retrieve(&mut self, window: XWindowID) -> Option<(&Workspace, usize)> {
+    pub fn retrieve(&mut self, window: &P::Client) -> Option<(&Workspace<P>, usize)> {
         for ws in self.workspaces.iter() {
             if let Some(idx) = ws.contains(window) {
                 return Some((ws, idx));
@@ -176,7 +174,7 @@ impl Desktop {
     }
 
     /// `retrieve`'s mutable version.
-    pub fn retrieve_mut(&mut self, window: XWindowID) -> Option<(&mut Workspace, usize)> {
+    pub fn retrieve_mut(&mut self, window: &P::Client) -> Option<(&mut Workspace<P>, usize)> {
         for ws in self.workspaces.iter_mut() {
             if let Some(idx) = ws.contains(window) {
                 return Some((ws, idx));
@@ -187,7 +185,7 @@ impl Desktop {
     }
 
     /// Get a reference to a workspace by its index
-    pub fn get(&self, idx: usize) -> Option<&Workspace> {
+    pub fn get(&self, idx: usize) -> Option<&Workspace<P>> {
         if idx + 1 >= self.workspaces.len() {
             return None;
         }
@@ -196,7 +194,7 @@ impl Desktop {
     }
 
     /// Get a mutable reference to a workspace by index.
-    pub fn get_mut(&mut self, idx: usize) -> Option<&mut Workspace> {
+    pub fn get_mut(&mut self, idx: usize) -> Option<&mut Workspace<P>> {
         if idx + 1 > self.workspaces.len() {
             return None;
         }
@@ -207,7 +205,7 @@ impl Desktop {
     /// Find a workspace by its name.
     ///
     /// Returns an immutable reference.
-    pub fn find(&self, name: &str) -> Option<&Workspace> {
+    pub fn find(&self, name: &str) -> Option<&Workspace<P>> {
         self.workspaces
             .element_by(|ws| ws.name == name)
             .map(|(_, ws)| ws)
@@ -216,7 +214,7 @@ impl Desktop {
     /// Find a workspace by its name.
     ///
     /// Returns a mutable reference.
-    pub fn find_mut(&mut self, name: &str) -> Option<&mut Workspace> {
+    pub fn find_mut(&mut self, name: &str) -> Option<&mut Workspace<P>> {
         self.workspaces
             .element_by_mut(|ws| ws.name == name)
             .map(|(_, ws)| ws)
@@ -225,15 +223,14 @@ impl Desktop {
     //* Mutator and Manipulation Methods *//
 
     /// Cycle workspaces in given direction.
-    pub fn cycle_to<X, C>(
+    pub fn cycle_to<C>(
         &mut self,
-        conn: &X,
+        pf: &PlatformHandleDyn<P>,
         scr: &Screen,
         cfg: &C,
         direction: Direction,
-    ) -> Result<()>
+    ) -> Result<(), P>
     where
-        X: XConn,
         C: RuntimeConfig,
     {
         debug!("Cycling workspaces in direction {:?}", direction);
@@ -246,13 +243,12 @@ impl Desktop {
         } else {
             return Err(OtherError("Focused should be Some".into()));
         }
-        self.go_to(&name, conn, scr, cfg)
+        self.go_to(&name, pf, scr, cfg)
     }
 
     /// Switch to a given workspace by its name.
-    pub fn go_to<X, C>(&mut self, name: &str, conn: &X, scr: &Screen, cfg: &C) -> Result<()>
+    pub fn go_to<C>(&mut self, name: &str, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C) -> Result<(), P>
     where
-        X: XConn,
         C: RuntimeConfig,
     {
         debug!("Going to workspace with name '{}'", name);
@@ -269,19 +265,19 @@ impl Desktop {
             return Ok(());
         }
 
-        conn.set_property(
-            conn.get_root().id,
-            Atom::NetCurrentDesktop.as_ref(),
-            Property::Cardinal(new_idx as u32),
-        )?;
+        // pf.set_property(
+        //     pf.get_root().id,
+        //     Atom::NetCurrentDesktop.as_ref(),
+        //     Property::Cardinal(new_idx as u32),
+        // )?;
 
-        self.current_mut().deactivate(conn);
+        self.current_mut().deactivate(pf);
         self.set_current(new_idx);
 
         debug!("Goto workspace idx {}", new_idx);
 
         if let Some(ws) = self.get_mut(self.current_idx()) {
-            ws.activate(conn, scr, cfg);
+            ws.activate(pf, scr, cfg);
         } else {
             return Err(UnknownWorkspace(name.into()));
         }
@@ -289,15 +285,14 @@ impl Desktop {
         Ok(())
     }
     /// Sends the currently focused window to the specified workspace.
-    pub fn send_focused_to<X, C>(
+    pub fn send_focused_to<C>(
         &mut self,
         name: &str,
-        conn: &X,
+        pf: &PlatformHandleDyn<P>,
         scr: &Screen,
         cfg: &C,
-    ) -> Result<()>
+    ) -> Result<(), P>
     where
-        X: XConn,
         C: RuntimeConfig,
     {
         debug!("Attempting to send window to workspace {}", name);
@@ -307,27 +302,26 @@ impl Desktop {
             debug!("No focused window in workspace {}", name);
             return Ok(());
         };
-        self.send_window_to(winid, name, conn, scr, cfg)
+        self.send_window_to(&winid.clone(), name, pf, scr, cfg)
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<X, C>(
+    pub fn send_window_to<C>(
         &mut self,
-        id: XWindowID,
+        id: &P::Client,
         name: &str,
-        conn: &X,
+        pf: &PlatformHandleDyn<P>,
         scr: &Screen,
         cfg: &C,
-    ) -> Result<()>
+    ) -> Result<(), P>
     where
-        X: XConn,
         C: RuntimeConfig,
     {
         debug!("Attempting to send window to workspace {}", name);
-        let Some(window) = self.current_mut().take_window(id, conn) else {
-            return Err(UnknownClient(id))
+        let Some(window) = self.current_mut().take_window(id, pf) else {
+            return Err(UnknownClient(id.clone()))
         };
-        debug!("Sending window {} to workspace {}", window.id(), name);
+        debug!("Sending window {:?} to workspace {}", window.id(), name);
         let Some(ws) = self.find_mut(name) else {
             // if workspace was not found, put it back
             self.current_mut().put_window(window);
@@ -337,7 +331,7 @@ impl Desktop {
         if ws.focused_client().is_none() {
             ws.windows.set_focused_by_winid(id);
         }
-        self.current_mut().relayout(conn, scr, cfg);
+        self.current_mut().relayout(pf, scr, cfg);
         Ok(())
     }
 }

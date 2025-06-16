@@ -45,14 +45,13 @@ use tracing::{debug, error, warn};
 use crate::bindings::{Keybind, Mousebind};
 
 use super::{
-    core::{Xid, XWindowID, Result, XAtom, XError, PointerQueryReply, XWindow, WindowClass},
+    core::{Xid, XWindowID, Result, XAtom, XError, PointerQueryReply, XWindow, XOutput, WindowClass},
     atom::{Atom, AUTO_FLOAT_WINDOW_TYPES, UNMANAGED_WINDOW_TYPES},
     event::{ClientMessageEvent, XEvent},
     property::{Property, WmHints, WmSizeHints, WindowState},
     types::{ClientAttrs, ClientConfig, XWinProperties},
 };
-use crate::core::Screen;
-use crate::core::types::{Geometry};
+use crate::types::{Geometry};
 
 /// A trait used to define the interface between ToaruWM and the X server.
 ///
@@ -129,7 +128,7 @@ pub trait XCore {
     fn query_pointer(&self, window: XWindowID) -> Result<PointerQueryReply>;
 
     /// Returns randr data on all connected screens.
-    fn all_outputs(&self) -> Result<Vec<Screen>>;
+    fn all_outputs(&self) -> Result<Vec<XOutput>>;
 
     /// Get the value of an atom by its name.
     ///

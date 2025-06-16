@@ -178,24 +178,23 @@ pub mod platform;
 
 pub use crate::core::types;
 #[doc(inline)]
-pub use crate::manager::{Config, ToaruConfig, WindowManager};
+pub use crate::manager::{Config, ToaruConfig, Toaru};
 #[doc(inline)]
 pub use crate::platform::x::core::XConn;
 #[doc(inline)]
 pub use crate::platform::x::{x11rb::X11RBConn, xcb::XCBConn};
 
-use crate::platform::PlatformError;
+pub use crate::platform::{Platform};
 
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::platform::x::{Initialized, XError, core::XWindowID};
-use crate::platform::wayland::WaylandError;
+use crate::platform::x::{Initialized};
 
 use std::io;
 
 /// Convenience type definition for a WindowManager
 /// using a WmConfig as its RuntimeConfig.
-pub type ToaruWM<X> = WindowManager<X, WmConfig>;
+pub type ToaruWM<X> = Toaru<X, WmConfig>;
 
 /// Convenience type definition for an Initialized
 /// XCBConn.
@@ -206,34 +205,34 @@ pub type InitXCB = XCBConn<Initialized>;
 pub type InitX11RB = X11RBConn<Initialized>;
 
 /// Convenience function for creating an `xcb`-backed `WindowManager`.
-pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
-    let conn = XCBConn::connect()?;
-    let conn = conn.init()?;
+// pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
+//     let conn = XCBConn::connect()?;
+//     let conn = conn.init()?;
 
-    let wm = WindowManager::new(conn, config)?;
+//     let wm = Toaru::new(conn, config)?;
 
-    Ok(wm)
-}
+//     Ok(wm)
+// }
 
 /// Convenience function for creating an `x11rb`-backed `WindowManager`.
-pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
-    let conn = X11RBConn::connect()?;
-    let conn = conn.init()?;
+// pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
+//     let conn = X11RBConn::connect()?;
+//     let conn = conn.init()?;
 
-    let wm = WindowManager::new(conn, config)?;
+//     let wm = Toaru::new(conn, config)?;
 
-    Ok(wm)
-}
+//     Ok(wm)
+// }
 
 use thiserror::Error;
 
-/// Everything that could possibly go wrong while ToaruWM is running.
+/// Everything that could possibly go wrong while Toaru is running.
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum ToaruError {
+pub enum ToaruError<P: Platform> {
     /// An error with the underlying X connection.
     #[error(transparent)]
-    BackendError(PlatformError),
+    BackendError(P::Error),
 
     /// Unable to spawn process.
     #[error("Error while running program: {0}")]
@@ -248,8 +247,8 @@ pub enum ToaruError {
     ConversionError,
 
     /// Received a reference to a client not tracked by ToaruWM.
-    #[error("Unknown client {0}")]
-    UnknownClient(XWindowID),
+    #[error("Unknown client {0:?}")]
+    UnknownClient(P::Client),
 
     /// An request to switch to a workspace unknown to ToaruWM.
     #[error("Unknown workspace {0}")]
@@ -318,45 +317,25 @@ macro_rules! toaruerr {
     };
 }
 
-impl From<PlatformError> for ToaruError {
-    fn from(e: PlatformError) -> ToaruError {
-        ToaruError::BackendError(e)
-    }
-}
-
-impl From<XError> for ToaruError {
-    fn from(e: XError) -> ToaruError {
-        let e = PlatformError::from(e);
-        ToaruError::BackendError(e)
-    }
-}
-
-impl From<WaylandError> for ToaruError {
-    fn from(e: WaylandError) -> ToaruError {
-        let e = PlatformError::from(e);
-        ToaruError::BackendError(e)
-    }
-}
-
-impl From<io::Error> for ToaruError {
-    fn from(e: io::Error) -> ToaruError {
+impl<P: Platform> From<io::Error> for ToaruError<P> {
+    fn from(e: io::Error) -> ToaruError<P> {
         ToaruError::SpawnProc(e.to_string())
     }
 }
 
 /// The general result type used by ToaruWM.
-pub type Result<T> = ::core::result::Result<T, ToaruError>;
+pub type Result<T, P> = ::core::result::Result<T, ToaruError<P>>;
 
-use crate::manager::WmState;
+use crate::manager::ToaruState;
 /// An error handler that can be used to handle an error type.
 ///
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
-pub trait ErrorHandler<X, C>
+pub trait ErrorHandler<P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
     /// Calls the error handler.
-    fn call(&self, state: WmState<'_, X, C>, err: ToaruError);
+    fn call(&self, state: ToaruState<'_, P, C>, err: ToaruError<P>);
 }

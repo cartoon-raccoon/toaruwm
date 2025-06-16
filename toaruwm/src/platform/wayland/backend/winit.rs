@@ -3,6 +3,8 @@ use smithay::backend::{
     winit::{self, WinitGraphicsBackend, WinitEventLoop}
 };
 
+use super::WaylandBackend;
+
 #[derive(Debug)]
 pub struct WinitBackend {
     pub(crate) winit: WinitGraphicsBackend<GlesRenderer>,
@@ -17,5 +19,15 @@ impl WinitBackend {
             winit,
             eventloop,
         }
+    }
+}
+
+impl WaylandBackend for WinitBackend {
+    fn name(&self) -> &str {
+        "winit"
+    }
+
+    fn render(&mut self) {
+
     }
 }

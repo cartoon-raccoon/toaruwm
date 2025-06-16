@@ -9,10 +9,9 @@ use tracing::debug;
 
 use crate::core::{Ring, Screen, Workspace};
 use crate::manager::RuntimeConfig;
-use crate::types::Geometry;
-use crate::platform::x::XWindowID;
-use crate::{Result, ToaruError, XConn};
-
+use crate::types::{Geometry};
+use crate::platform::{Platform, PlatformHandleDyn};
+use crate::{Result, ToaruError};
 /// A simple no-frills floating layout.
 pub mod floating;
 /// A simple manually-tiled layout.
@@ -22,8 +21,8 @@ pub mod update;
 
 #[doc(inline)]
 pub use floating::Floating;
-#[doc(inline)]
-pub use tiled::DynamicTiled;
+// #[doc(inline)]
+// pub use tiled::DynamicTiled;
 
 use update::Update;
 
@@ -63,7 +62,8 @@ use update::Update;
 /// Layouts will usually be used as a trait object by the window manager.
 /// Since trait objects cannot be based on `Clone`, `Layout` requires
 /// a `boxed` method that clones the object as needed.
-pub trait Layout {
+pub trait Layout<P: Platform>
+{
     /// The name of the Layout, used to display in some kind of status bar.
     fn name(&self) -> &str;
 
@@ -74,10 +74,10 @@ pub trait Layout {
     ///
     /// A `LayoutCtxt` is provided to give the layout any additional
     /// information it might need to enforce its policy.
-    fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction>;
+    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
-    fn boxed(&self) -> Box<dyn Layout>;
+    fn boxed(&self) -> Box<dyn Layout<P>>;
 
     /// Receive an update to modify its current settings.
     /// This type does not need to respond to all possible updates,
@@ -90,18 +90,18 @@ use custom_debug_derive::Debug;
 /// to enforce its layout policy.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct LayoutCtxt<'wm> {
+pub struct LayoutCtxt<'t, P: Platform> {
     //fixme: custom debug is just a bodge rn
-    /// A Connection to the X server to make queries if needed.
+    /// A handle to the platform to make requests if needed.
     #[debug(skip)]
-    pub conn: &'wm dyn XConn,
+    pub pf: &'t PlatformHandleDyn<P>,
     /// The runtime configuration of the window manager.
     #[debug(skip)]
-    pub config: &'wm dyn RuntimeConfig,
+    pub config: &'t dyn RuntimeConfig,
     /// The workspace that called the Layout.
-    pub workspace: &'wm Workspace,
+    pub workspace: &'t Workspace<P>,
     /// The current screen the workspace is on.
-    pub screen: &'wm Screen,
+    pub screen: &'t Screen,
 }
 
 /// A Ring of layouts applied on a workspace.
@@ -125,9 +125,9 @@ pub struct LayoutCtxt<'wm> {
 /// checks are not always carried out in normal operation,
 /// which means if they are violated in some way at this
 /// point, your code may panic!
-pub type Layouts = Ring<Box<dyn Layout>>;
+pub type Layouts<P> = Ring<Box<dyn Layout<P>>>;
 
-impl Layouts {
+impl<P: Platform> Layouts<P> {
     /// Returns Self with the given layouts and
     /// the focused item set to the first item in the Ring.
     ///
@@ -137,9 +137,9 @@ impl Layouts {
     /// # Panics
     ///
     /// This method panics if any of the invariants are not upheld.
-    pub fn with_layouts_validated<I>(layouts: I) -> Result<Self>
+    pub fn with_layouts_validated<I>(layouts: I) -> Result<Self, P>
     where
-        I: IntoIterator<Item = Box<dyn Layout>>,
+        I: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
         let ret = unsafe { Self::with_layouts_unchecked(layouts) };
 
@@ -156,7 +156,7 @@ impl Layouts {
     /// The caller must ensure that invariants 1 and 3 are upheld.
     pub unsafe fn with_layouts_unchecked<I>(layouts: I) -> Self
     where
-        I: IntoIterator<Item = Box<dyn Layout>>,
+        I: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
         let mut ret = Ring::new();
         layouts.into_iter().for_each(|l| ret.append(l));
@@ -166,7 +166,7 @@ impl Layouts {
 
     /// Validates the namespace and ensures there are no name conflicts.
     #[allow(clippy::len_zero)]
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> Result<(), P> {
         if self.focused.is_none() {
             return Err(ToaruError::OtherError("no focused item".into()));
         }
@@ -196,17 +196,13 @@ impl Layouts {
     }
 
     /// Generates the layout for the currently focused layout.
-    pub fn gen_layout<X, C>(
-        &self,
-        conn: &X,
-        ws: &Workspace,
+    pub fn gen_layout<'layout, C: RuntimeConfig>(
+        &'layout self,
+        pf: &PlatformHandleDyn<P>,
+        ws: &Workspace<P>,
         scr: &Screen,
         cfg: &C,
-    ) -> Vec<LayoutAction>
-    where
-        X: XConn,
-        C: RuntimeConfig,
-    {
+    ) -> Vec<LayoutAction<'layout, P>> {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
         self.focused()
@@ -214,7 +210,7 @@ impl Layouts {
             .layout(LayoutCtxt {
                 workspace: ws,
                 config: cfg,
-                conn,
+                pf,
                 screen: scr,
             })
     }
@@ -230,12 +226,12 @@ impl Layouts {
     }
 }
 
-impl Default for Layouts {
+impl<P: Platform> Default for Layouts<P> {
     /// Returns a Layout instance containing a single
     /// [`Floating`] layout.
     fn default() -> Self {
         let mut ret = Ring::new();
-        ret.append(Box::new(Floating {}) as Box<dyn Layout>);
+        ret.append(Box::new(Floating {}) as Box<dyn Layout<P>>);
 
         ret
     }
@@ -267,20 +263,20 @@ impl LayoutType {
 /// layout currently in effect.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LayoutAction {
+pub enum LayoutAction<'layout, P: Platform> {
     /// Resize a given client.
     Resize {
         /// The Client to apply the geometry to.
-        id: XWindowID,
+        id: &'layout P::Client,
         /// The geometry to apply to the Client.
         geom: Geometry,
     },
     /// Map the given window.
-    Map(XWindowID),
+    Map(&'layout P::Client),
     /// Unmap the given window.
-    Unmap(XWindowID),
+    Unmap(&'layout P::Client),
     /// Stack the given window on top.
-    StackOnTop(XWindowID),
+    StackOnTop(&'layout P::Client),
     /// Remove the given window from the layout.
-    Remove(XWindowID),
+    Remove(&'layout P::Client),
 }

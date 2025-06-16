@@ -4,9 +4,11 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::core::{Client, Screen};
 use crate::types::Geometry;
-use crate::platform::x::{
-    core::{PointerQueryReply, Result, XAtom, XConn, XError, XWindow, XWindowID},
-    event::XEvent,
+use crate::platform::{
+    x::{
+        core::{PointerQueryReply, Result, XAtom, XConn, XError, XWindow, XWindowID},
+        event::XEvent,
+    }
 };
 
 /// A dummy connection implementing XConn but actually
@@ -21,7 +23,8 @@ use crate::platform::x::{
 pub struct DummyConn {
     events: VecDeque<XEvent>,
     root: XWindow,
-    children: HashMap<XWindowID, Client>,
+    // fixme: Client should have a concrete type parameter of Xcb or xrb11
+    //children: HashMap<XWindowID, Client>,
 }
 
 impl DummyConn {
@@ -30,7 +33,7 @@ impl DummyConn {
         Self {
             events: VecDeque::new(),
             root,
-            children: HashMap::new(),
+            //children: HashMap::new(),
         }
     }
 
@@ -50,9 +53,9 @@ impl DummyConn {
         }
     }
 
-    pub fn add_window(&mut self, window: Client) {
-        self.children.insert(window.id(), window);
-    }
+    // pub fn add_window(&mut self, window: Client) {
+    //     self.children.insert(window.id(), window);
+    // }
 
     pub fn replace_root(&mut self, root: XWindow) {
         self.root = root

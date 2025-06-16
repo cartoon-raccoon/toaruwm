@@ -1,5 +1,7 @@
 use super::{update::Update, Layout, LayoutAction, LayoutCtxt, LayoutType};
 
+use crate::{platform::Platform, types::ClientId};
+
 /// A simple floating layout that does not
 /// enforce any specific window layout.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -12,16 +14,16 @@ impl Floating {
     }
 }
 
-impl Layout for Floating {
+impl<P: Platform> Layout<P> for Floating {
     fn name(&self) -> &str {
         "Floating"
     }
 
-    fn boxed(&self) -> Box<dyn Layout> {
+    fn boxed(&self) -> Box<dyn Layout<P>> {
         Box::new(*self)
     }
 
-    fn layout(&self, _: LayoutCtxt) -> Vec<LayoutAction> {
+    fn layout(&self, _: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>> {
         vec![]
     }
 

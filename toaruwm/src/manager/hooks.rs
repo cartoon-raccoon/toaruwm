@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::state::State;
-use super::WindowManager;
+use super::Toaru;
 
 /// Arbitrary code that can be run by the window manager.
 ///
@@ -9,7 +9,7 @@ use super::WindowManager;
 /// implementing [`FnMut`].
 /// You would generally use this through the [`hook`](crate::hook)
 /// macro's much more ergonomic interface.
-pub type Hook<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;
+pub type Hook<X, C> = Box<dyn FnMut(&mut Toaru<X, C>)>;
 
 /// Macro for creating a hook that can be run by the window manager.
 ///
@@ -33,11 +33,11 @@ pub type Hook<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;
 #[macro_export]
 macro_rules! hook {
     (|$wm:ident| $code:tt) => {
-        Box::new(|$wm: &mut WindowManager<_, _>| $code) as Box<dyn FnMut(&mut WindowManager<_, _>)>
+        Box::new(|$wm: &mut Toaru<_, _>| $code) as Box<dyn FnMut(&mut Toaru<_, _>)>
     };
     (move |$wm:ident| $code:tt) => {
-        Box::new(move |$wm: &mut WindowManager<_, _>| $code)
-            as Box<dyn FnMut(&mut WindowManager<_, _>)>
+        Box::new(move |$wm: &mut Toaru<_, _>| $code)
+            as Box<dyn FnMut(&mut Toaru<_, _>)>
     };
 }
 

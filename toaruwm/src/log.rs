@@ -20,18 +20,18 @@ macro_rules! trace {
     }
 }
 
-use crate::manager::{RuntimeConfig, WmState};
-use crate::{ErrorHandler, ToaruError, XConn};
+use crate::manager::{RuntimeConfig, ToaruState};
+use crate::{ErrorHandler, ToaruError, Platform};
 use tracing::error;
 
 pub(crate) struct DefaultErrorHandler;
 
-impl<X, C> ErrorHandler<X, C> for DefaultErrorHandler
+impl<P, C> ErrorHandler<P, C> for DefaultErrorHandler
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
-    fn call(&self, _: WmState<'_, X, C>, err: ToaruError) {
+    fn call(&self, _: ToaruState<'_, P, C>, err: ToaruError<P>) {
         error!("{}", err)
     }
 }

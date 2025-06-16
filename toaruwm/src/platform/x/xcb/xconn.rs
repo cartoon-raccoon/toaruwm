@@ -10,13 +10,12 @@ use tracing::{error, warn};
 use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::bindings::{Keybind, Mousebind};
-use crate::core::Screen;
 use crate::types::{Geometry};
 use crate::platform::x::{
     types::{ClientAttrs, ClientConfig},
     core::{
         PointerQueryReply, Result, WindowClass, XAtom, XConn,
-        XCore, XError, XWindow, XWindowID, Xid
+        XCore, XError, XWindow, XWindowID, Xid, XOutput
     },
     event::{ClientMessageData, ClientMessageEvent, XEvent},
     input::MODIFIERS,
@@ -85,7 +84,7 @@ impl XCore for XCBConn<Initialized> {
         debug_assertions,
         instrument(target = "xconn", level = "trace", skip(self))
     )]
-    fn all_outputs(&self) -> Result<Vec<Screen>> {
+    fn all_outputs(&self) -> Result<Vec<XOutput>> {
         let check_id = self.check_win()?;
         self.conn.flush()?;
 
@@ -102,7 +101,7 @@ impl XCore for XCBConn<Initialized> {
             }
         )?;
 
-        let crtcs: Vec<Screen> = res
+        let crtcs: Vec<XOutput> = res
             .crtcs()
             .iter()
             // could do this with flat_map, but that just seems confusing
@@ -127,9 +126,9 @@ impl XCore for XCBConn<Initialized> {
                     r.height() as i32,
                     r.width() as i32,
                 );
-                Screen::new(i as i32, geom, id!(info.root()), vec![])
+                XOutput::new(i as i32, id!(info.root()), geom)
             })
-            .filter(|s| s.true_geom().width > 0)
+            .filter(|s| s.true_geom.width > 0)
             .collect();
 
         if crtcs.is_empty() {

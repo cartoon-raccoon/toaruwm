@@ -8,14 +8,14 @@ use strum::*;
 use custom_debug_derive::Debug;
 use thiserror::Error;
 
-use crate::manager::{RuntimeConfig, WindowManager};
+use crate::manager::{RuntimeConfig, Toaru};
 use crate::types::Point;
 pub use crate::platform::x::input::MouseEventKind;
 use crate::platform::x::{
-    core::XConn,
     event::KeypressEvent,
     input::{KeyCode, ModMask},
 };
+use crate::platform::Platform;
 use crate::ToaruError;
 
 /// A type representing a modifier key tied to a certain keybind.
@@ -257,8 +257,8 @@ pub enum BindingError {
     InvalidKeybind(String),
 }
 
-impl From<BindingError> for ToaruError {
-    fn from(f: BindingError) -> ToaruError {
+impl<P: Platform> From<BindingError> for ToaruError<P> {
+    fn from(f: BindingError) -> ToaruError<P> {
         ToaruError::Bindings(f)
     }
 }
@@ -301,12 +301,12 @@ macro_rules! mousebinds {
 }
 
 /// A function is run when a keybind is invoked.
-pub type KeyCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>)>;
+pub type KeyCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>)>;
 
 /// A function that is run when a mousebind is invoked.
 ///
 /// An additional Point is supplied to track the location of the pointer.
-pub type MouseCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>, Point)>;
+pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point)>;
 
 /// A set of keybinds that can be run by the the window manager.
 ///
@@ -316,17 +316,17 @@ pub type MouseCallback<X, C> = Box<dyn FnMut(&mut WindowManager<X, C>, Point)>;
 ///
 /// Clone is not implemented for this type since Callbacks are not Clone.
 #[derive(Default, Debug)]
-pub struct Keybinds<X, C>
+pub struct Keybinds<P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
-    bindings: HashMap<Keybind, KeyCallback<X, C>>,
+    bindings: HashMap<Keybind, KeyCallback<P, C>>,
 }
 
-impl<X, C> Keybinds<X, C>
+impl<P, C> Keybinds<P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
     /// Creates a new Keybinds object.
@@ -344,23 +344,23 @@ where
     /// Inserts a new keybind-callback mapping.
     pub fn insert<F>(&mut self, kb: Keybind, cb: F)
     where
-        F: FnMut(&mut WindowManager<X, C>) + 'static,
+        F: FnMut(&mut Toaru<P, C>) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }
 
     /// Removes the callback associated with the given keybind.
-    pub fn remove(&mut self, kb: &Keybind) -> Option<KeyCallback<X, C>> {
+    pub fn remove(&mut self, kb: &Keybind) -> Option<KeyCallback<P, C>> {
         self.bindings.remove(kb)
     }
 
     /// Gets a reference to the callback associated with the keybind.
-    pub fn get(&self, kb: &Keybind) -> Option<&KeyCallback<X, C>> {
+    pub fn get(&self, kb: &Keybind) -> Option<&KeyCallback<P, C>> {
         self.bindings.get(kb)
     }
 
     /// Gets a mutable reference to the callback associated with the keybind.
-    pub fn get_mut(&mut self, kb: &Keybind) -> Option<&mut KeyCallback<X, C>> {
+    pub fn get_mut(&mut self, kb: &Keybind) -> Option<&mut KeyCallback<P, C>> {
         self.bindings.get_mut(kb)
     }
 }
@@ -377,17 +377,17 @@ where
 ///
 /// [1]: crate::core::types::Point
 #[derive(Default, Debug)]
-pub struct Mousebinds<X, C>
+pub struct Mousebinds<P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
-    bindings: HashMap<Mousebind, MouseCallback<X, C>>,
+    bindings: HashMap<Mousebind, MouseCallback<P, C>>,
 }
 
-impl<X, C> Mousebinds<X, C>
+impl<P, C> Mousebinds<P, C>
 where
-    X: XConn,
+    P: Platform,
     C: RuntimeConfig,
 {
     /// Creates a new `Mousebinds` object.
@@ -405,23 +405,23 @@ where
     /// Inserts a new mousebind-callback mapping.
     pub fn insert<F>(&mut self, kb: Mousebind, cb: F)
     where
-        F: FnMut(&mut WindowManager<X, C>, Point) + 'static,
+        F: FnMut(&mut Toaru<P, C>, Point) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }
 
     /// Removes the callback associated with the given Mousebind.
-    pub fn remove(&mut self, kb: &Mousebind) -> Option<MouseCallback<X, C>> {
+    pub fn remove(&mut self, kb: &Mousebind) -> Option<MouseCallback<P, C>> {
         self.bindings.remove(kb)
     }
 
     /// Gets a reference to the callback associated with the mousebind.
-    pub fn get(&self, kb: &Mousebind) -> Option<&MouseCallback<X, C>> {
+    pub fn get(&self, kb: &Mousebind) -> Option<&MouseCallback<P, C>> {
         self.bindings.get(kb)
     }
 
     /// Gets a mutable reference to the callback associated with the mousebind.
-    pub fn get_mut(&mut self, kb: &Mousebind) -> Option<&mut MouseCallback<X, C>> {
+    pub fn get_mut(&mut self, kb: &Mousebind) -> Option<&mut MouseCallback<P, C>> {
         self.bindings.get_mut(kb)
     }
 }

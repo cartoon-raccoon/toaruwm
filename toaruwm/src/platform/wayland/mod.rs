@@ -3,10 +3,14 @@
 use thiserror::Error;
 
 use smithay::reexports::{
+    calloop::{
+        EventLoop,
+        Error as CalloopError,
+    }, 
     wayland_server::{
-        Display,
-        backend::ClientId as WlClientId,
-    },
+        backend::ClientId as WlsClientId,
+        Display
+    }
 };
 
 use smithay::backend::{
@@ -21,24 +25,23 @@ pub mod backend;
 
 pub use state::WlState;
 
-use super::PlatformError;
 use self::backend::{
     WaylandBackend,
     drm::{DrmBackend, DrmError},
 };
-use crate::core::types::ToaruClientId;
 
-/// An ID representing a Wayland client.
-/// 
-/// Implements [`ToaruClientId`].
-pub type ClientId = WlClientId;
+use crate::core::types::ClientId;
 
-impl ToaruClientId for ClientId {}
+/// An identifier corresponding to a Wayland client.
+pub type WaylandClientId = WlsClientId;
 
-/// The 
+impl ClientId for WaylandClientId {}
+
+/// An implementation of the Wayland platform.
 #[derive(Debug)]
 pub struct Wayland<B: WaylandBackend> {
     pub(crate) display: Display<WlState>,
+    pub(crate) state: WlState,
     pub(crate) backend: B,
 }
 
@@ -72,10 +75,13 @@ pub enum WaylandError {
     UdevErr(String),
     #[error(transparent)]
     DrmError(DrmError),
+    #[error(transparent)]
+    EventLoopErr(CalloopError),
 }
 
-impl From<WaylandError> for PlatformError {
-    fn from(e: WaylandError) -> PlatformError {
-        PlatformError::WaylandError(e)
+impl From<CalloopError> for WaylandError {
+    // fixme: 
+    fn from(e: CalloopError) -> WaylandError {
+        WaylandError::EventLoopErr(e)
     }
 }
