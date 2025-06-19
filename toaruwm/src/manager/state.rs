@@ -6,9 +6,8 @@
 //! types.
 
 use std::any::Any;
+use std::fmt::Debug;
 use std::collections::HashMap;
-
-use custom_debug_derive::Debug;
 
 use crate::{core::{
     types::{BorderStyle, Color},
@@ -61,7 +60,7 @@ use crate::platform::Platform;
 ///
 /// [1]: https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref
 /// [2]: std::any
-pub trait RuntimeConfig {
+pub trait RuntimeConfig: Debug {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
 
@@ -173,9 +172,6 @@ where
     P: Platform,
     C: RuntimeConfig
 {
-    /// The `XConn` implementation currently being used.
-    #[debug(skip)]
-    pub conn: &'t P,
     /// The inner configuration of the WindowManager.
     pub config: &'t C,
     /// The workspaces maintained by the window manager.

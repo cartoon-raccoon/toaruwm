@@ -2,11 +2,11 @@
 
 #![allow(unused_variables, unused_imports)] //fixme
 
-//#![allow(unused_variables, unused_imports, dead_code)]
 use std::ffi::OsStr;
 use std::fmt;
 use std::iter::FromIterator;
 use std::process::{Command, Stdio};
+use std::marker::PhantomData;
 
 //use std::marker::PhantomData;
 
@@ -66,8 +66,7 @@ macro_rules! _rm_if_under_layout {
     };
 }
 
-/// The main object that owns the event loop, and receives and 
-/// responds to events.
+/// The main object that defines client management functionality.
 ///
 /// `Toaru` is generic over two types:
 ///
@@ -100,8 +99,6 @@ where
     P: Platform,
     C: RuntimeConfig,
 {
-    /// The backing platform.
-    platform: P,
     /// The internal config of the WindowManager.
     config: C,
     /// The desktop containing all windows.
@@ -124,7 +121,7 @@ where
 /// General `WindowManager`-level commands.
 impl<P, C> Toaru<P, C>
 where
-    P: Platform<Error = ToaruError<P>>,
+    P: Platform,
     C: RuntimeConfig
 {
     /// Constructs a new Toaru object.
@@ -141,13 +138,31 @@ where
     /// all your invariants are upheld.
     ///
     /// See [`Config`] for more details.
-    pub fn new<E, W, L>(platform: P, mut config: E) -> Result<Toaru<P, C>, P>
+    pub fn new<E, W, L>(mut config: E) -> Result<Toaru<P, C>, P>
     where
         E: Config<P, Runtime = C, Workspaces = W, Layouts = L>,
         W: IntoIterator<Item = WorkspaceSpec>,
         L: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
-        todo!()
+        let workspaces: Vec<WorkspaceSpec> = config.take_workspaces().into_iter().collect();
+        let layouts = Layouts::with_layouts_validated(
+            config.take_layouts()
+                .into_iter()
+                .collect::<Vec<Box< dyn Layout<P>>>>()   
+        )?;
+
+        let desktop = Desktop::new(workspaces, layouts)?;
+
+        Ok(Self {
+            config: config.into_runtime_config(),
+            desktop,
+            screens: Ring::new(),
+            ehandler: Box::new(DefaultErrorHandler),
+            selected: None,
+            last_mouse_pos: Point {x: 0, y: 0},
+            running: false,
+            restart: false,
+        })
     }
 
     //* Public Methods
@@ -190,7 +205,6 @@ where
     /// Provides a WMState for introspection.
     pub fn state(&self) -> ToaruState<'_, P, C> {
         ToaruState {
-            conn: &self.platform,
             config: &self.config,
             workspaces: &self.desktop.workspaces,
             desktop: &self.desktop,
@@ -204,11 +218,6 @@ where
         E: ErrorHandler<P, C> + 'static,
     {
         self.ehandler = Box::new(ehandler);
-    }
-
-    pub fn run(&mut self) -> Result<(), P> {
-        //self.platform.run_event_loop(self)
-        Ok(()) // fixme
     }
 
     /// Quits the event loop.
@@ -650,7 +659,7 @@ where
         self.screens.set_focused(idx);
     }
 
-    fn handle_error(&mut self, err: P::Error, /* _evt: XEvent */) {
+    pub(crate) fn handle_error(&mut self, err: P::Error, /* _evt: XEvent */) {
         // (self.ehandler).call(self.state(), ToaruError::BackendError(err.into()));
     }
 }

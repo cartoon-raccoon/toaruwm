@@ -15,7 +15,8 @@ use crate::layouts::{
     update::{IntoUpdate, UpdateBorderPx},
     Floating, Layout,
 };
-use crate::manager::state::{RuntimeConfig, WmConfig};
+#[doc(inline)]
+pub use crate::manager::state::{RuntimeConfig, WmConfig};
 use crate::types::{ClientId, Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
@@ -89,6 +90,16 @@ pub trait Config<P> {
 
     /// Perform the conversion into the RuntimeConfig.
     fn into_runtime_config(self) -> Self::Runtime;
+}
+
+/// A type that returns Wayland-specific configs.
+pub trait WaylandConfig {
+
+}
+
+/// A type that returns X11-specific configs.
+pub trait X11Config {
+
 }
 
 /// The central configuration object.
