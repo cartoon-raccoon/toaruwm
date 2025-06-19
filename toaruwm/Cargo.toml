@@ -18,9 +18,12 @@ x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cur
 smithay = { version = "0.6", features = [
     "wayland_frontend", 
     "backend_drm", 
+    "backend_egl",
     "backend_libinput", 
     "backend_udev", 
-    "backend_session"] }
+    "backend_session",
+    "desktop",
+    "use_system_lib"] }
 
 smithay-drm-extras = "0.1.0"
 
@@ -37,6 +40,8 @@ custom_debug_derive = "0.6.1"
 bitflags = "2.5.0"
 byteorder = "1.4.3"
 
+rustix = "1.0.5"
 nix = "0.20"
+libc = "0.2.172"
 
 thiserror = "1"
