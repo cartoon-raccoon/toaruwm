@@ -16,7 +16,7 @@ use super::{ring::InsertPoint, Ring, Selector};
 use crate::core::types::{
     ClientId, Color, Geometry,
 };
-use crate::platform::{Platform, PlatformHandleDyn};
+use crate::platform::{Platform};
 
 /// A ring of Clients.
 ///
@@ -158,12 +158,12 @@ impl<P: Platform> PartialEq for Client<P> {
 impl<P: Platform> Client<P> {
     /// Creates a new Client.
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(pf)))]
-    pub fn new(from: &P::Client, pf: &PlatformHandleDyn<P>) -> Self {
+    pub fn new(from: &P::Client, pf: &P) -> Self {
         todo!()
     }
 
     /// Returns a Client that should float.
-    pub fn outside_layout(from: &P::Client, pf: &PlatformHandleDyn<P>) -> Self {
+    pub fn outside_layout(from: &P::Client, pf: &P) -> Self {
         let mut new = Self::new(from, pf);
         new.inside_layout = false;
 
@@ -384,12 +384,12 @@ impl<P: Platform> Client<P> {
     /// Sets the border of the Client.
     ///
     /// Should only be used internally.
-    pub fn set_border(&mut self, pf: &PlatformHandleDyn<P>, border: Color) {
+    pub fn set_border(&mut self, pf: &P, border: Color) {
         
     }
 
     /// Maps the client.
-    pub fn map(&mut self, pf: &PlatformHandleDyn<P>) {
+    pub fn map(&mut self, pf: &P) {
         //trace!("mapping window {}", self.xwindow.id);
         // note that we do not update our geometry here.
         // all geometry updates are done by the layout engine.
@@ -401,7 +401,7 @@ impl<P: Platform> Client<P> {
     }
 
     /// Unmaps the client.
-    pub fn unmap(&mut self, pf: &PlatformHandleDyn<P>) {
+    pub fn unmap(&mut self, pf: &P) {
         // self.mapped_state = WindowState::Iconic;
         // conn.unmap_window(self.id())
         //     .unwrap_or_else(|e| error!("{}", e));
@@ -452,7 +452,7 @@ impl<P: Platform> Client<P> {
     /// Resize the window using _changes_ in height and width.
     ///
     /// Does not do bounds checking.
-    pub fn do_resize(&mut self, pf: &PlatformHandleDyn<P>, dx: i32, dy: i32) {
+    pub fn do_resize(&mut self, pf: &P, dx: i32, dy: i32) {
         // self.xwindow.update_height(dy);
         // self.xwindow.update_width(dx);
 
@@ -474,7 +474,7 @@ impl<P: Platform> Client<P> {
     /// Move the window using _changes_ in window coordinates.
     ///
     /// Does not do bounds checking.
-    pub fn do_move(&mut self, pf: &PlatformHandleDyn<P>, dx: i32, dy: i32) {
+    pub fn do_move(&mut self, pf: &P, dx: i32, dy: i32) {
         // self.xwindow.update_pos_y(dy);
         // self.xwindow.update_pos_x(dx);
 
@@ -495,7 +495,7 @@ impl<P: Platform> Client<P> {
 
     /// Sets the position of the window on the root window with respect to
     /// its gravity.
-    pub fn set_position(&mut self, pf: &PlatformHandleDyn<P>, x: i32, y: i32) {
+    pub fn set_position(&mut self, pf: &P, x: i32, y: i32) {
         // self.xwindow.set_pos_x(x);
         // self.xwindow.set_pos_y(y);
 
@@ -510,7 +510,7 @@ impl<P: Platform> Client<P> {
     }
 
     /// Sets the size of the window.
-    pub fn set_size(&mut self, pf: &PlatformHandleDyn<P>, height: i32, width: i32) {
+    pub fn set_size(&mut self, pf: &P, height: i32, width: i32) {
         // self.xwindow.set_height(height);
         // self.xwindow.set_width(width);
 
@@ -532,7 +532,7 @@ impl<P: Platform> Client<P> {
     /// Updates its geometry on the X server.
     ///
     /// Normally called after `Client::set_geometry`.
-    pub fn update_geometry(&self, pf: &PlatformHandleDyn<P>) {
+    pub fn update_geometry(&self, pf: &P) {
         // conn.configure_window(
         //     self.xwindow.id,
         //     &[ClientConfig::Resize {
@@ -553,13 +553,13 @@ impl<P: Platform> Client<P> {
     }
 
     /// Updates and sets the Client geometry with a given Geometry.
-    pub fn set_and_update_geometry(&mut self, pf: &PlatformHandleDyn<P>, geom: Geometry) {
+    pub fn set_and_update_geometry(&mut self, pf: &P, geom: Geometry) {
         self.set_geometry(geom);
         self.update_geometry(pf);
     }
 
     /// Sets the supported protocols for the client.
-    pub fn set_supported(&mut self, pf: &PlatformHandleDyn<P>) {
+    pub fn set_supported(&mut self, pf: &P) {
         //trace!("setting supported protocols for window {}", self.xwindow.id);
         // if let Some(protocols) = conn.get_wm_protocols(self.id()) {
         //     for protocol in protocols {

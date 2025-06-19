@@ -16,8 +16,8 @@ use tracing::debug;
 use crate::core::{Client, Workspace};
 use crate::layouts::{Layout, Layouts};
 use crate::manager::RuntimeConfig;
-use crate::platform::{Platform, PlatformHandleDyn};
-use crate::types::{Cardinal, Direction, Geometry, Ring, Selector, ClientId};
+use crate::platform::{Platform};
+use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
 use crate::{Result, ToaruError::*};
 
 use super::WorkspaceSpec;
@@ -225,7 +225,7 @@ impl<P: Platform> Desktop<P> {
     /// Cycle workspaces in given direction.
     pub fn cycle_to<C>(
         &mut self,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         scr: &Screen,
         cfg: &C,
         direction: Direction,
@@ -247,7 +247,7 @@ impl<P: Platform> Desktop<P> {
     }
 
     /// Switch to a given workspace by its name.
-    pub fn go_to<C>(&mut self, name: &str, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C) -> Result<(), P>
+    pub fn go_to<C>(&mut self, name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {
@@ -285,13 +285,7 @@ impl<P: Platform> Desktop<P> {
         Ok(())
     }
     /// Sends the currently focused window to the specified workspace.
-    pub fn send_focused_to<C>(
-        &mut self,
-        name: &str,
-        pf: &PlatformHandleDyn<P>,
-        scr: &Screen,
-        cfg: &C,
-    ) -> Result<(), P>
+    pub fn send_focused_to<C>(&mut self,name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {
@@ -306,14 +300,7 @@ impl<P: Platform> Desktop<P> {
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<C>(
-        &mut self,
-        id: &P::Client,
-        name: &str,
-        pf: &PlatformHandleDyn<P>,
-        scr: &Screen,
-        cfg: &C,
-    ) -> Result<(), P>
+    pub fn send_window_to<C>(&mut self, id: &P::Client, name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {

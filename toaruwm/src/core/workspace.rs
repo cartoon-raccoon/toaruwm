@@ -19,7 +19,7 @@ use crate::core::{
 use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::types::{BorderStyle, Direction};
-use crate::platform::{Platform, PlatformHandleDyn};
+use crate::platform::{Platform};
 use crate::core::types::ClientId;
 
 use crate::Result;
@@ -189,7 +189,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the layout to use and applies it to all currently mapped windows.
     ///
     /// Is a no-op if no such layout exists.
-    pub fn set_layout<C>(&mut self, layout: &str, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn set_layout<C>(&mut self, layout: &str, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -202,7 +202,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Cycles in the given direction to the next layout, and applies it.
-    pub fn cycle_layout<C>(&mut self, dir: Direction, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn cycle_layout<C>(&mut self, dir: Direction, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -211,7 +211,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Switches to the given layout, and applies it.
-    pub fn switch_layout<S, C>(&mut self, name: S, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn switch_layout<S, C>(&mut self, name: S, pf: &P, scr: &Screen, cfg: &C)
     where
         S: AsRef<str>,
         C: RuntimeConfig,
@@ -339,7 +339,7 @@ impl<P: Platform> Workspace<P> {
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    pub fn activate<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn activate<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -373,7 +373,7 @@ impl<P: Platform> Workspace<P> {
 
     /// Unmaps all the windows in the workspace.
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, pf)))]
-    pub fn deactivate(&mut self, pf: &PlatformHandleDyn<P>) {
+    pub fn deactivate(&mut self, pf: &P) {
         // for window in self.windows.iter() {
         //     pf.change_window_attributes(window.id(), &[ClientAttrs::DisableClientEvents])
         //         .unwrap_or_else(|e| error!("{}", e));
@@ -387,7 +387,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Calls the layout function and applies it to the workspace.
-    pub fn relayout<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn relayout<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -396,7 +396,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Adds a window to the workspace in the layout.
-    pub fn add_window_on_layout<C>(&mut self, window: &P::Client, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn add_window_on_layout<C>(&mut self, window: &P::Client, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig
     {
@@ -407,7 +407,7 @@ impl<P: Platform> Workspace<P> {
     pub fn add_window_off_layout<C: RuntimeConfig>(
         &mut self,
         window: &P::Client,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         scr: &Screen,
         cfg: &C,
     )
@@ -423,7 +423,7 @@ impl<P: Platform> Workspace<P> {
     pub fn del_window<C: RuntimeConfig>(
         &mut self,
         id: &P::Client,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         scr: &Screen,
         cfg: &C,
     ) -> Result<Option<Client<P>>, P> {
@@ -444,7 +444,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the input focus, internally and on the server, to the given ID.
     ///
     /// Also calls `Self::unfocus_window` internally.
-    pub fn focus_window<C>(&mut self, window: &P::Client, pf: &PlatformHandleDyn<P>, cfg: &C)
+    pub fn focus_window<C>(&mut self, window: &P::Client, pf: &P, cfg: &C)
     where
         C: RuntimeConfig
     {
@@ -467,7 +467,7 @@ impl<P: Platform> Workspace<P> {
     ///
     /// You generally shouldn't have to call this directly, as it is also
     /// called by `Self::focus_window`.
-    pub fn unfocus_window<C>(&mut self, window: &P::Client, pf: &PlatformHandleDyn<P>, cfg: &C)
+    pub fn unfocus_window<C>(&mut self, window: &P::Client, pf: &P, cfg: &C)
     where
         C: RuntimeConfig
     {
@@ -488,7 +488,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Cycles the focus to the next window in the workspace.
-    pub fn cycle_focus<C>(&mut self, dir: Direction, pf: &PlatformHandleDyn<P>, cfg: &C)
+    pub fn cycle_focus<C>(&mut self, dir: Direction, pf: &P, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -511,7 +511,7 @@ impl<P: Platform> Workspace<P> {
     /// Deletes the focused window in the workspace and returns it.
     pub fn take_focused_window<C>(
         &mut self,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         screen: &Screen,
         cfg: &C,
     ) -> Option<Client<P>>
@@ -529,7 +529,7 @@ impl<P: Platform> Workspace<P> {
 
     /// Toggles fullscreen on the currently focused window.
     #[allow(unused_variables)]
-    pub fn toggle_focused_fullscreen<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn toggle_focused_fullscreen<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -541,7 +541,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Toggles the state of the currently focused window between off or in layout.
-    pub fn toggle_focused_state<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub fn toggle_focused_state<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -560,7 +560,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
-    pub fn add_to_layout<C>(&mut self, pf: &PlatformHandleDyn<P>, id: &P::Client, scr: &Screen, cfg: &C)
+    pub fn add_to_layout<C>(&mut self, pf: &P, id: &P::Client, scr: &Screen, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -578,7 +578,7 @@ impl<P: Platform> Workspace<P> {
     /// turning it into a floating window regardless of the current layout style.
     ///
     /// This will also stack the window above any other windows.
-    pub fn remove_from_layout<C>(&mut self, pf: &PlatformHandleDyn<P>, id: &P::Client, scr: &Screen, cfg: &C)
+    pub fn remove_from_layout<C>(&mut self, pf: &P, id: &P::Client, scr: &Screen, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -596,7 +596,7 @@ impl<P: Platform> Workspace<P> {
     pub fn update_focused_layout<U: IntoUpdate, C>(
         &mut self,
         msg: U,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         scr: &Screen,
         cfg: &C,
     ) where
@@ -633,7 +633,7 @@ impl<P: Platform> Workspace<P> {
     //* ========================================= *//
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    fn _add_window<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C, mut window: Client<P>)
+    fn _add_window<C>(&mut self, pf: &P, scr: &Screen, cfg: &C, mut window: Client<P>)
     where
         C: RuntimeConfig,
     {
@@ -643,7 +643,7 @@ impl<P: Platform> Workspace<P> {
     /// Deletes a window
     fn _del_window<C>(
         &mut self,
-        pf: &PlatformHandleDyn<P>,
+        pf: &P,
         scr: &Screen,
         cfg: &C,
         id: &P::Client,
@@ -681,14 +681,14 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Takes a window directly without calling the layout.
-    pub(crate) fn take_window(&mut self, window: &P::Client, pf: &PlatformHandleDyn<P>) -> Option<Client<P>> {
+    pub(crate) fn take_window(&mut self, window: &P::Client, pf: &P) -> Option<Client<P>> {
         let mut window = self.windows.remove_by_id(window)?;
         window.unmap(pf);
         Some(window)
     }
 
     /// Updates the focus to the window under the pointer.
-    pub(crate) fn focus_window_by_ptr<C>(&mut self, pf: &PlatformHandleDyn<P>, scr: &Screen, cfg: &C)
+    pub(crate) fn focus_window_by_ptr<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -700,7 +700,7 @@ impl<P: Platform> Workspace<P> {
         // self.focus_window(reply.child, pf, cfg);
     }
 
-    fn apply_layout(&mut self, pf: &PlatformHandleDyn<P>, layouts: Vec<LayoutAction<'_, P>>) {
+    fn apply_layout(&mut self, pf: &P, layouts: Vec<LayoutAction<'_, P>>) {
         for rsaction in layouts {
             match rsaction {
                 LayoutAction::Resize { id, geom } => {
@@ -744,7 +744,7 @@ impl<P: Platform> Workspace<P> {
     ///
     /// Note 1: This does not change the internal sequence of the `ClientRing`.
     /// Note 2: THE WINDOW MUST EXIST.
-    fn stack_and_focus_window<C>(&mut self, pf: &PlatformHandleDyn<P>, cfg: &C, window: &P::Client)
+    fn stack_and_focus_window<C>(&mut self, pf: &P, cfg: &C, window: &P::Client)
     where
         C: RuntimeConfig,
     {
