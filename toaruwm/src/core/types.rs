@@ -125,8 +125,23 @@ impl Point {
     ///
     /// assert_eq!(point, Point {x: 0, y: 0});
     /// ```
-    pub fn new(x: i32, y: i32) -> Point {
+    pub const fn new(x: i32, y: i32) -> Point {
         Point { x, y }
+    }
+
+    /// Creates a new Point where both coordinates are zero.
+    /// 
+    /// # Example
+    /// 
+    /// ```rust
+    /// use toaruwm::types::Point;
+    /// 
+    /// let point = Point::zeroed();
+    /// 
+    /// assert_eq!(point, Point {x: 0, y: 0});
+    /// ```
+    pub const fn zeroed() -> Point {
+        Point { x: 0, y: 0}
     }
 
     /// Calculates the x and y offsets between itself and another Point.
@@ -692,6 +707,12 @@ impl Geometry {
             height,
             width,
         }
+    }
+
+    /// Returns a Geometry formed by the intersection of another Geometry.
+    /// This is effectively a set containing all points found in both Geometries.
+    pub fn intersect(&self, _other: Geometry) -> Geometry {
+        todo!()
     }
 }
 
