@@ -176,6 +176,12 @@ pub mod manager;
 pub mod widget;
 pub mod platform;
 
+/// Modules that Toaru is tightly integrated with, re-exported for convenience.
+pub mod reexports {
+    pub use smithay;
+    pub use smithay::reexports::calloop;
+}
+
 pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Config, ToaruConfig, Toaru};
