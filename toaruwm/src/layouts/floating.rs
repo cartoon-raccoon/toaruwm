@@ -1,6 +1,6 @@
 use super::{update::Update, Layout, LayoutAction, LayoutCtxt, LayoutType};
 
-use crate::{platform::Platform, types::ClientId};
+use crate::{platform::Platform};
 
 /// A simple floating layout that does not
 /// enforce any specific window layout.

@@ -10,7 +10,7 @@ use tracing::debug;
 use crate::core::{Ring, Screen, Workspace};
 use crate::manager::RuntimeConfig;
 use crate::types::{Geometry};
-use crate::platform::{Platform, PlatformHandleDyn};
+use crate::platform::{Platform};
 use crate::{Result, ToaruError};
 /// A simple no-frills floating layout.
 pub mod floating;
@@ -94,7 +94,7 @@ pub struct LayoutCtxt<'t, P: Platform> {
     //fixme: custom debug is just a bodge rn
     /// A handle to the platform to make requests if needed.
     #[debug(skip)]
-    pub pf: &'t PlatformHandleDyn<P>,
+    pub pf: &'t P,
     /// The runtime configuration of the window manager.
     #[debug(skip)]
     pub config: &'t dyn RuntimeConfig,
@@ -196,13 +196,13 @@ impl<P: Platform> Layouts<P> {
     }
 
     /// Generates the layout for the currently focused layout.
-    pub fn gen_layout<'layout, C: RuntimeConfig>(
-        &'layout self,
-        pf: &PlatformHandleDyn<P>,
+    pub fn gen_layout<'t>(
+        &'t self,
+        pf: &P,
         ws: &Workspace<P>,
         scr: &Screen,
-        cfg: &C,
-    ) -> Vec<LayoutAction<'layout, P>> {
+        cfg: &dyn RuntimeConfig,
+    ) -> Vec<LayoutAction<'t, P>> {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
         self.focused()
