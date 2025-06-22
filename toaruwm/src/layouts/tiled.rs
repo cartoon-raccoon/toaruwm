@@ -8,7 +8,7 @@ use super::{
 };
 
 use crate::core::Workspace;
-use crate::types::{Cardinal, Geometry};
+use crate::types::{Cardinal, Rectangle};
 use crate::platform::{Platform};
 
 /// A simple dynamic tiling layout, with a main window

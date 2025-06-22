@@ -16,7 +16,7 @@ use super::{
     atom::Atom,
     input::KeyButMask,
 };
-use crate::types::{Geometry, ClientId};
+use crate::types::{Rectangle, Logical, ClientId};
 
 #[doc(inline)]
 pub use super::traits::{XCore, XConn, RandR, Xkb};
@@ -155,14 +155,14 @@ pub struct XOutput {
     /// The root window ID.
     pub root: XWindowID,
     /// The geometry of the root window that can be used.
-    pub effective_geom: Geometry,
+    pub effective_geom: Rectangle<Logical>,
     /// The geometry of the physical screen of the root window.
-    pub true_geom: Geometry,
+    pub true_geom: Rectangle<Logical>,
 }
 
 impl XOutput {
     /// Creates a new XOutput.
-    pub fn new(idx: i32, root: XWindowID, geom: Geometry) -> Self {
+    pub fn new(idx: i32, root: XWindowID, geom: Rectangle<Logical>) -> Self {
         Self {
             idx,
             root,
@@ -178,7 +178,7 @@ pub struct XWindow {
     /// The X ID assigned to the window.
     pub id: XWindowID,
     /// The geometry of the window as stored on the X server.
-    pub geom: Geometry,
+    pub geom: Rectangle<Logical>,
 }
 
 impl XWindow {
@@ -186,12 +186,12 @@ impl XWindow {
     pub fn zeroed() -> Self {
         XWindow {
             id: Xid(0),
-            geom: Geometry::zeroed(),
+            geom: Rectangle::zeroed(),
         }
     }
 
     /// Creates an `XWindow` with the given data.
-    pub fn with_data(id: XWindowID, geom: Geometry) -> Self {
+    pub fn with_data(id: XWindowID, geom: Rectangle<Logical>) -> Self {
         XWindow { id, geom }
     }
 }
@@ -207,12 +207,7 @@ impl From<XWindowID> for XWindow {
     fn from(from: XWindowID) -> Self {
         Self {
             id: from,
-            geom: Geometry {
-                x: 0,
-                y: 0,
-                height: 0,
-                width: 0,
-            },
+            geom: Rectangle::zeroed()
         }
     }
 }
@@ -263,7 +258,7 @@ impl XWindow {
     /// Note that this does not update the geometry as tracked by
     /// the X server, and so a request should be made to the server
     /// to update the geometry there as well.
-    pub fn set_geometry(&mut self, geom: Geometry) {
+    pub fn set_geometry(&mut self, geom: Rectangle<Logical>) {
         debug!(
             "Updating geometry for window {}: x: {}, y: {}, h: {}, w: {}",
             self.id, geom.x, geom.y, geom.height, geom.width

@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use tracing::error;
 
-use crate::core::types::{Geometry, Color};
+use crate::core::types::{Rectangle, Color, Logical};
 
 use super::{
     core::{StackMode, XAtom, XConn},
@@ -17,7 +17,7 @@ pub enum ClientConfig {
     /// Width of the window border.
     BorderWidth(u32),
     /// Position of the window.
-    Position(Geometry),
+    Position(Rectangle<Logical>),
     /// Resizing the window.
     Resize {
         /// The height.

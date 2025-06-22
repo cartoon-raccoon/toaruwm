@@ -7,13 +7,15 @@
 //!
 //! For X server-specific types, see [`crate::x::core`].
 
-use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
 #[doc(inline)]
 pub use crate::core::{Ring, Selector};
 
 use std::hash::Hash;
 use std::fmt::Debug;
+use std::collections::HashMap;
+use std::any::Any;
+use std::marker::PhantomData;
 
 /// A type that can uniquely identify any client connected to a
 /// running ToaruWM instance.
@@ -25,8 +27,31 @@ pub trait ClientId: Debug + Clone + Eq + Hash {}
 /// Data about a given client.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ClientData {
-    geom: Geometry,
+    geom: Rectangle<Logical>,
     urgent: bool,
+}
+
+/// A general dictionary type that can store most variable-value mappings.
+pub type Dict = HashMap<String, Box<dyn Any>>;
+
+/// Macro for quick-creating a new Dict.
+/// 
+/// Note: The value you insert should not be boxed, as this macro
+/// creates a new Box around `$val`.
+#[macro_export]
+macro_rules! dict {
+    {} => {Dict::new()};
+    {$($key:literal, $val:expr);+} => {
+        {
+            let mut __dict = Dict::new();
+    
+            $(
+                __dict.insert(String::from($key), Box::new($val));
+            )+
+    
+            __dict
+        }
+    };
 }
 
 /// Specifies a direction.
@@ -57,6 +82,24 @@ pub enum CardinalX {
     Right,
 }
 
+impl From<CardinalX> for Cardinal {
+    fn from(from: CardinalX) -> Cardinal {
+        match from {
+            CardinalX::Left  => Cardinal::Left,
+            CardinalX::Right => Cardinal::Right,
+        }
+    }
+}
+
+impl From<Cardinal> for CardinalX {
+    fn from(from: Cardinal) -> CardinalX {
+        match from {
+            Cardinal::Left | Cardinal::Down => CardinalX::Left,
+            Cardinal::Right | Cardinal::Up => CardinalX::Right,
+        }
+    }
+}
+
 /// A subset of Cardinal with only Up and Down variants.
 ///
 /// It is disjoint with `CardinalX`.
@@ -65,6 +108,24 @@ pub enum CardinalX {
 pub enum CardinalY {
     Up,
     Down,
+}
+
+impl From<CardinalY> for Cardinal {
+    fn from(from: CardinalY) -> Cardinal {
+        match from {
+            CardinalY::Up  => Cardinal::Up,
+            CardinalY::Down => Cardinal::Down,
+        }
+    }
+}
+
+impl From<Cardinal> for CardinalY {
+    fn from(from: Cardinal) -> CardinalY {
+        match from {
+            Cardinal::Left | Cardinal::Down => CardinalY::Down,
+            Cardinal::Right | Cardinal::Up => CardinalY::Up,
+        }
+    }
 }
 
 /// The direction in which `Point`s and `Geometry`s
@@ -83,7 +144,7 @@ pub enum Gravity {
     NorthEast,
     /// The left direction.
     West,
-    /// Dead center in the Geometry.
+    /// Dead center in the Rectangle.
     Center,
     /// The right direction.
     East,
@@ -94,6 +155,70 @@ pub enum Gravity {
     /// The bottom right direction.
     SouthEast,
 }
+
+pub mod marker {
+    //! Marker types for marking Point and Rectangle kind, Physical or Logical.
+    //! 
+    //! This module contains the [`GeometryKind`] sealed trait,
+    //! as well as its two implementors, [`Logical`] and [`Physical`].
+    //! These are used to mark whether a `Point` or `Geometry` should be treated
+    //! as a physical geometry (i.e. relative to the physical size of a screen),
+    //! or as a logical geometry (i.e. relative to other outputs, accounting for their scale).
+    //! 
+    //! Most applications work with Logical geometries, since that is the most
+    //! convenient coordinate space to do operations in among outputs. However, certain things
+    //! do require physical coordinates, such as window borders (in order to stay crisp).
+    //! 
+    //! Most Logical coordinate spaces are linked to a Physical coordinate space by a scale factor.
+    //! Conversion methods are provided for you to convert geometrical types between Physical and
+    //! Logical spaces, where you provide the scale factor *relative to the Logical space*. That is,
+    //! if your Logical space needs to be scaled by a factor of 1.5 to be equal in size to its
+    //! corresponding Physical space, when converting from Physical to Logical, *you still
+    //! pass in 1.5, **not** 1/1.5*. The conversion method will perform the inversion for you.
+    //! 
+    //! See the respective `as_logical` and `as_physical` methods for [`Point`][1] and [`Rectangle`][2].
+    //! 
+    //! [1]: super::Point
+    //! [2]: super::Rectangle
+    
+    mod private {
+        pub trait Sealed {}
+    }
+
+    /// A trait defining marker types `Logical` and `Physical`.
+    pub trait GeometryKind: private::Sealed {}
+
+    /// A marker type indicating a geometry type is logical.
+    #[derive(Debug, Default, Clone, Copy, PartialEq)]
+    pub struct Logical;
+
+    impl GeometryKind for Logical {}
+    impl private::Sealed for Logical {}
+
+    #[derive(Debug, Default, Clone, Copy, PartialEq)]
+    /// A marker type indicating a geometry type is physical.
+    pub struct Physical;
+
+    impl GeometryKind for Physical {}
+    impl private::Sealed for Physical {}
+
+
+    use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+    /// A marker trait to signal that a type can be treated as a bitmask.
+    ///
+    /// This means that the type supports bitmask operations such as
+    /// bitwise AND, bitwise OR, bitwise NOT, etc.
+    pub trait BitMask
+    where
+        Self: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized,
+    {
+    }
+
+    // Blanket implementation for Bitmask
+    impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
+}
+
+pub use marker::{GeometryKind, Logical, Physical, BitMask};
 
 /// A type for representing a point on a display or screen.
 ///
@@ -108,12 +233,13 @@ pub enum Gravity {
 /// [1]: std::cmp::PartialEq
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Point {
+pub struct Point<Kind: GeometryKind> {
     pub x: i32,
     pub y: i32,
+    _kind: PhantomData<Kind>,
 }
 
-impl Point {
+impl<Kind: GeometryKind> Point<Kind> {
     /// Creates a new Point.
     ///
     /// # Example
@@ -125,8 +251,8 @@ impl Point {
     ///
     /// assert_eq!(point, Point {x: 0, y: 0});
     /// ```
-    pub const fn new(x: i32, y: i32) -> Point {
-        Point { x, y }
+    pub fn new<N: Into<i32>>(x: N, y: N) -> Point<Kind> {
+        Point { x: x.into(), y: y.into(), _kind: PhantomData,}
     }
 
     /// Creates a new Point where both coordinates are zero.
@@ -140,8 +266,8 @@ impl Point {
     /// 
     /// assert_eq!(point, Point {x: 0, y: 0});
     /// ```
-    pub const fn zeroed() -> Point {
-        Point { x: 0, y: 0}
+    pub const fn zeroed() -> Point<Kind> {
+        Point { x: 0, y: 0, _kind: PhantomData}
     }
 
     /// Calculates the x and y offsets between itself and another Point.
@@ -161,7 +287,7 @@ impl Point {
     /// assert_eq!(x, -30);
     /// assert_eq!(y, -20);
     /// ```
-    pub fn calculate_offset(&self, other: Point) -> (i32, i32) {
+    pub fn calculate_offset(&self, other: Point<Kind>) -> (i32, i32) {
         (other.x - self.x, other.y - self.y)
     }
 
@@ -172,7 +298,7 @@ impl Point {
     /// you will probably want to round this up/down to
     /// the nearest integer value before coercing to an
     /// integer type.
-    pub fn distance_to(&self, other: Point) -> f64 {
+    pub fn distance_to(&self, other: Point<Kind>) -> f64 {
         let (x, y) = self.calculate_offset(other);
 
         let ret = ((x as f64).powi(2) + (y as f64).powi(2)).sqrt();
@@ -189,13 +315,13 @@ impl Point {
     pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
         use Cardinal::*;
 
-        let Point { x, y } = *self;
+        let Point { x, y, _kind } = *self;
 
         match dir {
-            Up => Point { x, y: y - delta },
-            Down => Point { x, y: y + delta },
-            Left => Point { x: x - delta, y },
-            Right => Point { x: x + delta, y },
+            Up => Point { x, y: y - delta, _kind},
+            Down => Point { x, y: y + delta, _kind },
+            Left => Point { x: x - delta, y, _kind },
+            Right => Point { x: x + delta, y, _kind },
         }
     }
 
@@ -203,35 +329,40 @@ impl Point {
     /// (bidirectional offset).
     ///
     /// Moves the point in both directions.
+    // todo: example
     pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
         use CardinalX::*;
         use CardinalY::*;
 
-        let Point { x, y } = *self;
+        let Point { x, y, _kind } = *self;
 
         match (dirx, diry) {
             (Left, Up) => Point {
                 x: x - dx,
                 y: y - dy,
+                _kind
             },
             (Left, Down) => Point {
                 x: x - dx,
                 y: y + dy,
+                _kind
             },
             (Right, Down) => Point {
                 x: x + dx,
                 y: y + dy,
+                _kind
             },
             (Right, Up) => Point {
                 x: x + dx,
                 y: y - dy,
+                _kind
             },
         }
     }
 
     /// Offsets itself by `delta` in the given direction.
     pub fn unidir_offset_in_place(&mut self, delta: i32, dir: Cardinal) {
-        let Point { x, y } = self.unidir_offset(delta, dir);
+        let Point { x, y, _kind } = self.unidir_offset(delta, dir);
 
         self.x = x;
         self.y = y;
@@ -239,10 +370,43 @@ impl Point {
 
     /// Offsets itself by `dx, dy` in the given directions.
     pub fn bidir_offset_in_place(&mut self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) {
-        let Point { x, y } = self.bidir_offset(dx, dy, dirx, diry);
+        let Point { x, y, _kind } = self.bidir_offset(dx, dy, dirx, diry);
 
         self.x = x;
         self.y = y;
+    }
+
+    /// Scales the given Point by a given scale factor on the X and Y axes,
+    /// with respect to the origin (0,0) at the top left of the coordinate space.
+    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
+        self.scale_gen::<Kind>(scale_x, scale_y)
+    }
+
+    fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Point<K> {
+        let Point { x, y, .. } = *self;
+
+        Point {
+            x: ((x as f32) * scale_x).round() as i32,
+            y: ((y as f32) * scale_y).round() as i32,
+            _kind: PhantomData,
+        }
+    }
+}
+
+impl Point<Logical> {
+    /// Returns a `Rectangle<Physical>`, scaled by `scale`.
+    pub fn as_physical(&self, scale: f32) -> Point<Physical> {
+        self.scale_gen::<Physical>(scale, scale)
+    }
+}
+
+impl Point<Physical> {
+    /// Returns a `Rectangle<Logical>`, scaled by **`1 / scale`.**
+    pub fn as_logical(&self, scale: f32) -> Point<Logical> {
+        // account for if scale == 0, since calling recip on 0 will give
+        // a divide-by-zero error
+        let inverse = if scale == 0. {0.} else {scale.recip()};
+        self.scale_gen::<Logical>(inverse, inverse)
     }
 }
 
@@ -253,18 +417,17 @@ impl Point {
 ///
 /// # Note on X Window Gravity
 ///
-/// Geometries follow the X Window System default
+/// Rectangles follow the X Window System default
 /// of taking their gravity from the top-left corner,
 /// that is, (0, 0) is considered the top left corner
 /// of the screen, and any increase is an offset to the right
 /// or downwards.
 ///
-/// _Note:_ The Default impl returns
-/// Geometry {0, 0, 100, 160}, **NOT** zeroed.
+/// _Note:_ The Default impl returns Rectangle {0, 0, 0, 0}.
 ///
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Geometry {
+pub struct Rectangle<Kind: GeometryKind> {
     /// The x coordinate of the top left corner.
     pub x: i32,
     /// The y coordinate of the top left corner.
@@ -273,29 +436,33 @@ pub struct Geometry {
     pub height: i32,
     /// The width of the geometry.
     pub width: i32,
+
+    _kind: PhantomData<Kind>
 }
 
-impl Default for Geometry {
+impl<Kind: GeometryKind> Default for Rectangle<Kind> {
     fn default() -> Self {
-        Geometry {
+        Rectangle {
             x: 0,
             y: 0,
             height: 100,
             width: 160,
+
+            _kind: PhantomData
         }
     }
 }
 
-impl Geometry {
+impl<Kind: GeometryKind> Rectangle<Kind> {
     /// Constructs a new Geometry.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Geometry;
+    /// use toaruwm::types::Rectangle;
     ///
-    /// let geom1 = Geometry::new(0, 0, 100, 160);
-    /// let geom2 = Geometry {
+    /// let geom1 = Rectangle::new(0, 0, 100, 160);
+    /// let geom2 = Rectangle {
     ///     x: 0,
     ///     y: 0,
     ///     height: 100,
@@ -304,12 +471,13 @@ impl Geometry {
     ///
     /// assert_eq!(geom1, geom2);
     /// ```
-    pub fn new(x: i32, y: i32, h: i32, w: i32) -> Self {
-        Geometry {
-            x,
-            y,
-            height: h,
-            width: w,
+    pub fn new<N: Into<i32>>(x: N, y: N, h: N, w: N) -> Self {
+        Rectangle {
+            x: x.into(),
+            y: y.into(),
+            height: h.into(),
+            width: w.into(),
+            _kind: PhantomData,
         }
     }
 
@@ -326,22 +494,24 @@ impl Geometry {
     /// assert_eq!(geom, Geometry::new(0, 0, 0, 0));
     /// ```
     pub fn zeroed() -> Self {
-        Geometry {
+        Rectangle {
             x: 0,
             y: 0,
             height: 0,
             width: 0,
+            _kind: PhantomData,
         }
     }
 
     /// Creates a `Geometry` based at the origin (0, 0)
     /// with the given dimensions `height` and `width`.
-    pub fn at_origin(height: i32, width: i32) -> Geometry {
+    pub fn at_origin(height: i32, width: i32) -> Self {
         Self {
             x: 0,
             y: 0,
             height,
             width,
+            _kind: PhantomData,
         }
     }
 
@@ -358,12 +528,12 @@ impl Geometry {
     ///
     /// assert!(original.contains(&new));
     /// ```
-    pub fn contains(&self, other: &Geometry) -> bool {
+    pub fn contains(&self, other: &Rectangle<Kind>) -> bool {
         match other {
-            Geometry { x, .. } if *x < self.x => false,
-            Geometry { x, width, .. } if (*x + *width) > (self.x + self.width) => false,
-            Geometry { y, .. } if *y < self.y => false,
-            Geometry { y, height, .. } if (*y + *height) > (self.y + self.height) => false,
+            Rectangle { x, .. } if *x < self.x => false,
+            Rectangle { x, width, .. } if (*x + *width) > (self.x + self.width) => false,
+            Rectangle { y, .. } if *y < self.y => false,
+            Rectangle { y, height, .. } if (*y + *height) > (self.y + self.height) => false,
             _ => true,
         }
     }
@@ -380,7 +550,7 @@ impl Geometry {
     ///
     /// assert!(original.contains_point(point));
     /// ```
-    pub fn contains_point(&self, pt: Point) -> bool {
+    pub fn contains_point(&self, pt: Point<Kind>) -> bool {
         let wrange = self.x..(self.x + self.width);
         let hrange = self.y..(self.y + self.height);
 
@@ -405,17 +575,18 @@ impl Geometry {
     /// ]);
     /// ```
     #[must_use]
-    pub fn split_horz_n(&self, n: usize) -> Vec<Geometry> {
+    pub fn split_horz_n(&self, n: usize) -> Vec<Self> {
         let new_height = self.height / n as i32;
 
         let mut ret = Vec::new();
 
         for i in 0..n {
-            ret.push(Geometry {
+            ret.push(Rectangle {
                 x: self.x,
                 y: self.y + (i as i32 * new_height),
                 height: new_height,
                 width: self.width,
+                _kind: PhantomData,
             })
         }
 
@@ -442,17 +613,18 @@ impl Geometry {
     /// ]);
     /// ```
     #[must_use]
-    pub fn split_vert_n(&self, n: usize) -> Vec<Geometry> {
+    pub fn split_vert_n(&self, n: usize) -> Vec<Self> {
         let new_width = self.width / n as i32;
 
         let mut ret = Vec::new();
 
         for i in 0..n {
-            ret.push(Geometry {
+            ret.push(Rectangle {
                 x: self.x + (i as i32 * new_width),
                 y: self.y,
                 height: self.height,
                 width: new_width,
+                _kind: PhantomData,
             })
         }
 
@@ -484,7 +656,7 @@ impl Geometry {
     /// assert_eq!(bottom, Geometry::new(0, 75, 25, 200));
     /// ```
     #[must_use]
-    pub fn split_horz_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
+    pub fn split_horz_ratio(&self, ratio: f32) -> (Self, Self) {
         let ratio = ratio.clamp(0.0, 1.0);
 
         if ratio.is_nan() {
@@ -496,18 +668,20 @@ impl Geometry {
 
         (
             // top
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y,
                 height: top_height,
                 width: self.width,
+                _kind: PhantomData,
             },
             // bottom
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y + top_height,
                 height: bottom_height,
                 width: self.width,
+                _kind: PhantomData,
             },
         )
     }
@@ -537,7 +711,7 @@ impl Geometry {
     /// assert_eq!(bottom, Geometry::new(150, 0, 100, 50));
     /// ```
     #[must_use]
-    pub fn split_vert_ratio(&self, ratio: f32) -> (Geometry, Geometry) {
+    pub fn split_vert_ratio(&self, ratio: f32) -> (Self, Self) {
         let ratio = ratio.clamp(0.0, 1.0);
 
         if ratio.is_nan() {
@@ -549,18 +723,20 @@ impl Geometry {
 
         (
             // left
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y,
                 height: self.height,
                 width: left_width,
+                _kind: PhantomData,
             },
             // right
-            Geometry {
+            Rectangle {
                 x: self.x + left_width,
                 y: self.y,
                 height: self.height,
                 width: right_width,
+                _kind: PhantomData,
             },
         )
     }
@@ -569,35 +745,24 @@ impl Geometry {
     /// at a given height.
     ///
     /// Returns (top, bottom), where bottom has the given height.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::Geometry;
-    ///
-    /// let original = Geometry::new(0, 0, 100, 200);
-    ///
-    /// let (top, bottom) = original.split_at_height(60);
-    ///
-    /// assert_eq!(top, Geometry::new(0, 0, 40, 200));
-    /// assert_eq!(bottom, Geometry::new(0, 60, 60, 200));
-    /// ```
     #[must_use]
-    pub fn split_at_height(&self, height: i32) -> (Geometry, Geometry) {
+    pub fn split_at_height(&self, height: i32) -> (Self, Self) {
         (
             // Top
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y,
                 height: self.height - height,
                 width: self.width,
+                _kind: PhantomData,
             },
             // Bottom
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y + height,
                 height,
                 width: self.width,
+                _kind: PhantomData,
             },
         )
     }
@@ -606,35 +771,24 @@ impl Geometry {
     /// at a given width.
     ///
     /// Returns (left, right), where left has the given width.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::Geometry;
-    ///
-    /// let original = Geometry::new(0, 0, 100, 200);
-    ///
-    /// let (left, right) = original.split_at_width(120);
-    ///
-    /// assert_eq!(left, Geometry::new(0, 0, 100, 120));
-    /// assert_eq!(right, Geometry::new(120, 0, 100, 80));
-    /// ```
     #[must_use]
-    pub fn split_at_width(&self, width: i32) -> (Geometry, Geometry) {
+    pub fn split_at_width(&self, width: i32) -> (Self, Self) {
         (
             // Left
-            Geometry {
+            Rectangle {
                 x: self.x,
                 y: self.y,
                 height: self.height,
                 width,
+                _kind: PhantomData,
             },
             // Right
-            Geometry {
+            Rectangle {
                 x: self.x + width,
                 y: self.y,
                 height: self.height,
                 width: self.width - width,
+                _kind: PhantomData,
             },
         )
     }
@@ -644,75 +798,98 @@ impl Geometry {
     /// trims the bottom).
     ///
     /// This returns a new Geometry.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::{Geometry, Cardinal::*};
-    ///
-    /// let g1 = Geometry::new(0, 0, 100, 160);
-    /// /* trim off 5 from the left and 10 from the top */
-    /// let g2 = g1.trim(5, Left).trim(10, Up);
-    ///
-    /// assert_eq!(g2, Geometry {
-    ///     x: 5, y: 10, height: 90, width: 155
-    /// });
-    /// ```
     #[must_use]
-    pub fn trim(&self, trim: i32, dir: Cardinal) -> Geometry {
+    pub fn trim(&self, trim: i32, dir: Cardinal) -> Self {
         use Cardinal::*;
         match dir {
-            Up => Geometry::new(self.x, self.y + trim, self.height - trim, self.width),
-            Down => Geometry::new(self.x, self.y, self.height - trim, self.width),
-            Left => Geometry::new(self.x + trim, self.y, self.height, self.width - trim),
-            Right => Geometry::new(self.x, self.y, self.height, self.width - trim),
+            Up => Rectangle::new(self.x, self.y + trim, self.height - trim, self.width),
+            Down => Rectangle::new(self.x, self.y, self.height - trim, self.width),
+            Left => Rectangle::new(self.x + trim, self.y, self.height, self.width - trim),
+            Right => Rectangle::new(self.x, self.y, self.height, self.width - trim),
         }
     }
 
     /// Creates a new Geometry offset by `delta` pixels in the given
     /// direction `dir` (unidirectional offset).
-    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Geometry {
-        let Geometry {
+    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
+        let Rectangle {
             x,
             y,
             height,
             width,
+            _kind,
         } = *self;
 
-        let Point { x, y } = Point { x, y }.unidir_offset(delta, dir);
+        let Point { x, y, _kind } = Point { x, y, _kind }.unidir_offset(delta, dir);
 
-        Geometry {
+        Rectangle {
             x,
             y,
             height,
             width,
+            _kind,
         }
     }
 
     /// Creates a new Geometry offset by `dx, dy` pixels in the given
     /// directions `dirx, diry` (bidirectional offset).
-    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Geometry {
-        let Geometry {
+    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
+        let Rectangle {
             x,
             y,
             height,
             width,
+            _kind
         } = *self;
 
-        let Point { x, y } = Point { x, y }.bidir_offset(dx, dy, dirx, diry);
+        let Point { x, y, _kind } = Point { x, y, _kind }.bidir_offset(dx, dy, dirx, diry);
 
-        Geometry {
+        Rectangle {
             x,
             y,
             height,
             width,
+            _kind,
         }
     }
 
-    /// Returns a Geometry formed by the intersection of another Geometry.
+    /// Returns a Rectangle formed by the intersection of another Geometry.
     /// This is effectively a set containing all points found in both Geometries.
-    pub fn intersect(&self, _other: Geometry) -> Geometry {
+    pub fn intersect(&self, _other: Rectangle<Kind>) -> Self {
         todo!()
+    }
+
+    /// Returns a Rectangle by a given scale factor for the x and y axes.
+    /// Also scales the Rectangle's position with respect to the origin (0, 0).
+    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
+        self.scale_gen::<Kind>(scale_x, scale_y)
+    }
+
+    fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Rectangle<K> {
+        let Rectangle {x, y, height, width, .. } = *self;
+
+        Rectangle {
+            x: ((x as f32) * scale_x).round() as i32,
+            y: ((y as f32) * scale_y).round() as i32,
+            height: ((height as f32) * scale_y).round() as i32,
+            width: ((width as f32) * scale_x).round() as i32,
+            _kind: PhantomData,
+        }
+    }
+}
+
+impl Rectangle<Logical> {
+    /// Returns a `Rectangle<Physical>`, scaled by `scale`.
+    pub fn as_physical(&self, scale: f32) -> Rectangle<Physical> {
+        self.scale_gen::<Physical>(scale, scale)
+    }
+}
+
+impl Rectangle<Physical> {
+    /// Returns a `Rectangle<Logical>`, scaled by **`1 / scale`.**
+    pub fn as_logical(&self, scale: f32) -> Rectangle<Logical> {
+        let inverse = if scale == 0. {0.} else {scale.recip()};
+        self.scale_gen::<Logical>(inverse, inverse)
     }
 }
 
@@ -799,16 +976,3 @@ pub enum BorderStyle {
     /// The colour to applied when a window is marked as urgent.
     Urgent,
 }
-
-/// A marker trait to signal that a type can be treated as a bitmask.
-///
-/// This means that the type supports bitmask operations such as
-/// bitwise AND, bitwise OR, bitwise NOT, etc.
-pub trait BitMask
-where
-    Self: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized,
-{
-}
-
-// Blanket implementation for Bitmask
-impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}

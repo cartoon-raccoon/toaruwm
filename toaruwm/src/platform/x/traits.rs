@@ -51,7 +51,7 @@ use super::{
     property::{Property, WmHints, WmSizeHints, WindowState},
     types::{ClientAttrs, ClientConfig, XWinProperties},
 };
-use crate::types::{Geometry};
+use crate::types::{Rectangle, Logical};
 
 /// A trait used to define the interface between ToaruWM and the X server.
 ///
@@ -119,7 +119,7 @@ pub trait XCore {
     fn get_root(&self) -> XWindow;
 
     /// Returns the geometry of a given window.
-    fn get_geometry(&self, window: XWindowID) -> Result<Geometry>;
+    fn get_geometry(&self, window: XWindowID) -> Result<Rectangle<Logical>>;
 
     /// Queries the given window and all its children.
     fn query_tree(&self, window: XWindowID) -> Result<Vec<XWindowID>>;
@@ -176,7 +176,7 @@ pub trait XCore {
 
     //* Window-related operations
     /// Create a new window.
-    fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID>;
+    fn create_window(&self, ty: WindowClass, geom: Rectangle<Logical>, managed: bool) -> Result<XWindowID>;
 
     /// Maps a given window.
     fn map_window(&self, window: XWindowID) -> Result<()>;
@@ -198,7 +198,7 @@ pub trait XCore {
     fn set_input_focus(&self, window: XWindowID) -> Result<()>;
 
     /// Set the geometry for a given window.
-    fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()>;
+    fn set_geometry(&self, window: XWindowID, geom: Rectangle<Logical>) -> Result<()>;
 
     /// Set the property for a given window.
     fn set_property(&self, window: XWindowID, prop: &str, data: Property) -> Result<()>;

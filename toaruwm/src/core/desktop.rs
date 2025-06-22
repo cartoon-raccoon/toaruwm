@@ -17,7 +17,9 @@ use crate::core::{Client, Workspace};
 use crate::layouts::{Layout, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::platform::{Platform};
-use crate::types::{Cardinal, Direction, Geometry, Ring, Selector};
+use crate::types::{
+    Cardinal, Direction, Rectangle, Logical, Ring, Selector
+};
 use crate::{Result, ToaruError::*};
 
 use super::WorkspaceSpec;
@@ -26,9 +28,9 @@ use super::WorkspaceSpec;
 #[derive(Clone, Debug)]
 pub struct Screen {
     /// The usable geometry of the Screen.
-    pub(crate) effective_geom: Geometry,
+    pub(crate) effective_geom: Rectangle<Logical>,
     /// The actual geometry of the Screen.
-    pub(crate) true_geom: Geometry,
+    pub(crate) true_geom: Rectangle<Logical>,
     /// The index of the Screen.
     pub(crate) idx: i32,
     /// The set of workspaces managed under the screen.
@@ -37,7 +39,7 @@ pub struct Screen {
 
 impl Screen {
     /// Creates a new Screen.
-    pub fn new(screen_idx: i32, geom: Geometry, wix: Vec<String>) -> Self {
+    pub fn new(screen_idx: i32, geom: Rectangle<Logical>, wix: Vec<String>) -> Self {
         Self {
             effective_geom: geom,
             true_geom: geom,
@@ -55,11 +57,11 @@ impl Screen {
         self.true_geom = self.true_geom.trim(trim, dir);
     }
     /// Returns the true geometry of the Screen.
-    pub fn true_geom(&self) -> Geometry {
+    pub fn true_geom(&self) -> Rectangle<Logical> {
         self.true_geom
     }
     /// Returns the effective Geometry of the Screen.
-    pub fn effective_geom(&self) -> Geometry {
+    pub fn effective_geom(&self) -> Rectangle<Logical> {
         self.effective_geom
     }
 }

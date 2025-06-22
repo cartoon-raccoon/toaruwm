@@ -3,7 +3,7 @@ use std::str::FromStr;
 use tracing::{debug, info};
 
 use crate::bindings::{Keybind, Mousebind};
-use crate::core::types::Point;
+use crate::core::types::{Point, Physical};
 use crate::manager::{RuntimeConfig, ToaruState};
 use crate::platform::x::{
     event::{
@@ -30,7 +30,7 @@ pub enum EventAction<P: Platform> {
     /// Set the screen currently in focus from a point.
     ///
     /// If point is None set based on cursor location.
-    SetFocusedScreen(Option<Point>),
+    SetFocusedScreen(Option<Point<Physical>>),
     /// Destroy the specified client.
     DestroyClient(P::Client),
     /// Map the specified client and track it internally.
@@ -48,7 +48,7 @@ pub enum EventAction<P: Platform> {
     /// Run the specified keybind.
     RunKeybind(Keybind, P::Client),
     /// Run the specified mousebind.
-    RunMousebind(Mousebind, P::Client, Point),
+    RunMousebind(Mousebind, P::Client, Point<Physical>),
     /// Toggle the client in or out of fullscreen.
     ///
     /// Also toggles _NET_WM_STATE_FULLSCREEN.

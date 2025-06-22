@@ -9,7 +9,7 @@ use custom_debug_derive::Debug;
 use thiserror::Error;
 
 use crate::manager::{RuntimeConfig, Toaru};
-use crate::types::Point;
+use crate::types::{Point, Logical};
 pub use crate::platform::x::input::MouseEventKind;
 use crate::platform::x::{
     event::KeypressEvent,
@@ -306,7 +306,7 @@ pub type KeyCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>)>;
 /// A function that is run when a mousebind is invoked.
 ///
 /// An additional Point is supplied to track the location of the pointer.
-pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point)>;
+pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point<Logical>)>;
 
 /// A set of keybinds that can be run by the the window manager.
 ///
@@ -405,7 +405,7 @@ where
     /// Inserts a new mousebind-callback mapping.
     pub fn insert<F>(&mut self, kb: Mousebind, cb: F)
     where
-        F: FnMut(&mut Toaru<P, C>, Point) + 'static,
+        F: FnMut(&mut Toaru<P, C>, Point<Logical>) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }

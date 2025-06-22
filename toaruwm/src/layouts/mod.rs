@@ -9,7 +9,7 @@ use tracing::debug;
 
 use crate::core::{Ring, Screen, Workspace};
 use crate::manager::RuntimeConfig;
-use crate::types::{Geometry};
+use crate::types::{Rectangle, Logical};
 use crate::platform::{Platform};
 use crate::{Result, ToaruError};
 /// A simple no-frills floating layout.
@@ -269,7 +269,7 @@ pub enum LayoutAction<'layout, P: Platform> {
         /// The Client to apply the geometry to.
         id: &'layout P::Client,
         /// The geometry to apply to the Client.
-        geom: Geometry,
+        geom: Rectangle<Logical>,
     },
     /// Map the given window.
     Map(&'layout P::Client),

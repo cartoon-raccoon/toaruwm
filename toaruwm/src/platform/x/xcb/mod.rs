@@ -38,7 +38,7 @@ use super::{
     Atoms, ConnStatus, Initialized, Uninitialized,
 };
 use crate::bindings::ButtonIndex;
-use crate::types::{Geometry, Point};
+use crate::types::{Rectangle, Point, Logical};
 
 mod convert;
 mod util;
@@ -184,7 +184,7 @@ impl XCBConn<Uninitialized> {
 
 impl<S: ConnStatus> XCBConn<S> {
     #[inline]
-    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Geometry> {
+    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Rectangle<Logical>> {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply
@@ -194,13 +194,12 @@ impl<S: ConnStatus> XCBConn<S> {
                 drawable: x::Drawable::Window(cast!(x::Window, *window))
             }
         )
-        .map(|ok| Geometry {
-            // map the ok result into a Geometry
-            x: ok.x() as i32,
-            y: ok.y() as i32,
-            height: ok.height() as i32,
-            width: ok.width() as i32,
-        })?)
+        .map(|ok| Rectangle::new(
+            ok.x() as i32,
+            ok.y() as i32,
+            ok.height() as i32,
+            ok.width() as i32,
+        ))?)
     }
 
     #[inline]
@@ -369,7 +368,7 @@ impl XCBConn<Initialized> {
     }
 
     pub(crate) fn check_win(&self) -> Result<XWindowID> {
-        self.create_window(WindowClass::CheckWin, Geometry::new(0, 0, 1, 1), false)
+        self.create_window(WindowClass::CheckWin, Rectangle::new(0, 0, 1, 1), false)
     }
 
     pub(crate) fn screen(&self, idx: usize) -> Result<&x::Screen> {
@@ -421,12 +420,12 @@ impl XCBConn<Initialized> {
             Event::ConfigureNotify(event) => Ok(XEvent::ConfigureNotify(ConfigureEvent {
                 from_root: id!(event.event()) == self.root.id,
                 id: id!(event.window()),
-                geom: Geometry {
-                    x: event.x() as i32,
-                    y: event.y() as i32,
-                    height: event.height() as i32,
-                    width: event.width() as i32,
-                },
+                geom: Rectangle::new(
+                    event.x() as i32,
+                    event.y() as i32,
+                    event.height() as i32,
+                    event.width() as i32,
+                ),
                 is_root: id!(event.window()) == self.root.id,
             })),
             Event::ConfigureRequest(req) => {

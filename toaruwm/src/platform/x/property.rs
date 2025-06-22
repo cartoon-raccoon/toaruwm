@@ -5,7 +5,7 @@ use std::fmt;
 
 use strum::{EnumIs};
 
-use crate::types::Point;
+use crate::types::{Point, Logical};
 use crate::platform::x::core::{Result, XAtom, XConn, XError, XWindowID, Xid};
 
 /// X server properties.
@@ -241,7 +241,7 @@ pub struct WmHints {
     pub(crate) initial_state: WindowState,
     pub(crate) icon_pixmap: u32,
     pub(crate) icon_window: XWindowID,
-    pub(crate) icon_pos: Point,
+    pub(crate) icon_pos: Point<Logical>,
     pub(crate) icon_mask: u32,
     pub(crate) window_group: XWindowID,
 }
@@ -332,10 +332,7 @@ impl TryFrom<&[u32]> for WmHints {
             (false, _) => WindowState::Normal,
         };
 
-        let icon_pos = Point {
-            x: from[5] as i32,
-            y: from[6] as i32,
-        };
+        let icon_pos = Point::new(from[5] as i32, from[6] as i32);
 
         Ok(WmHints {
             flags,

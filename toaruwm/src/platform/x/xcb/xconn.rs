@@ -10,7 +10,7 @@ use tracing::{error, warn};
 use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::bindings::{Keybind, Mousebind};
-use crate::types::{Geometry};
+use crate::types::{Rectangle, Logical};
 use crate::platform::x::{
     types::{ClientAttrs, ClientConfig},
     core::{
@@ -44,7 +44,7 @@ impl XCore for XCBConn<Initialized> {
         self.root
     }
 
-    fn get_geometry(&self, window: XWindowID) -> Result<Geometry> {
+    fn get_geometry(&self, window: XWindowID) -> Result<Rectangle<Logical>> {
         self.get_geometry_inner(window)
     }
 
@@ -120,7 +120,7 @@ impl XCore for XCBConn<Initialized> {
             .enumerate()
             // construct screen
             .map(|(i, r)| {
-                let geom = Geometry::new(
+                let geom = Rectangle::new(
                     r.x() as i32,
                     r.y() as i32,
                     r.height() as i32,
@@ -356,7 +356,7 @@ impl XCore for XCBConn<Initialized> {
     }
 
     #[instrument(target = "xconn", level = "trace", skip(self))]
-    fn create_window(&self, ty: WindowClass, geom: Geometry, managed: bool) -> Result<XWindowID> {
+    fn create_window(&self, ty: WindowClass, geom: Rectangle<Logical>, managed: bool) -> Result<XWindowID> {
         let (ty, bwidth, class, mut data, depth, visualid) = match ty {
             WindowClass::CheckWin => (
                 None,
@@ -534,7 +534,7 @@ impl XCore for XCBConn<Initialized> {
         )?) //* FIXME: use the error
     }
 
-    fn set_geometry(&self, window: XWindowID, geom: Geometry) -> Result<()> {
+    fn set_geometry(&self, window: XWindowID, geom: Rectangle<Logical>) -> Result<()> {
         self.configure_window(
             window,
             &[ClientConfig::Resize {
