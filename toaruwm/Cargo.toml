@@ -23,7 +23,8 @@ smithay = { version = "0.6", features = [
     "backend_udev", 
     "backend_session",
     "desktop",
-    "use_system_lib"] }
+    "use_system_lib", 
+    "xwayland"] }
 
 smithay-drm-extras = "0.1.0"
 
