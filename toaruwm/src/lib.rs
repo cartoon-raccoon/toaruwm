@@ -166,15 +166,15 @@
 #[macro_use]
 extern crate bitflags;
 
-#[macro_use]
-mod log;
-
 pub mod bindings;
 pub mod core;
 pub mod layouts;
 pub mod manager;
 pub mod toarulib;
 pub mod platform;
+pub mod util;
+
+pub(crate) use util::log;
 
 /// Modules that Toaru is tightly integrated with, re-exported for convenience.
 pub mod reexports {

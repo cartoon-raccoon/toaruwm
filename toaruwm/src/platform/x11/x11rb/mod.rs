@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
-use tracing::debug;
+use tracing::{debug, trace};
 
 use x11rb::connection::Connection;
 use x11rb::protocol::{

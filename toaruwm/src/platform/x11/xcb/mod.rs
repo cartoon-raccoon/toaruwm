@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 use std::cell::{Cell, RefCell};
 use std::fmt;
 
-use tracing::debug;
+use tracing::{debug, trace};
 
 use xcb::{randr, xkb};
 use xcb::x;

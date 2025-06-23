@@ -5,7 +5,7 @@ use xcb::x;
 use xcb::{Xid as XCBid, XidNew};
 
 use tracing::instrument;
-use tracing::{error, warn};
+use tracing::{error, warn, trace};
 
 use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
