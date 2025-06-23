@@ -17,7 +17,7 @@ use crate::layouts::{
 };
 #[doc(inline)]
 pub use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::types::{ClientId, Color};
+use crate::types::{Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
 
@@ -146,6 +146,8 @@ pub struct ToaruConfig<P: Platform> {
     pub(crate) window_gap: u32,
     /// Whether or not the window focus should follow the pointer.
     pub(crate) focus_follows_ptr: bool,
+    /// Layout of outputs.
+    pub(crate) output_layout: OutputLayout,
     /// The color to apply to the borders of an unfocused window.
     pub(crate) unfocused: Color,
     /// The color to apply to the borders of a focused window.
@@ -327,6 +329,7 @@ impl<P: Platform> Config<P> for ToaruConfig<P> {
             border_px: self.border_px,
             window_gap: self.window_gap,
             focus_follows_ptr: self.focus_follows_ptr,
+            outputs: self.output_layout,
             unfocused: self.unfocused,
             focused: self.focused,
             urgent: self.urgent,
@@ -352,6 +355,7 @@ impl<P: Platform + 'static> Default for ToaruConfig<P> {
             border_px: 2,
             window_gap: 0,
             focus_follows_ptr: true,
+            output_layout: OutputLayout::new(),
             unfocused: Color::from(0x555555),
             focused: Color::from(0xdddddd),
             urgent: Color::from(0xee0000),

@@ -11,9 +11,9 @@ use std::fmt::Debug;
 use crate::{core::{
     types::{BorderStyle, Color, Dict},
     Client, Desktop, Ring, Workspace,
-}, types::ClientId};
+}};
 use crate::platform::Platform;
-use crate::manager::config::{WaylandConfig, X11Config};
+use crate::manager::config::{WaylandConfig, X11Config, OutputLayout};
 
 /// An object that can provide information about your
 /// configuration at runtime.
@@ -85,6 +85,9 @@ pub trait RuntimeConfig: Debug {
     /// Return whether the focus should follow the pointer.
     fn focus_follows_ptr(&self) -> bool;
 
+    /// Return the outputs and their layout.
+    fn outputs(&mut self) -> &mut OutputLayout;
+
     /// Retrieve arbitrary key value pairs from storage.
     ///
     /// Should return None if the key does not exist in
@@ -146,6 +149,7 @@ pub struct WmConfig {
     pub(crate) border_px: u32,
     pub(crate) window_gap: u32,
     pub(crate) focus_follows_ptr: bool,
+    pub(crate) outputs: OutputLayout,
     pub(crate) unfocused: Color,
     pub(crate) focused: Color,
     pub(crate) urgent: Color,
@@ -174,6 +178,10 @@ impl RuntimeConfig for WmConfig {
 
     fn focus_follows_ptr(&self) -> bool {
         self.focus_follows_ptr
+    }
+
+    fn outputs(&mut self) -> &mut OutputLayout {
+        &mut self.outputs
     }
 
     fn get_key(&self, key: &str) -> Option<&dyn Any> {
