@@ -1,148 +1,135 @@
-use crate::types::{Rectangle, Point, Size, Physical, Cardinal};
+use std::sync::{Arc, Weak};
 
-/// A layout of outputs, as defined by the user.
+use strum::EnumIs;
+
+use crate::types::{Point, Size, Physical, Logical, Cardinal};
+
+/// A set of outputs laid out on a 2D coordinate space, as defined by the user.
+/// You can insert and remove Outputs as needed.
+/// 
+/// At runtime, the Platform implementation will get information about the actual
+/// monitors you have plugged in. Any monitors specified in the Layout that cannot
+/// be found on your system will be removed, and the remaining monitors will be
+/// repositioned best to fit.
 #[derive(Debug, Default)]
 pub struct OutputLayout {
-    pub(crate) root: Option<OutputNode>
+    pub(crate) outputs: Vec<Arc<OutputEntry>>
 }
 
 impl OutputLayout {
     /// Creates a new OutputLayout.
     pub fn new() -> Self {
-        Self {root: None}
+        Self {
+            outputs: Vec::new()
+        }
     }
 
     /// Checks if the OutputLayout is empty.
     pub fn is_empty(&self) -> bool {
-        self.root.is_none()
+        self.outputs.is_empty()
     }
 
     /// Returns the number of Outputs in the OutputLayout.
     pub fn size(&self) -> usize {
-        let Some(tree) = &self.root else {
-            return 0
-        };
-
-        tree.size()
+        self.outputs.len()
     }
 
     /// Creates a new OutputLayout with the provided output.
     pub fn with_output(output: Output) -> Self {
         Self {
-            root: Some(output.into_outputnode(Point::zeroed(), None))
+            outputs: vec![Arc::new(OutputEntry {
+                inner: output, 
+                pos: OutputPosition::Point(Point::zeroed()),
+                //idx: 0
+            })]
         }
     }
 
     /// Insert an output at a specified Point.
-    /// 
-    /// `point` is ignored and `output` is inserted at (0,0) if `self` is currently empty.
-    pub fn insert_at_point(&mut self, point: Point<Physical>, output: Output) -> Result<(), Output> {
-        let Some(tree) = &mut self.root else {
-            self.insert_first(output);
-            return Ok(())
-        };
+    pub fn insert_at_point(&mut self, point: Point<Logical>, output: Output) -> Result<(), Output> {
+        if self.find_by_name(&output.name).is_some() {
+            return Err(output)
+        }
 
-        // add output as a direct child of our root
-        tree.add_child_direct(point, None, output);
+        let entry = Arc::new(OutputEntry {
+            inner: output,
+            pos: OutputPosition::Point(point),
+        });
+
+        self.outputs.push(entry);
         Ok(())
     }
 
-    /// Insert an output into the Layout with respect to another already-inserted output.
-    /// 
-    /// `name` is ignored, and `output` is inserted at (0,0) if `self` is currently empty.
-    pub fn insert_relative_to<S: AsRef<str>>(&mut self, name: S, card: Cardinal, output: Output) -> Result<(), Output> {
-        let Some(tree) = &mut self.root else {
-            self.insert_first(output);
-            return Ok(())
-        };
-
-        tree.add_child_of(name.as_ref(), card, output)
-    }
-
-    /// Insert `output` as a mirror of the output with `name`.
-    /// 
-    /// `name` is ignored and `output` is inserted at (0,0) with no mirroring, if `self` is currently empty.
-    pub fn insert_mirror<S: AsRef<str>>(&mut self, name: S, output: Output) -> Result<(), Output> {
-        let Some(tree) = &mut self.root else {
-            self.insert_first(output);
-            return Ok(())
-        };
+    /// Inserts `output` automatically into the Layout.
+    pub fn insert(&mut self, output: Output) -> Result<(), Output> {
+        if self.find_by_name(&output.name).is_some() {
+            return Err(output)
+        }
 
         todo!()
     }
 
-    fn insert_first(&mut self, output: Output) {
-        self.root = Some(output.into_outputnode(Point::zeroed(), None));
-    }
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub(crate) struct OutputNode {
-    pub name: String,
-    pub position: Rectangle<Physical>,
-    pub refresh: i32,
-    pub scale: f32,
-    pub vrr: bool,
-    /// The position of `self` with respect to its parent.
-    pub relative: Option<Cardinal>,
-    pub children: Vec<OutputNode>,
-}
-
-impl OutputNode {
-    pub(crate) fn size(&self) -> usize {
-        if self.children.is_empty() {
-            1
-        } else {
-            self.children.iter().fold(1, |acc, child| acc + child.size())
-        }
-    }
-    /// Checks if the tree contains the given name.
-    pub(crate) fn contains_name(&self, name: &str) -> bool {
-        self.name == name ||
-        self.children.iter().find(|node| node.contains_name(name)).is_some()
-    }
-
-    /// Adds `output` as a child of the output with `name`.
-    pub(crate) fn add_child_of(&mut self, name: &str, card: Cardinal, output: Output) -> Result<(), Output> {
-        // if we either have the name of the output we want to add,
-        // or we don't have the name of the output we want to add `output` as a child to,
-        // return error
-        if self.contains_name(&output.name) || !self.contains_name(name) {
+    /// Insert an output into the Layout with respect to another already-inserted output.
+    pub fn insert_relative_to<S: AsRef<str>>(&mut self, name: S, card: Cardinal, output: Output) -> Result<(), Output> {
+        if self.find_by_name(&output.name).is_some() {
             return Err(output)
         }
 
-        if self.name == name {
-            /* If name shows up, add as child of ourselves */
-            self.add_child(card, output);
-        } else {
-            /* Recursive call */
-            self.children
-                .iter_mut()
-                .find(|node| node.contains_name(name))
-                .map(|node| node.add_child_of(name, card, output))
-                .expect("no node found with given name")?;
-        }
+        // get a weak pointer to the referent output
+        let Some(referent) = self.entry_by_name(name).map(|entry| Arc::downgrade(entry)) 
+            else { return Err(output) };
+
+
+        let entry = OutputEntry {
+            inner: output,
+            pos: OutputPosition::Relative(card, referent),
+        };
+
+        self.outputs.push(Arc::new(entry));
+
         Ok(())
     }
 
-    /// Adds `output` as a child of Self.
-    fn add_child(&mut self, card: Cardinal, output: Output) {
+    /// Insert `output` as a mirror of the output with `name`.
+    pub fn insert_mirror<S: AsRef<str>>(&mut self, name: S, output: Output) -> Result<(), Output> {
+        if self.find_by_name(&output.name).is_some() {
+            return Err(output)
+        }
+        
+        let Some(referent) = self.entry_by_name(name).map(|entry| Arc::downgrade(entry))
+            else { return Err(output) };
 
-        let delta = match card {
-            Cardinal::Up | Cardinal::Down => self.position.size.height,
-            Cardinal::Left | Cardinal::Right => self.position.size.width,
+        let entry = OutputEntry {
+            inner: output,
+            pos: OutputPosition::Mirroring(referent),
         };
 
-        // anchor for the new output
-        let pos = self.position.point.unidir_offset(delta, card);
-        self.add_child_direct(pos, Some(card), output);
+        self.outputs.push(Arc::new(entry));
+        Ok(())
     }
 
-    fn add_child_direct(&mut self, pos: Point<Physical>, card: Option<Cardinal>, output: Output) {
-        let output_node = output.into_outputnode(pos, card);
+    /// Removes an output from the layout by name. If any other output
+    /// references this output in some way, that reference is now invalidated.
+    /// 
+    /// If no such output exists, None is returned.
+    pub fn remove<S: AsRef<str>>(&mut self, name: S) -> Option<Output> {
+        let idx = self.outputs.iter()
+            .enumerate()
+            .find(|(_, output)| output.name() == name.as_ref())
+            .map(|(idx, _)| idx)?;
 
-        self.children.push(output_node);
+        let entry = Arc::into_inner(self.outputs.remove(idx))?;
+        Some(entry.into_output())
+    }
+
+    /// Returns a reference to the Output with `name`.
+    pub fn find_by_name<S: AsRef<str>>(&self, name: S) -> Option<&Output> {
+        self.entry_by_name(name).map(|entry| entry.inner())
+    }
+
+    pub(crate) fn entry_by_name<S: AsRef<str>>(&self, name: S) -> Option<&Arc<OutputEntry>> {
+        self.outputs.iter()
+            .find(|entry| entry.name() == name.as_ref())
     }
 }
 
@@ -151,27 +138,26 @@ impl OutputNode {
 pub struct Output {
     /// The name of the output, usually formatted `<connector>-<number>` (e.g. "eDP-2").
     pub name: String,
-    /// Mode of the output
-    pub mode: OutputMode,
-    /// The scale of the output.
-    pub scale: f32,
+    /// Whether the output should be enabled.
+    pub enabled: bool,
+    /// Mode of the output. If none, preferred will be chosen.
+    pub mode: Option<OutputMode>,
+    /// The scale of the output. If none, the most optimal scale will be chosen
+    /// based on the physical dimensions of the monitor.
+    pub scale: Option<f32>,
     /// Whether variable refresh-rate is enabled for this output.
     pub vrr: bool,
 }
 
 impl Output {
-    pub(crate) fn into_outputnode(self, pos: Point<Physical>, dir: Option<Cardinal>) -> OutputNode {
-        let Self {name, mode: OutputMode {size, refresh}, scale, vrr} = self;
-
-        let position = Rectangle {
-            point: pos,
-            size
-        };
-
-        OutputNode {
-            name, position, refresh, scale, vrr, 
-            relative: dir,
-            children: Vec::new()
+    /// Creates a new output with defaults.
+    pub fn new<S: AsRef<str>>(name: S) -> Self {
+        Self {
+            name: name.as_ref().to_string(),
+            mode: None,
+            enabled: true,
+            scale: None,
+            vrr: false,
         }
     }
 }
@@ -183,4 +169,36 @@ pub struct OutputMode {
     pub size: Size<Physical>,
     /// The refresh rate of the mode.
     pub refresh: i32,
+}
+
+/// An entry in an OutputLayout.
+#[derive(Debug, Clone)]
+pub(crate) struct OutputEntry {
+    pub(crate) inner: Output,
+    pub(crate) pos: OutputPosition,
+}
+
+impl OutputEntry {
+    pub fn name(&self) -> &str {
+        &self.inner.name
+    }
+
+    pub fn inner(&self) -> &Output {
+        &self.inner
+    }
+
+    pub fn into_output(self) -> Output {
+        self.inner
+    }
+}
+
+/// The (intended) position of an output in the layout.
+#[derive(Debug, Clone, EnumIs)]
+pub(crate) enum OutputPosition {
+    /// At a requested point on the global coordinate space.
+    Point(Point<Logical>),
+    /// Relative to another Output.
+    Relative(Cardinal, Weak<OutputEntry>),
+    /// Mirroring another Output.
+    Mirroring(Weak<OutputEntry>)
 }
