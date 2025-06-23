@@ -21,6 +21,8 @@ use crate::types::{ClientId, Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
 
+pub use crate::manager::output::{Output, OutputLayout};
+
 /// A trait defining a `WindowManager` configuration.
 ///
 /// On initialization, the `WindowManager` queries a config

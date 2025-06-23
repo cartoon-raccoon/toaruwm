@@ -19,7 +19,7 @@ use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
 use crate::core::{Desktop, Screen, WorkspaceSpec};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::log::DefaultErrorHandler;
-use crate::types::{Cardinal, Direction, Point, Ring, Selector, ClientId};
+use crate::types::{Cardinal, Direction, Point, Logical, Ring, Selector, ClientId};
 use crate::platform::{Platform};
 
 use crate::{ErrorHandler, Result, ToaruError};
@@ -30,6 +30,8 @@ pub mod event;
 /// Macros and storage types for window manager hooks.
 pub mod hooks;
 pub mod state;
+/// Output management.
+pub mod output;
 
 #[doc(inline)]
 pub use config::{Config, ToaruConfig};
@@ -111,7 +113,7 @@ where
     /// if `self.mousemode` is not None.
     selected: Option<P::Client>,
     /// Used when window is moved to track pointer location.
-    last_mouse_pos: Point,
+    last_mouse_pos: Point<Logical>,
     // If the wm is running.
     running: bool,
     // Set if the loop breaks and the user wants a restart.
@@ -159,7 +161,7 @@ where
             screens: Ring::new(),
             ehandler: Box::new(DefaultErrorHandler),
             selected: None,
-            last_mouse_pos: Point {x: 0, y: 0},
+            last_mouse_pos: Point::zeroed(),
             running: false,
             restart: false,
         })
@@ -245,6 +247,11 @@ where
     P: Platform<Error = ToaruError<P>>,
     C: RuntimeConfig,
 {
+    /// Creates a new client and inserts it into the currently focused workspace.
+    pub fn insert_client(&mut self, id: P::Client) {
+        // todo
+    }
+    
     /// Goes to the specified workspace.
     #[instrument(level = "debug", skip(self))]
     pub fn goto_workspace(&mut self, name: &str) {
@@ -375,7 +382,7 @@ where
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
     //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    pub fn move_window_ptr(&mut self, pt: Point) {
+    pub fn move_window_ptr(&mut self, pt: Point<Logical>) {
         // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         // if let Some(win) = self.selected {
@@ -399,7 +406,7 @@ where
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
     //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    pub fn resize_window_ptr(&mut self, pt: Point) {
+    pub fn resize_window_ptr(&mut self, pt: Point<Logical>) {
         // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         // if let Some(win) = self.selected {
@@ -523,7 +530,7 @@ where
     }
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn set_focused_screen(&mut self, ptr: Option<Point>) -> Result<(), P> {
+    fn set_focused_screen(&mut self, ptr: Option<Point<Logical>>) -> Result<(), P> {
         
         //todo: if per-screen workspaces, need to focus workspace also
         Ok(())
@@ -616,7 +623,7 @@ where
         mb: Mousebind,
         bdgs: &mut Mousebinds<P, C>,
         id: &P::Client,
-        pt: Point,
+        pt: Point<Logical>,
     ) -> Result<(), P> {
         // match mb.kind {
         //     // assume that we want to do something with the pointer,
@@ -667,14 +674,13 @@ where
 impl<P, C> fmt::Debug for Toaru<P, C>
 where
     P: Platform,
-    C: RuntimeConfig,
+    C: RuntimeConfig + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WindowManager")
-            //.field("config", &self.config)
+            .field("config", &self.config)
             .field("workspaces", &self.desktop.workspaces)
             .field("screens", &self.screens)
-            //.field("root", &self.root)
             .field("selected", &self.selected)
             .finish()
     }

@@ -7,24 +7,31 @@
 
 use std::any::Any;
 use std::fmt::Debug;
-use std::collections::HashMap;
 
 use crate::{core::{
-    types::{BorderStyle, Color},
+    types::{BorderStyle, Color, Dict},
     Client, Desktop, Ring, Workspace,
 }, types::ClientId};
 use crate::platform::Platform;
+use crate::manager::config::{WaylandConfig, X11Config};
 
-/// An object that can provide information about window manager
+/// An object that can provide information about your
 /// configuration at runtime.
 ///
 /// This trait allows you to create objects representing current
-/// `WindowManager` state and configuration. It is passed to various
+/// `Toaru` state and configuration. It is passed to various
 /// [`Workspace`] and [`Desktop`] methods to allow then to account for
 /// various configuration details when executing their functionality.
 ///
 /// As this trait is used as a trait object during the window manager
 /// runtime, its methods cannot be generic.
+/// 
+/// # Retrieving platform-specific configuration
+/// 
+/// There are provided methods, [`wayland_cfg`][3], and [`x11_cfg`][4],
+/// to optionally return platform-specific configuration objects.
+/// Re-implement them if you want to customize your platform configuration,
+/// otherwise sensible defaults will be chosen.
 ///
 /// # Retrieving Arbitrary Values
 ///
@@ -60,6 +67,8 @@ use crate::platform::Platform;
 ///
 /// [1]: https://doc.rust-lang.org/std/any/trait.Any.html#method.downcast_ref
 /// [2]: std::any
+/// [3]: RuntimeConfig::wayland_cfg
+/// [4]: RuntimeConfig::x11_cfg
 pub trait RuntimeConfig: Debug {
     /// Return information about the floating classes.
     fn float_classes(&self) -> &[String];
@@ -98,10 +107,26 @@ pub trait RuntimeConfig: Debug {
     {
         self.get_key(key).and_then(|v| v.downcast_ref::<V>())
     }
+
+    /// Return Wayland-specific configuration options.
+    /// 
+    /// Re-implement this if you want to make your RuntimeConfig object
+    /// compatible with Wayland.
+    fn wayland_cfg(&self) -> Option<Box<dyn WaylandConfig>> {
+        None
+    }
+
+    /// Return X11-specific configuration options.
+    /// 
+    /// Re-implement this if you want to make your RuntimeConfig object
+    /// compatible with X11.
+    fn x11_cfg(&self) -> Option<Box<dyn X11Config>> {
+        None
+    }
 }
 
-/// The runtime configuration of the
-/// [`WindowManager`](super::WindowManager).
+/// The an implementation of runtime configuration for 
+/// [`Toaru`](super::Toaru).
 ///
 /// Since a user-created [`Config`](crate::manager::Config)
 /// has several fields moved out of it during window manager
@@ -124,7 +149,7 @@ pub struct WmConfig {
     pub(crate) unfocused: Color,
     pub(crate) focused: Color,
     pub(crate) urgent: Color,
-    pub(crate) keys: HashMap<String, Box<dyn Any>>,
+    pub(crate) keys: Dict,
 }
 
 impl RuntimeConfig for WmConfig {
