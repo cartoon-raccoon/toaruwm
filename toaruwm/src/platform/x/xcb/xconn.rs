@@ -128,7 +128,7 @@ impl XCore for XCBConn<Initialized> {
                 );
                 XOutput::new(i as i32, id!(info.root()), geom)
             })
-            .filter(|s| s.true_geom.width > 0)
+            .filter(|s| s.true_geom.size.width > 0)
             .collect();
 
         if crtcs.is_empty() {
@@ -415,10 +415,10 @@ impl XCore for XCBConn<Initialized> {
                 depth,
                 wid,
                 parent: cast!(x::Window, *self.root.id),
-                x: geom.x as i16,
-                y: geom.y as i16,
-                width: geom.width as u16,
-                height: geom.height as u16,
+                x: geom.point.x as i16,
+                y: geom.point.y as i16,
+                width: geom.size.width as u16,
+                height: geom.size.height as u16,
                 border_width: bwidth as u16,
                 class,
                 visual: visualid,
@@ -538,16 +538,16 @@ impl XCore for XCBConn<Initialized> {
         self.configure_window(
             window,
             &[ClientConfig::Resize {
-                h: geom.height,
-                w: geom.width,
+                h: geom.size.height,
+                w: geom.size.width,
             }],
         )?;
 
         self.configure_window(
             window,
             &[ClientConfig::Move {
-                x: geom.x,
-                y: geom.y,
+                x: geom.point.x,
+                y: geom.point.y,
             }],
         )?;
 

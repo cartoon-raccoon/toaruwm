@@ -160,10 +160,10 @@ impl From<&ClientConfig> for ConfigureWindowAux {
         match from {
             BorderWidth(px) => ConfigureWindowAux::new().border_width(*px),
             Position(geom) => ConfigureWindowAux::new()
-                .x(geom.x)
-                .y(geom.y)
-                .width(geom.width as u32)
-                .height(geom.height as u32),
+                .x(geom.point.x)
+                .y(geom.point.y)
+                .width(geom.size.width as u32)
+                .height(geom.size.height as u32),
             Resize { h, w } => ConfigureWindowAux::new().height(*h as u32).width(*w as u32),
             Move { x, y } => ConfigureWindowAux::new().x(*x).y(*y),
             StackingMode(sm) => {

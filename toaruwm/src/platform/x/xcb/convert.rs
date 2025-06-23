@@ -169,10 +169,10 @@ impl From<&ClientConfig> for Vec<x::ConfigWindow> {
         match from {
             BorderWidth(px) => vec![x::ConfigWindow::BorderWidth(*px)],
             Position(geom) => vec![
-                x::ConfigWindow::X(geom.x),
-                x::ConfigWindow::Y(geom.y),
-                x::ConfigWindow::Height(geom.height as u32),
-                x::ConfigWindow::Width(geom.width as u32),
+                x::ConfigWindow::X(geom.point.x),
+                x::ConfigWindow::Y(geom.point.y),
+                x::ConfigWindow::Height(geom.size.height as u32),
+                x::ConfigWindow::Width(geom.size.width as u32),
             ],
             Resize { h, w } => vec![
                 x::ConfigWindow::Height(*h as u32),

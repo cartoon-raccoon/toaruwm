@@ -242,7 +242,7 @@ impl XWindow {
             Ok(geom) => {
                 debug!(
                     "Updating geometry (conn): x: {}, y: {}, h: {}, w: {}",
-                    geom.x, geom.y, geom.height, geom.width
+                    geom.point.x, geom.point.y, geom.size.height, geom.size.width
                 );
                 self.geom = geom;
             }
@@ -261,46 +261,46 @@ impl XWindow {
     pub fn set_geometry(&mut self, geom: Rectangle<Logical>) {
         debug!(
             "Updating geometry for window {}: x: {}, y: {}, h: {}, w: {}",
-            self.id, geom.x, geom.y, geom.height, geom.width
+            self.id, geom.point.x, geom.point.y, geom.size.height, geom.size.width
         );
         self.geom = geom;
     }
 
     /// Sets the width of the window.
     pub fn set_width(&mut self, x: i32) {
-        self.geom.width = x;
+        self.geom.size.width = x;
     }
 
     /// Sets the height of the window.
     pub fn set_height(&mut self, y: i32) {
-        self.geom.height = y;
+        self.geom.size.height = y;
     }
 
     /// Sets the x coordinate of the window.
     pub fn set_pos_x(&mut self, x: i32) {
-        self.geom.x = x;
+        self.geom.point.x = x;
     }
 
     /// Sets the y coordinate of the window.
     pub fn set_pos_y(&mut self, y: i32) {
-        self.geom.y = y;
+        self.geom.point.y = y;
     }
 
     /// Updates the width by a given delta.
     pub fn update_width(&mut self, dx: i32) {
-        self.geom.width += dx;
+        self.geom.size.width += dx;
     }
     /// Updates the height by given delta.
     pub fn update_height(&mut self, dy: i32) {
-        self.geom.height += dy;
+        self.geom.size.height += dy;
     }
     /// Updates the x coordinate of the window by a given delta.
     pub fn update_pos_x(&mut self, dx: i32) {
-        self.geom.x += dx;
+        self.geom.point.x += dx;
     }
     /// Updates the y coordinate of the window by a given delta.
     pub fn update_pos_y(&mut self, dy: i32) {
-        self.geom.y += dy;
+        self.geom.point.y += dy;
     }
 }
 

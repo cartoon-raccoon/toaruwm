@@ -119,7 +119,7 @@ impl XCore for X11RBConn<Initialized> {
                 let geom = Rectangle::new(r.x as i32, r.y as i32, r.height as i32, r.width as i32);
                 XOutput::new(i as i32, Xid(info.root), geom)
             })
-            .filter(|s| s.true_geom.width > 0)
+            .filter(|s| s.true_geom.size.width > 0)
             .collect();
 
         self.conn.destroy_window(*check_id)?.check()?;
@@ -361,10 +361,10 @@ impl XCore for X11RBConn<Initialized> {
             depth,
             *wid,
             *self.root.id,
-            geom.x as i16,
-            geom.y as i16,
-            geom.width as u16,
-            geom.height as u16,
+            geom.point.x as i16,
+            geom.point.y as i16,
+            geom.size.width as u16,
+            geom.size.height as u16,
             bwidth as u16,
             class,
             visualid,
@@ -460,16 +460,16 @@ impl XCore for X11RBConn<Initialized> {
         self.configure_window(
             window,
             &[ClientConfig::Resize {
-                h: geom.height,
-                w: geom.width,
+                h: geom.size.height,
+                w: geom.size.width,
             }],
         )?;
 
         self.configure_window(
             window,
             &[ClientConfig::Move {
-                x: geom.x,
-                y: geom.y,
+                x: geom.point.x,
+                y: geom.point.y,
             }],
         )?;
 

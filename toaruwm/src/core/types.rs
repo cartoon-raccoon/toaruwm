@@ -7,6 +7,9 @@
 //!
 //! For X server-specific types, see [`crate::x::core`].
 
+use core::ops::{Add, Sub, AddAssign, SubAssign, Neg};
+use core::cmp::{PartialOrd, Ordering};
+
 
 #[doc(inline)]
 pub use crate::core::{Ring, Selector};
@@ -75,6 +78,9 @@ pub enum Cardinal {
 /// A subset of Cardinal with only Left and Right variants.
 ///
 /// It is disjoint with `CardinalY`.
+/// _Note:_ This type can be converted from a standard [`Cardinal`],
+/// but the conversion is lossy: `Cardinal::Down` will be converted
+/// to a `CardinalX::Left`, and `Cardinal::Up` to a `CardinalX::Right`.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CardinalX {
@@ -103,6 +109,10 @@ impl From<Cardinal> for CardinalX {
 /// A subset of Cardinal with only Up and Down variants.
 ///
 /// It is disjoint with `CardinalX`.
+/// 
+/// _Note:_ This type can be converted from a standard [`Cardinal`],
+/// but the conversion is lossy: `Cardinal::Left` will be converted
+/// to a `CardinalY::Down`, and `Cardinal::Right` to a `CardinalY::Up`.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CardinalY {
@@ -186,7 +196,7 @@ pub mod marker {
     }
 
     /// A trait defining marker types `Logical` and `Physical`.
-    pub trait GeometryKind: private::Sealed {}
+    pub trait GeometryKind: Copy + PartialEq + private::Sealed {}
 
     /// A marker type indicating a geometry type is logical.
     #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -238,6 +248,42 @@ pub struct Point<Kind: GeometryKind> {
     pub y: i32,
     _kind: PhantomData<Kind>,
 }
+
+impl<Kind: GeometryKind> Add for Point<Kind> {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        Self::new(self.x + other.x, self.y + other.y)
+    }
+}
+
+impl<Kind: GeometryKind> AddAssign for Point<Kind> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl<Kind: GeometryKind> Sub for Point<Kind> {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self::new(self.x - other.x, self.y - other.y)
+    }
+}
+
+impl<Kind: GeometryKind> SubAssign for Point<Kind> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl<Kind: GeometryKind> Neg for Point<Kind> {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y)
+    }
+}
+
 
 impl<Kind: GeometryKind> Point<Kind> {
     /// Creates a new Point.
@@ -291,6 +337,12 @@ impl<Kind: GeometryKind> Point<Kind> {
         (other.x - self.x, other.y - self.y)
     }
 
+    /// Calculates the magnitude of the vector formed by this Point, with
+    /// the origin (0,0).
+    pub fn magnitude(&self) -> f32 {
+        self.distance_to(Point::zeroed())
+    }
+
     /// Calculates the distance to another point, using the
     /// Pythagorean theorem.
     ///
@@ -298,10 +350,10 @@ impl<Kind: GeometryKind> Point<Kind> {
     /// you will probably want to round this up/down to
     /// the nearest integer value before coercing to an
     /// integer type.
-    pub fn distance_to(&self, other: Point<Kind>) -> f64 {
+    pub fn distance_to(&self, other: Point<Kind>) -> f32 {
         let (x, y) = self.calculate_offset(other);
 
-        let ret = ((x as f64).powi(2) + (y as f64).powi(2)).sqrt();
+        let ret = ((x as f32).powi(2) + (y as f32).powi(2)).sqrt();
 
         assert!(!ret.is_nan());
         ret
@@ -382,7 +434,7 @@ impl<Kind: GeometryKind> Point<Kind> {
         self.scale_gen::<Kind>(scale_x, scale_y)
     }
 
-    fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Point<K> {
+    pub(crate) fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Point<K> {
         let Point { x, y, .. } = *self;
 
         Point {
@@ -394,14 +446,14 @@ impl<Kind: GeometryKind> Point<Kind> {
 }
 
 impl Point<Logical> {
-    /// Returns a `Rectangle<Physical>`, scaled by `scale`.
+    /// Returns a `Point<Physical>`, scaled by `scale`.
     pub fn as_physical(&self, scale: f32) -> Point<Physical> {
         self.scale_gen::<Physical>(scale, scale)
     }
 }
 
 impl Point<Physical> {
-    /// Returns a `Rectangle<Logical>`, scaled by **`1 / scale`.**
+    /// Returns a `Point<Logical>`, scaled by **`1 / scale`.**
     pub fn as_logical(&self, scale: f32) -> Point<Logical> {
         // account for if scale == 0, since calling recip on 0 will give
         // a divide-by-zero error
@@ -410,16 +462,92 @@ impl Point<Physical> {
     }
 }
 
-/// A type for representing a 2D rectangular space on a display or screen.
+/// A type for representing a 2D rectangular space, without
+/// respect to its position on the coordinate space.
+/// 
+/// Implements [`PartialEq`][1], so you can compare it directly
+/// with another Size.
+/// 
+/// [1]: std::cmp::PartialEq
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Size<Kind: GeometryKind> {
+    /// The width of the Size.
+    pub width: i32,
+    /// The height of the Size.
+    pub height: i32,
+
+    _kind: PhantomData<Kind>,
+}
+
+impl<Kind: GeometryKind> PartialOrd for Size<Kind> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        self.area().partial_cmp(&rhs.area())
+    }
+}
+
+impl<Kind: GeometryKind> Size<Kind> {
+    /// Creates a new Size.
+    pub fn new(width: i32, height: i32) -> Self {
+        Self {
+            width,
+            height,
+            _kind: PhantomData
+        }
+    }
+
+    /// Creates a new Size with all fields set to zero.
+    pub fn zeroed() -> Self {
+        Self::new(0, 0)
+    }
+
+    /// Returns the area of the size (width * height).
+    pub fn area(&self) -> i32 {
+        self.width * self.height
+    }
+
+    /// Scales the given Point by a given scale factor on the X and Y axes,
+    /// with respect to the origin (0,0) at the top left of the coordinate space.
+    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
+        self.scale_gen::<Kind>(scale_x, scale_y)
+    }
+
+    pub(crate) fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Size<K> {
+        let Size {width, height, ..} = *self;
+
+        Size {
+            width: ((width as f32) * scale_x).round() as i32,
+            height: ((height as f32) * scale_y).round() as i32,
+            _kind: PhantomData,
+        }
+    }
+}
+
+impl Size<Logical> {
+    /// Returns a `Size<Physical>`, scaled by `scale`.
+    pub fn as_physical(&self, scale: f32) -> Size<Physical> {
+        self.scale_gen::<Physical>(scale, scale)
+    }
+}
+
+impl Size<Physical> {
+    /// Returns a `Size<Logical>`, scaled by **`1 / scale`.**
+    pub fn as_logical(&self, scale: f32) -> Size<Logical> {
+        let inverse = if scale == 0. {0.} else {scale.recip()};
+        self.scale_gen::<Logical>(inverse, inverse)
+    }
+}
+
+
+/// A type for representing a 2D rectangular space, anchored to a
+/// Point on the coordinate space.
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
-/// another Geometry.
+/// another Rectangle.
 ///
-/// # Note on X Window Gravity
+/// # Note on Gravity
 ///
-/// Rectangles follow the X Window System default
-/// of taking their gravity from the top-left corner,
-/// that is, (0, 0) is considered the top left corner
+/// Rectangles follow the default of taking their gravity from the top-left 
+/// corner, that is, (0, 0) is considered the top left corner
 /// of the screen, and any increase is an offset to the right
 /// or downwards.
 ///
@@ -428,91 +556,37 @@ impl Point<Physical> {
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rectangle<Kind: GeometryKind> {
-    /// The x coordinate of the top left corner.
-    pub x: i32,
-    /// The y coordinate of the top left corner.
-    pub y: i32,
-    /// The height of the geometry.
-    pub height: i32,
-    /// The width of the geometry.
-    pub width: i32,
-
-    _kind: PhantomData<Kind>
+    /// The point that the Rectangle is anchored to.
+    pub point: Point<Kind>,
+    /// The size of the Rectangle.
+    pub size: Size<Kind>,
 }
 
 impl<Kind: GeometryKind> Default for Rectangle<Kind> {
     fn default() -> Self {
-        Rectangle {
-            x: 0,
-            y: 0,
-            height: 100,
-            width: 160,
-
-            _kind: PhantomData
-        }
+        Rectangle::new(0, 0, 0, 0)
     }
 }
 
 impl<Kind: GeometryKind> Rectangle<Kind> {
     /// Constructs a new Geometry.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::Rectangle;
-    ///
-    /// let geom1 = Rectangle::new(0, 0, 100, 160);
-    /// let geom2 = Rectangle {
-    ///     x: 0,
-    ///     y: 0,
-    ///     height: 100,
-    ///     width: 160,
-    /// };
-    ///
-    /// assert_eq!(geom1, geom2);
-    /// ```
     pub fn new<N: Into<i32>>(x: N, y: N, h: N, w: N) -> Self {
         Rectangle {
-            x: x.into(),
-            y: y.into(),
-            height: h.into(),
-            width: w.into(),
-            _kind: PhantomData,
+            point: Point::new(x.into(), y.into()),
+            size: Size::new(w.into(), h.into())
         }
     }
 
-    /// Convenience function for constructing a Geometry with all fields
+    /// Convenience function for constructing a Rectangle with all fields
     /// set to zero.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::Geometry;
-    ///
-    /// let geom = Geometry::zeroed();
-    ///
-    /// assert_eq!(geom, Geometry::new(0, 0, 0, 0));
-    /// ```
     pub fn zeroed() -> Self {
-        Rectangle {
-            x: 0,
-            y: 0,
-            height: 0,
-            width: 0,
-            _kind: PhantomData,
-        }
+        Rectangle::new(0, 0, 0, 0)
     }
 
     /// Creates a `Geometry` based at the origin (0, 0)
     /// with the given dimensions `height` and `width`.
     pub fn at_origin(height: i32, width: i32) -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            height,
-            width,
-            _kind: PhantomData,
-        }
+        Self::new(0, 0, height, width)
     }
 
     /// Check whether this geometry encloses another geometry.
@@ -520,7 +594,7 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Geometry;
+    /// use toaruwm::types::Rectangle;
     ///
     /// let original = Geometry::new(0, 0, 100, 200);
     ///
@@ -530,10 +604,24 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// ```
     pub fn contains(&self, other: &Rectangle<Kind>) -> bool {
         match other {
-            Rectangle { x, .. } if *x < self.x => false,
-            Rectangle { x, width, .. } if (*x + *width) > (self.x + self.width) => false,
-            Rectangle { y, .. } if *y < self.y => false,
-            Rectangle { y, height, .. } if (*y + *height) > (self.y + self.height) => false,
+            Rectangle { 
+                point: Point { x, .. }, 
+                .. 
+            } if *x < self.point.x => false,
+            Rectangle { 
+                point: Point { x, .. }, 
+                size: Size {width, .. }, 
+                ..
+            } if (*x + *width) > (self.point.x + self.size.width) => false,
+            Rectangle { 
+                point: Point { y, .. },
+                .. 
+            } if *y < self.point.y => false,
+            Rectangle { 
+                point: Point { y, .. }, 
+                size: Size { height, .. },
+                ..
+            } if (*y + *height) > (self.point.y + self.size.height) => false,
             _ => true,
         }
     }
@@ -551,8 +639,8 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// assert!(original.contains_point(point));
     /// ```
     pub fn contains_point(&self, pt: Point<Kind>) -> bool {
-        let wrange = self.x..(self.x + self.width);
-        let hrange = self.y..(self.y + self.height);
+        let wrange = self.point.x..(self.point.x + self.size.width);
+        let hrange = self.point.y..(self.point.y + self.size.height);
 
         wrange.contains(&pt.x) && hrange.contains(&pt.y)
     }
@@ -576,17 +664,24 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// ```
     #[must_use]
     pub fn split_horz_n(&self, n: usize) -> Vec<Self> {
-        let new_height = self.height / n as i32;
+        let new_height = self.size.height / n as i32;
 
         let mut ret = Vec::new();
 
+        let _kind = PhantomData;
+
         for i in 0..n {
             ret.push(Rectangle {
-                x: self.x,
-                y: self.y + (i as i32 * new_height),
-                height: new_height,
-                width: self.width,
-                _kind: PhantomData,
+                point: Point { 
+                    x: self.point.x,
+                    y: self.point.y + (i as i32 * new_height),
+                    _kind,
+                },
+                size: Size {
+                    width: self.size.width,
+                    height: new_height,
+                    _kind
+                }
             })
         }
 
@@ -614,17 +709,24 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// ```
     #[must_use]
     pub fn split_vert_n(&self, n: usize) -> Vec<Self> {
-        let new_width = self.width / n as i32;
+        let new_width = self.size.width / n as i32;
 
         let mut ret = Vec::new();
 
+        let _kind = PhantomData;
+
         for i in 0..n {
             ret.push(Rectangle {
-                x: self.x + (i as i32 * new_width),
-                y: self.y,
-                height: self.height,
-                width: new_width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x + (i as i32 * new_width),
+                    y: self.point.y,
+                    _kind
+                },
+                size: Size {
+                    width: new_width,
+                    height: self.size.height,
+                    _kind
+                }
             })
         }
 
@@ -663,25 +765,37 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
             panic!("Got f32::NAN");
         }
 
-        let top_height = (self.height as f32 * ratio) as i32;
-        let bottom_height = self.height - top_height;
+        let top_height = (self.size.height as f32 * ratio) as i32;
+        let bottom_height = self.size.height - top_height;
+
+        let _kind = PhantomData;
 
         (
             // top
             Rectangle {
-                x: self.x,
-                y: self.y,
-                height: top_height,
-                width: self.width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y,
+                    _kind
+                },
+                size: Size {
+                    width: self.size.width,
+                    height: top_height,
+                    _kind
+                }
             },
             // bottom
             Rectangle {
-                x: self.x,
-                y: self.y + top_height,
-                height: bottom_height,
-                width: self.width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y + top_height,
+                    _kind,
+                },
+                size: Size {
+                    height: bottom_height,
+                    width: self.size.width,
+                    _kind
+                }
             },
         )
     }
@@ -718,25 +832,37 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
             panic!("Got f32::NAN");
         }
 
-        let left_width = (self.width as f32 * ratio) as i32;
-        let right_width = self.width - left_width;
+        let left_width = (self.size.width as f32 * ratio) as i32;
+        let right_width = self.size.width - left_width;
+
+        let _kind = PhantomData;
 
         (
             // left
             Rectangle {
-                x: self.x,
-                y: self.y,
-                height: self.height,
-                width: left_width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y,
+                    _kind,
+                },
+                size: Size {
+                    width: left_width,
+                    height: self.size.height,
+                    _kind,
+                }
             },
             // right
             Rectangle {
-                x: self.x + left_width,
-                y: self.y,
-                height: self.height,
-                width: right_width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x + left_width,
+                    y: self.point.y,
+                    _kind: PhantomData,
+                },
+                size: Size {
+                    width: right_width,
+                    height: self.size.height,
+                    _kind: PhantomData,
+                }
             },
         )
     }
@@ -750,19 +876,29 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         (
             // Top
             Rectangle {
-                x: self.x,
-                y: self.y,
-                height: self.height - height,
-                width: self.width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y,
+                    _kind: PhantomData,
+                },
+                size: Size {
+                    width: self.size.width,
+                    height: self.size.height - height,
+                    _kind: PhantomData,
+                }
             },
             // Bottom
             Rectangle {
-                x: self.x,
-                y: self.y + height,
-                height,
-                width: self.width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y + height,
+                    _kind: PhantomData,
+                },
+                size: Size {
+                    height,
+                    width: self.size.width,
+                    _kind: PhantomData,
+                }
             },
         )
     }
@@ -776,19 +912,29 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         (
             // Left
             Rectangle {
-                x: self.x,
-                y: self.y,
-                height: self.height,
-                width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x,
+                    y: self.point.y,
+                    _kind: PhantomData,
+                },
+                size: Size {
+                    height: self.size.height,
+                    width,
+                    _kind: PhantomData,
+                }
             },
             // Right
             Rectangle {
-                x: self.x + width,
-                y: self.y,
-                height: self.height,
-                width: self.width - width,
-                _kind: PhantomData,
+                point: Point {
+                    x: self.point.x + width,
+                    y: self.point.y,
+                    _kind: PhantomData,
+                },
+                size: Size {
+                    width: self.size.width - width,
+                    height: self.size.height,
+                    _kind: PhantomData,
+                }
             },
         )
     }
@@ -802,55 +948,31 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     pub fn trim(&self, trim: i32, dir: Cardinal) -> Self {
         use Cardinal::*;
         match dir {
-            Up => Rectangle::new(self.x, self.y + trim, self.height - trim, self.width),
-            Down => Rectangle::new(self.x, self.y, self.height - trim, self.width),
-            Left => Rectangle::new(self.x + trim, self.y, self.height, self.width - trim),
-            Right => Rectangle::new(self.x, self.y, self.height, self.width - trim),
+            Up => Rectangle::new(self.point.x, self.point.y + trim, self.size.height - trim, self.size.width),
+            Down => Rectangle::new(self.point.x, self.point.y, self.size.height - trim, self.size.width),
+            Left => Rectangle::new(self.point.x + trim, self.point.y, self.size.height, self.size.width - trim),
+            Right => Rectangle::new(self.point.x, self.point.y, self.size.height, self.size.width - trim),
         }
     }
 
     /// Creates a new Geometry offset by `delta` pixels in the given
     /// direction `dir` (unidirectional offset).
     pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
-        let Rectangle {
-            x,
-            y,
-            height,
-            width,
-            _kind,
-        } = *self;
+        let Rectangle {point, size} = *self;
 
-        let Point { x, y, _kind } = Point { x, y, _kind }.unidir_offset(delta, dir);
+        let point = point.unidir_offset(delta, dir);
 
-        Rectangle {
-            x,
-            y,
-            height,
-            width,
-            _kind,
-        }
+        Rectangle {point, size}
     }
 
     /// Creates a new Geometry offset by `dx, dy` pixels in the given
     /// directions `dirx, diry` (bidirectional offset).
     pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
-        let Rectangle {
-            x,
-            y,
-            height,
-            width,
-            _kind
-        } = *self;
+        let Rectangle {point, size} = *self;
 
-        let Point { x, y, _kind } = Point { x, y, _kind }.bidir_offset(dx, dy, dirx, diry);
+        let point = point.bidir_offset(dx, dy, dirx, diry);
 
-        Rectangle {
-            x,
-            y,
-            height,
-            width,
-            _kind,
-        }
+        Rectangle {point, size}
     }
 
     /// Returns a Rectangle formed by the intersection of another Geometry.
@@ -866,14 +988,9 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     }
 
     fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Rectangle<K> {
-        let Rectangle {x, y, height, width, .. } = *self;
-
         Rectangle {
-            x: ((x as f32) * scale_x).round() as i32,
-            y: ((y as f32) * scale_y).round() as i32,
-            height: ((height as f32) * scale_y).round() as i32,
-            width: ((width as f32) * scale_x).round() as i32,
-            _kind: PhantomData,
+            point: self.point.scale_gen::<K>(scale_x, scale_y),
+            size: self.size.scale_gen::<K>(scale_x, scale_y),
         }
     }
 }
