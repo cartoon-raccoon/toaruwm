@@ -44,7 +44,7 @@ pub type Dict = HashMap<String, Box<dyn Any>>;
 #[macro_export]
 macro_rules! dict {
     {} => {Dict::new()};
-    {$($key:literal, $val:expr);+} => {
+    {$($key:expr => $val:expr),+,} => {
         {
             let mut __dict = Dict::new();
     
@@ -468,6 +468,8 @@ impl Point<Physical> {
 /// Implements [`PartialEq`][1], so you can compare it directly
 /// with another Size.
 /// 
+/// [`PartialOrd`] is implemented with respect to area, so 
+/// 
 /// [1]: std::cmp::PartialEq
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Size<Kind: GeometryKind> {
@@ -498,6 +500,11 @@ impl<Kind: GeometryKind> Size<Kind> {
     /// Creates a new Size with all fields set to zero.
     pub fn zeroed() -> Self {
         Self::new(0, 0)
+    }
+
+    /// Returns true if the area of this size is zero.
+    pub fn is_empty(&self) -> bool {
+        self.width == 0 || self.height == 0
     }
 
     /// Returns the area of the size (width * height).
@@ -577,6 +584,22 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         }
     }
 
+    /// Creates a new Rectangle of size (0, 0), anchored at the given `point`.
+    pub fn from_point(point: Point<Kind>) -> Self {
+        Rectangle {
+            point,
+            size: Size::zeroed()
+        }
+    }
+
+    /// Creates a new Rectangle of the given `size`, anchored at the origin (0, 0)
+    pub fn from_size(size: Size<Kind>) -> Self {
+        Rectangle {
+            point: Point::zeroed(),
+            size
+        }
+    }
+
     /// Convenience function for constructing a Rectangle with all fields
     /// set to zero.
     pub fn zeroed() -> Self {
@@ -589,7 +612,7 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         Self::new(0, 0, height, width)
     }
 
-    /// Check whether this geometry encloses another geometry.
+    /// Check whether this Rectangle encloses another Rectangle.
     ///
     /// # Example
     ///
@@ -626,7 +649,7 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         }
     }
 
-    /// Check whether this geometry contains a certain point.
+    /// Check whether this Rectangle contains a certain point.
     /// # Example
     ///
     /// ```rust
@@ -645,15 +668,42 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         wrange.contains(&pt.x) && hrange.contains(&pt.y)
     }
 
-    /// Splits a Geometry into `n` parts horizontally, each part
+    /// Check whether this Rectangle overlaps with `other`.
+    // todo: doctest and example
+    pub fn overlaps_with(&self, other: Rectangle<Kind>) -> bool {
+        let a_left = self.point.x;
+        let a_right = self.point.x + self.size.width;
+        let a_top = self.point.y;
+        let a_bot = self.point.y + self.size.height;
+
+        let b_left = other.point.x;
+        let b_right = other.point.x  + other.size.width;
+        let b_top = other.point.y;
+        let b_bot = other.point.y + other.size.height;
+
+        // the complement of the logical OR of the four conditions,
+        // any one of which would guarantee that there is no overlap
+        !(
+            // 1. my left edge is to the right of their right
+            a_left > b_right ||
+            // 2. my right edge is to the left of their left
+            a_right < b_left ||
+            // 3. my top edge is below their bottom
+            a_top > b_bot ||
+            // 4. my bottom edge is above their top
+            a_bot < b_top
+        )
+    }
+
+    /// Splits a Rectangle into `n` parts horizontally, each part
     /// covering a region of the original Geometry, top down.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Geometry;
+    /// use toaruwm::types::Rectangle;
     ///
-    /// let original = Geometry::new(0, 0, 100, 200);
+    /// let original = Rectangle::new(0, 0, 100, 200);
     ///
     /// let new_geoms = original.split_horz_n(2);
     ///
