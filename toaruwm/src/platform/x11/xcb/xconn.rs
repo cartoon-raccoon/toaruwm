@@ -11,7 +11,7 @@ use super::Initialized;
 use super::{cast, id, req_and_check, req_and_reply, util};
 use crate::bindings::{Keybind, Mousebind};
 use crate::types::{Rectangle, Logical};
-use crate::platform::x::{
+use crate::platform::x11::{
     types::{ClientAttrs, ClientConfig},
     core::{
         PointerQueryReply, Result, WindowClass, XAtom, XConn,

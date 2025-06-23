@@ -14,7 +14,7 @@ use tracing::{error, warn};
 use super::Initialized;
 use crate::bindings::{Keybind, Mousebind};
 use crate::types::{Rectangle, Logical};
-use crate::platform::x::{
+use crate::platform::x11::{
     types::{ClientAttrs, ClientConfig},
     core::{
         PointerQueryReply, Result, WindowClass, XAtom, XConn,

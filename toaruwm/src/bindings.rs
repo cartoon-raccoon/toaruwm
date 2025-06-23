@@ -10,8 +10,8 @@ use thiserror::Error;
 
 use crate::manager::{RuntimeConfig, Toaru};
 use crate::types::{Point, Logical};
-pub use crate::platform::x::input::MouseEventKind;
-use crate::platform::x::{
+pub use crate::platform::x11::input::MouseEventKind;
+use crate::platform::x11::{
     event::KeypressEvent,
     input::{KeyCode, ModMask},
 };

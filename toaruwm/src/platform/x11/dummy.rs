@@ -5,7 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use crate::core::{Client, Screen};
 use crate::types::Rectangle;
 use crate::platform::{
-    x::{
+    x11::{
         core::{PointerQueryReply, Result, XAtom, XConn, XError, XWindow, XWindowID},
         event::XEvent,
     }

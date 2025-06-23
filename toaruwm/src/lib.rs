@@ -186,15 +186,15 @@ pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Config, ToaruConfig, Toaru};
 #[doc(inline)]
-pub use crate::platform::x::core::XConn;
+pub use crate::platform::x11::core::XConn;
 #[doc(inline)]
-pub use crate::platform::x::{x11rb::X11RBConn, xcb::XCBConn};
+pub use crate::platform::x11::{x11rb::X11RBConn, xcb::XCBConn};
 
 pub use crate::platform::{Platform};
 
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::platform::x::{Initialized};
+use crate::platform::x11::{Initialized};
 
 use std::io;
 
