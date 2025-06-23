@@ -173,7 +173,7 @@ pub mod bindings;
 pub mod core;
 pub mod layouts;
 pub mod manager;
-pub mod widget;
+pub mod toarulib;
 pub mod platform;
 
 /// Modules that Toaru is tightly integrated with, re-exported for convenience.
