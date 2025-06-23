@@ -9,7 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 toaruwm = { path = "../toaruwm" }
-toarulib = { path = "../toarulib" }
 
 tracing = {version = "0.1", features = ["attributes", "log"] }
 tracing-subscriber = {version = "0.3", features = ["ansi", "std", "fmt"]}

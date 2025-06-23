@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "toaruwm", 
-    "toarulib", 
     "toaruwm-bin"
 ]
 resolver = "3"
