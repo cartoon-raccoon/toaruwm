@@ -64,7 +64,7 @@ pub struct ConfigureEvent {
     /// The window associated with the event.
     pub id: XWindowID,
     /// The new geometry requested by the window.
-    pub geom: Rectangle<Logical>,
+    pub geom: Rectangle<i32, Logical>,
     /// Is the window the root window
     pub is_root: bool,
 }
@@ -111,9 +111,9 @@ pub struct PointerEvent {
     /// The id of the event window.
     pub id: XWindowID,
     /// The absolute position of the pointer (relative to root).
-    pub abs: Point<Physical>,
+    pub abs: Point<i32, Physical>,
     /// The relative position of the pointer to the event window.
-    pub rel: Point<Physical>,
+    pub rel: Point<i32, Physical>,
 }
 
 /// Data associated with a property change event.
@@ -144,7 +144,7 @@ pub struct MouseEvent {
     /// The window the pointer was on when the button was pressed.
     pub id: XWindowID,
     /// The location of the pointer when the button was pressed.
-    pub location: Point<Physical>,
+    pub location: Point<i32, Physical>,
     /// The state of the buttons and the movement type
     pub state: Mousebind,
 }

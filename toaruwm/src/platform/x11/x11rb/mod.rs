@@ -174,7 +174,7 @@ impl X11RBConn<Uninitialized> {
 
 impl<S: ConnStatus> X11RBConn<S> {
     #[inline]
-    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Rectangle<Logical>> {
+    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Rectangle<i32, Logical>> {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply

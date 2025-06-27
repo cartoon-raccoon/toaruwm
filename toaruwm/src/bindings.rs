@@ -306,7 +306,7 @@ pub type KeyCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>)>;
 /// A function that is run when a mousebind is invoked.
 ///
 /// An additional Point is supplied to track the location of the pointer.
-pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point<Logical>)>;
+pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point<i32, Logical>)>;
 
 /// A set of keybinds that can be run by the the window manager.
 ///
@@ -405,7 +405,7 @@ where
     /// Inserts a new mousebind-callback mapping.
     pub fn insert<F>(&mut self, kb: Mousebind, cb: F)
     where
-        F: FnMut(&mut Toaru<P, C>, Point<Logical>) + 'static,
+        F: FnMut(&mut Toaru<P, C>, Point<i32, Logical>) + 'static,
     {
         self.bindings.insert(kb, Box::new(cb));
     }

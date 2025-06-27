@@ -1,173 +1,37 @@
-//! Basic core types used throughout this crate at a high level.
-//!
-//! # Important Note
-//!
-//! For types pertaining to the cartesian plane,
-//! all of them assume the default X server window gravity (NorthWest).
-//!
-//! For X server-specific types, see [`crate::x::core`].
+//! Primitives for working with geometries.
+//! 
+//! This module contains the core types [`Scale`], [`Point`], [`Size`], and [`Rectangle`],
+//! which are primitives you can use for geometrical operations such as representing window sizes,
+//! 
+//! All types in this module are generic over a [`Scalar`], which is a type that can act as a scalar
+//! in a 2D coordinate space. This trait is implemented for all stable numerical primitive types:
+//! 
+//! - `u{8,16,32,64,128}`,
+//! - `i{8,16,32,64,128}`, and
+//! - `f{32,64}`.
+//! 
+//! ## Physical and Logical Coordinate Spaces
+//! 
+//! The `Point`, `Size`, and `Rectangle` types are additionally generic over a marker type that implements
+//! [`GeometryKind`], which is a marker trait that marks the type as acting in a certain coordinate space.
+//! See the [`marker`] module documentation for additional details.
+//! 
+//! ## Scaling
+//! 
+//! As the type name suggests, you can use a [`Scale`] to scale another geometrical type. Each of these types
+//! implements [`Mul<Scale<N>>`] and [`Div<Scale<N>>`], which upscales and downscales the type respectively.
+//! 
+//! //todo: example
 
-use core::ops::{Add, Sub, AddAssign, SubAssign, Neg};
+use core::ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, Neg};
 use core::cmp::{PartialOrd, Ordering};
 
-
-#[doc(inline)]
-pub use crate::core::{Ring, Selector};
-
-use std::hash::Hash;
-use std::fmt::Debug;
-use std::collections::HashMap;
-use std::any::Any;
 use std::marker::PhantomData;
 
-/// A type that can uniquely identify any client connected to a
-/// running ToaruWM instance.
-/// 
-/// It is backend-agnostic, and each backend provides their own
-/// type that implements this trait.
-pub trait ClientId: Debug + Clone + Eq + Hash {}
-
-/// Data about a given client.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ClientData {
-    geom: Rectangle<Logical>,
-    urgent: bool,
-}
-
-/// A general dictionary type that can store most variable-value mappings.
-pub type Dict = HashMap<String, Box<dyn Any>>;
-
-/// Macro for quick-creating a new Dict.
-/// 
-/// Note: The value you insert should not be boxed, as this macro
-/// creates a new Box around `$val`.
-#[macro_export]
-macro_rules! dict {
-    {} => {Dict::new()};
-    {$($key:expr => $val:expr),+,} => {
-        {
-            let mut __dict = Dict::new();
-    
-            $(
-                __dict.insert(String::from($key), Box::new($val));
-            )+
-    
-            __dict
-        }
-    };
-}
-
-/// Specifies a direction.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Direction {
-    Forward,
-    Backward,
-}
-
-/// A cardinal direction.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Cardinal {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-/// A subset of Cardinal with only Left and Right variants.
-///
-/// It is disjoint with `CardinalY`.
-/// _Note:_ This type can be converted from a standard [`Cardinal`],
-/// but the conversion is lossy: `Cardinal::Down` will be converted
-/// to a `CardinalX::Left`, and `Cardinal::Up` to a `CardinalX::Right`.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CardinalX {
-    Left,
-    Right,
-}
-
-impl From<CardinalX> for Cardinal {
-    fn from(from: CardinalX) -> Cardinal {
-        match from {
-            CardinalX::Left  => Cardinal::Left,
-            CardinalX::Right => Cardinal::Right,
-        }
-    }
-}
-
-impl From<Cardinal> for CardinalX {
-    fn from(from: Cardinal) -> CardinalX {
-        match from {
-            Cardinal::Left | Cardinal::Down => CardinalX::Left,
-            Cardinal::Right | Cardinal::Up => CardinalX::Right,
-        }
-    }
-}
-
-/// A subset of Cardinal with only Up and Down variants.
-///
-/// It is disjoint with `CardinalX`.
-/// 
-/// _Note:_ This type can be converted from a standard [`Cardinal`],
-/// but the conversion is lossy: `Cardinal::Left` will be converted
-/// to a `CardinalY::Down`, and `Cardinal::Right` to a `CardinalY::Up`.
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CardinalY {
-    Up,
-    Down,
-}
-
-impl From<CardinalY> for Cardinal {
-    fn from(from: CardinalY) -> Cardinal {
-        match from {
-            CardinalY::Up  => Cardinal::Up,
-            CardinalY::Down => Cardinal::Down,
-        }
-    }
-}
-
-impl From<Cardinal> for CardinalY {
-    fn from(from: Cardinal) -> CardinalY {
-        match from {
-            Cardinal::Left | Cardinal::Down => CardinalY::Down,
-            Cardinal::Right | Cardinal::Up => CardinalY::Up,
-        }
-    }
-}
-
-/// The direction in which `Point`s and `Geometry`s
-/// should take reference to when calculating offsets.
-///
-/// For example, if a Geometry takes a Gravity of `NorthWest`,
-/// then when the Geometry is resized, it will resize
-/// towards the top-left corner.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Gravity {
-    /// The top left direction.
-    NorthWest,
-    /// The top direction.
-    North,
-    /// The top right direction.
-    NorthEast,
-    /// The left direction.
-    West,
-    /// Dead center in the Rectangle.
-    Center,
-    /// The right direction.
-    East,
-    /// The bottom left direction.
-    SouthWest,
-    /// The bottom direction.
-    South,
-    /// The bottom right direction.
-    SouthEast,
-}
+use super::{Cardinal, CardinalX, CardinalY};
 
 pub mod marker {
-    //! Marker types for marking Point and Rectangle kind, Physical or Logical.
+    //! Marker types for marking Size, Point and Rectangle kind, Physical or Logical.
     //! 
     //! This module contains the [`GeometryKind`] sealed trait,
     //! as well as its two implementors, [`Logical`] and [`Physical`].
@@ -195,7 +59,7 @@ pub mod marker {
         pub trait Sealed {}
     }
 
-    use core::ops::{Add, Sub, Mul, Div, Neg};
+    use core::ops::{Add, Sub};
 
     /// A sealed trait for marking types as Scalars, that can be used in Points and Rectangles.
     /// 
@@ -210,9 +74,6 @@ pub mod marker {
         + PartialOrd 
         + Add<Self, Output = Self>
         + Sub<Self, Output = Self>
-        + Mul<Self, Output = Self> 
-        + Div<Self, Output = Self>
-        + Neg<Output = Self>
         + Default
     {
         /// The minimum value this scalar can have.
@@ -220,40 +81,44 @@ pub mod marker {
         
         /// The maximum value this scalar can have.
         const MAX: Self;
-        
-        /// The multiplicative identity of the Scalar, i.e. for any Scalar, when multiplied by its
-        /// multiplicative identity, yields the same value as the Scalar.
-        /// 
-        /// Usually this is 1.
-        const MUL_ID: Self;
 
-        /// The additive identity of the Scalar, i.e. for any Scalar, when added by its additive
-        /// identity, yields the same value as the Scalar.
-        /// 
-        /// Usually this is 0.
-        /// 
-        /// The additive identity should also have the additional property that when any Scalar
-        /// is multiplied by it, yields the additive identity, i.e n * 0 = 0.
-        const ADD_ID: Self;
+        /// The scale identity of the scalar, that is, when scaled by this Scalar, it will have no effect.
+        /// Usually, this is the multiplicative identity of the Scalar.
+        const SCALE_ID: Self;
 
         /// The zero point of the Scalar. Usually, this is the additive identity of the Scalar.
-        const ZERO: Self = Self::ADD_ID;
+        const ZERO: Self;
 
         /// Convert to this Scalar from an f64.
         fn from_f64(v: f64) -> Self;
 
         /// Convert this Scalar to an f64.
         fn to_f64(self) -> f64;
+
+        /// Get the absolute value of this Scalar (i.e. distance from its zero).
+        fn abs(self) -> Self;
+
+        /// Scale down this Scalar by a scale.
+        fn downscale(self, other: Self) -> Self;
+
+        /// Scale up this Scalar by a scale.
+        fn upscale(self, other: Self) -> Self;
+
+        #[inline]
+        /// Check if the Scalar is greater than its zero.
+        fn positive(self) -> bool {
+            self > Self::ZERO
+        }
     }
 
-    macro_rules! __impl_scalar {
-        ($mul:literal, $add:literal: $($targ:ty),+) => {
+    macro_rules! __impl_scalar_signed {
+        ($($targ:ty),+) => {
             $(
                 impl Scalar for $targ {
                     const MIN: Self = <$targ>::MIN;
                     const MAX: Self = <$targ>::MAX;
-                    const MUL_ID: Self = $mul;
-                    const ADD_ID: Self = $add;
+                    const SCALE_ID: Self = 1;
+                    const ZERO: Self = 0;
 
                     #[inline]
                     fn from_f64(v: f64) -> Self {
@@ -264,13 +129,105 @@ pub mod marker {
                     fn to_f64(self) -> f64 {
                         self as f64
                     }
+
+                    #[inline]
+                    fn abs(self) -> Self {
+                        self.abs()
+                    }
+
+                    #[inline]
+                    fn downscale(self, other: Self) -> Self {
+                        self.saturating_div(other)
+                    }
+
+                    #[inline]
+                    fn upscale(self, other: Self) -> Self {
+                        self.saturating_mul(other)
+                    }
                 }
             )+
         };
     }
 
-    __impl_scalar!(1, 0: i8, i32, i64, i128);
-    __impl_scalar!(1., 0.: f32, f64);
+    macro_rules! __impl_scalar_unsigned {
+        ($($targ:ty),+) => {
+            $(
+                impl Scalar for $targ {
+                    const MIN: Self = <$targ>::MIN;
+                    const MAX: Self = <$targ>::MAX;
+                    const SCALE_ID: Self = 1;
+                    const ZERO: Self = 0;
+
+                    #[inline]
+                    fn from_f64(v: f64) -> Self {
+                        v as Self
+                    }
+
+                    #[inline]
+                    fn to_f64(self) -> f64 {
+                        self as f64
+                    }
+
+                    #[inline]
+                    fn abs(self) -> Self {
+                        self
+                    }
+
+                    #[inline]
+                    fn downscale(self, other: Self) -> Self {
+                        self.saturating_div(other)
+                    }
+
+                    #[inline]
+                    fn upscale(self, other: Self) -> Self {
+                        self.saturating_mul(other)
+                    }
+                }
+            )+
+        };
+    }
+
+    macro_rules! __impl_scalar_floating {
+        ($($targ:ty),+) => {
+            $(
+                impl Scalar for $targ {
+                    const MIN: Self = <$targ>::MIN;
+                    const MAX: Self = <$targ>::MAX;
+                    const SCALE_ID: Self = 1.;
+                    const ZERO: Self = 0.;
+
+                    #[inline]
+                    fn from_f64(v: f64) -> Self {
+                        v as Self
+                    }
+
+                    #[inline]
+                    fn to_f64(self) -> f64 {
+                        self as f64
+                    }
+
+                    #[inline]
+                    fn abs(self) -> Self {
+                        self.abs()
+                    }
+
+                    #[inline]
+                    fn downscale(self, other: Self) -> Self {
+                        self / other
+                    }
+
+                    #[inline]
+                    fn upscale(self, other: Self) -> Self {
+                        self * other 
+                    }
+                }
+            )+
+        };
+    }
+
+    __impl_scalar_signed!(i8, i16, i32, i64, i128, isize);
+    __impl_scalar_unsigned!(u8, u16, u32, u64, u128, usize);
+    __impl_scalar_floating!(f32, f64);
 
     /// A sealed trait defining marker types `Logical` and `Physical`.
     pub trait GeometryKind: Copy + PartialEq + private::Sealed {}
@@ -316,18 +273,107 @@ pub mod marker {
 pub use marker::{GeometryKind, Logical, Physical, Scalar, BitMask};
 
 /// A two-dimensional Scale that can be used to scale [`Point`]s, [`Size`]s,
-/// and [`Rectangle`]s.
+/// and [`Rectangle`]s, by multiplying them with it.
+/// 
+/// A `Scale` tracks its scale factors independently in each dimension, to
+/// allow for non-uniform scaling operations.
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[allow(missing_docs)]
 pub struct Scale<N: Scalar> {
+    /// The scale on the X-axis.
     pub x: N,
+    /// The scale on the Y-axis.
     pub y: N,
+}
+
+impl<N: Scalar> Scale<N> {
+    /// Returns a Scale of f64s.
+    pub fn to_f64(self) -> Scale<f64> {
+        Scale {
+            x: self.x.to_f64(),
+            y: self.y.to_f64(),
+        }
+    }
+
+    /// Returns a identity Scale, that has no effect on Scaling operations.
+    pub const fn id() -> Scale<N> {
+        Scale {
+            x: N::SCALE_ID,
+            y: N::SCALE_ID,
+        }
+    }
+
+    /// Returns a uniform Scale, where the `x` and `y` scale factors are equal.
+    pub const fn uniform(factor: N) -> Scale<N> {
+        Scale {
+            x: factor, y: factor
+        }
+    }
+}
+
+impl Scale<f32> {
+    /// Returns the reciprocal of `self` (i.e. the reciprocal of each component).
+    pub fn recip(self) -> Self {
+        Scale {
+            x: self.x.recip(),
+            y: self.y.recip(),
+        }
+    }
+}
+
+impl Scale<f64> {
+    /// Returns the reciprocal of `self` (i.e. the reciprocal of each component).
+    pub fn recip(self) -> Self {
+        Scale {
+            x: self.x.recip(),
+            y: self.y.recip(),
+        }
+    }
+}
+
+impl<N: Scalar> Mul for Scale<N> {
+    type Output = Self;   
+
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            x: self.x.upscale(rhs.x),
+            y: self.y.upscale(rhs.y),
+        }
+    }
+}
+
+impl<N: Scalar> Div for Scale<N> {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self {
+        Self {
+            x: self.x.downscale(rhs.x),
+            y: self.y.downscale(rhs.y),
+        }
+    }
+}
+
+impl<N: Scalar> From<(N, N)> for Scale<N> {
+    fn from(from: (N, N)) -> Self {
+        let (x, y) = from;
+        Self {x, y}
+    }
+}
+
+impl<N: Scalar> From<N> for Scale<N> {
+    fn from(from: N) -> Self {
+        Self::uniform(from)
+    }
 }
 
 /// A type for representing a point on a display or screen.
 ///
 /// Implements [`PartialEq`][1], so you can compare it directly with
-/// another Point.
+/// another Point. You can also directly add and subtract `Point`s,
+/// as they implement [`Add`] and [`Sub`] on themselves, and you can
+/// also multiply and divide them by [`Scale`]s, as they implement
+/// `{Mul,Div}<Scale>`. This simply upscales or downscales them by
+/// the given scale.
 ///
 /// # Note
 ///
@@ -335,64 +381,114 @@ pub struct Scale<N: Scalar> {
 /// corner of the 2D plane.
 ///
 /// [1]: std::cmp::PartialEq
-#[allow(missing_docs)]
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub struct Point<Kind: GeometryKind> {
-    pub x: i32,
-    pub y: i32,
+pub struct Point<N: Scalar, Kind: GeometryKind> {
+    /// The `Point`'s X-coordinate.
+    pub x: N,
+    /// The `Point`'s Y-coordinate.
+    pub y: N,
     _kind: PhantomData<Kind>,
 }
 
-impl<Kind: GeometryKind> Add for Point<Kind> {
+impl<N, Kind> Add for Point<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
     type Output = Self;
     fn add(self, other: Self) -> Self {
         Self::new(self.x + other.x, self.y + other.y)
     }
 }
 
-impl<Kind: GeometryKind> AddAssign for Point<Kind> {
+impl<N, Kind> AddAssign for Point<N, Kind>
+where
+    N: Scalar + AddAssign,
+    Kind: GeometryKind {
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;
     }
 }
 
-impl<Kind: GeometryKind> Sub for Point<Kind> {
+impl<N: Scalar, Kind: GeometryKind> Sub for Point<N, Kind> {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
         Self::new(self.x - other.x, self.y - other.y)
     }
 }
 
-impl<Kind: GeometryKind> SubAssign for Point<Kind> {
+impl<N, Kind> SubAssign for Point<N, Kind>
+where
+    N: Scalar + SubAssign,
+    Kind: GeometryKind
+{
     fn sub_assign(&mut self, rhs: Self) {
         self.x -= rhs.x;
         self.y -= rhs.y;
     }
 }
 
-impl<Kind: GeometryKind> Neg for Point<Kind> {
+impl<N, Kind> Neg for Point<N, Kind>
+where
+    N: Scalar + Neg<Output = N>,
+    Kind: GeometryKind
+{
     type Output = Self;
     fn neg(self) -> Self {
-        Self::new(-self.x, -self.y)
+        Self {
+            x: -self.x,
+            y: -self.y,
+            _kind: PhantomData,
+        }
+    }
+}
+
+impl<N, Kind> Mul<Scale<N>> for Point<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{   
+    type Output = Self;
+
+    fn mul(self, rhs: Scale<N>) -> Self {
+        self.upscale(rhs)
+    }
+}
+
+impl<N, Kind> Div<Scale<N>> for Point<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{   
+    type Output = Self;
+
+    fn div(self, rhs: Scale<N>) -> Self {
+        self.downscale(rhs)
+    }
+}
+
+impl<N, Kind> From<(N, N)> for Point<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    fn from(from: (N, N)) -> Self {
+        let (x, y) = from;
+        Self {
+            x,
+            y,
+            _kind: PhantomData, 
+        }
     }
 }
 
 
-impl<Kind: GeometryKind> Point<Kind> {
+impl<N: Scalar, Kind: GeometryKind> Point<N, Kind> {
     /// Creates a new Point.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use toaruwm::types::Point;
-    ///
-    /// let point = Point::new(0, 0);
-    ///
-    /// assert_eq!(point, Point {x: 0, y: 0});
-    /// ```
-    pub fn new<N: Into<i32>>(x: N, y: N) -> Point<Kind> {
-        Point { x: x.into(), y: y.into(), _kind: PhantomData,}
+    pub const fn new(x: N, y: N) -> Point<N, Kind> {
+        Point { x, y, _kind: PhantomData,}
     }
 
     /// Creates a new Point where both coordinates are zero.
@@ -400,14 +496,15 @@ impl<Kind: GeometryKind> Point<Kind> {
     /// # Example
     /// 
     /// ```rust
-    /// use toaruwm::types::Point;
+    /// use toaruwm::types::{Point, Logical};
     /// 
-    /// let point = Point::zeroed();
+    /// let point1 = Point::<i32, Logical>::zeroed();
+    /// let point2 = Point::<i32, Logical>::new(0, 0);
     /// 
-    /// assert_eq!(point, Point {x: 0, y: 0});
+    /// assert_eq!(point1, point2);
     /// ```
-    pub const fn zeroed() -> Point<Kind> {
-        Point { x: 0, y: 0, _kind: PhantomData}
+    pub const fn zeroed() -> Point<N, Kind> {
+        Point { x: N::ZERO, y: N::ZERO, _kind: PhantomData}
     }
 
     /// Calculates the x and y offsets between itself and another Point.
@@ -417,23 +514,23 @@ impl<Kind: GeometryKind> Point<Kind> {
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Point;
+    /// use toaruwm::types::{Point, Logical};
     ///
-    /// let original = Point::new(50, 50);
-    /// let new = Point::new(20, 30);
+    /// let original = Point::<i32, Logical>::new(50, 50);
+    /// let new = Point::<i32, Logical>::new(20, 30);
     ///
     /// let (x, y) = original.calculate_offset(new);
     ///
     /// assert_eq!(x, -30);
     /// assert_eq!(y, -20);
     /// ```
-    pub fn calculate_offset(&self, other: Point<Kind>) -> (i32, i32) {
+    pub fn calculate_offset(&self, other: Point<N, Kind>) -> (N, N) {
         (other.x - self.x, other.y - self.y)
     }
 
     /// Calculates the magnitude of the vector formed by this Point, with
     /// the origin (0,0).
-    pub fn magnitude(&self) -> f32 {
+    pub fn magnitude(&self) -> N {
         self.distance_to(Point::zeroed())
     }
 
@@ -444,13 +541,13 @@ impl<Kind: GeometryKind> Point<Kind> {
     /// you will probably want to round this up/down to
     /// the nearest integer value before coercing to an
     /// integer type.
-    pub fn distance_to(&self, other: Point<Kind>) -> f32 {
+    pub fn distance_to(&self, other: Point<N, Kind>) -> N {
         let (x, y) = self.calculate_offset(other);
 
-        let ret = ((x as f32).powi(2) + (y as f32).powi(2)).sqrt();
+        let ret = ((x.to_f64()).powi(2) + (y.to_f64()).powi(2)).sqrt();
 
         assert!(!ret.is_nan());
-        ret
+        N::from_f64(ret)
     }
 
     /// Creates a Point with `delta` in the given direction
@@ -458,7 +555,7 @@ impl<Kind: GeometryKind> Point<Kind> {
     ///
     /// Only moves the point in one direction.
     // todo: example
-    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
+    pub fn unidir_offset(&self, delta: N, dir: Cardinal) -> Self {
         use Cardinal::*;
 
         let Point { x, y, _kind } = *self;
@@ -476,7 +573,7 @@ impl<Kind: GeometryKind> Point<Kind> {
     ///
     /// Moves the point in both directions.
     // todo: example
-    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
+    pub fn bidir_offset(&self, dx: N, dy: N, dirx: CardinalX, diry: CardinalY) -> Self {
         use CardinalX::*;
         use CardinalY::*;
 
@@ -507,7 +604,7 @@ impl<Kind: GeometryKind> Point<Kind> {
     }
 
     /// Offsets itself by `delta` in the given direction.
-    pub fn unidir_offset_in_place(&mut self, delta: i32, dir: Cardinal) {
+    pub fn unidir_offset_in_place(&mut self, delta: N, dir: Cardinal) {
         let Point { x, y, _kind } = self.unidir_offset(delta, dir);
 
         self.x = x;
@@ -515,44 +612,57 @@ impl<Kind: GeometryKind> Point<Kind> {
     }
 
     /// Offsets itself by `dx, dy` in the given directions.
-    pub fn bidir_offset_in_place(&mut self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) {
+    pub fn bidir_offset_in_place(&mut self, dx: N, dy: N, dirx: CardinalX, diry: CardinalY) {
         let Point { x, y, _kind } = self.bidir_offset(dx, dy, dirx, diry);
 
         self.x = x;
         self.y = y;
     }
 
-    /// Scales the given Point by a given scale factor on the X and Y axes,
+    /// Scales up the given Point by a given scale factor on the X and Y axes,
     /// with respect to the origin (0,0) at the top left of the coordinate space.
-    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
-        self.scale_gen::<Kind>(scale_x, scale_y)
+    pub fn upscale(self, scale: Scale<N>) -> Self {
+        let Point {x, y, _kind } = self;
+
+        Self {
+            x: x.upscale(scale.x),
+            y: y.upscale(scale.y),
+            _kind
+        }
     }
 
-    pub(crate) fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Point<K> {
-        let Point { x, y, .. } = *self;
+    /// Scales down the given Point by a given scale factor on the X and Y axes,
+    /// with respect to the origin (0,0) at the top left of the coordinate space.
+    pub fn downscale(self, scale: Scale<N>) -> Self {
+        let Point {x, y, _kind } = self;
 
-        Point {
-            x: ((x as f32) * scale_x).round() as i32,
-            y: ((y as f32) * scale_y).round() as i32,
-            _kind: PhantomData,
+        Self {
+            x: x.downscale(scale.x),
+            y: y.downscale(scale.y),
+            _kind
         }
     }
 }
 
-impl Point<Logical> {
+impl<N: Scalar> Point<N, Logical> {
     /// Returns a `Point<Physical>`, scaled by `scale`.
-    pub fn as_physical(&self, scale: f32) -> Point<Physical> {
-        self.scale_gen::<Physical>(scale, scale)
+    pub fn as_physical(self, scale: Scale<N>) -> Point<N, Physical> {
+        let Point {x, y, ..} = self.upscale(scale);
+
+        Point {
+            x, y, _kind: PhantomData
+        }
     }
 }
 
-impl Point<Physical> {
+impl<N: Scalar> Point<N, Physical> {
     /// Returns a `Point<Logical>`, scaled by **`1 / scale`.**
-    pub fn as_logical(&self, scale: f32) -> Point<Logical> {
-        // account for if scale == 0, since calling recip on 0 will give
-        // a divide-by-zero error
-        let inverse = if scale == 0. {0.} else {scale.recip()};
-        self.scale_gen::<Logical>(inverse, inverse)
+    pub fn as_logical(self, scale: Scale<N>) -> Point<N, Logical> {
+        let Point {x, y, ..} = self.downscale(scale);
+
+        Point {
+            x, y, _kind: PhantomData
+        }
     }
 }
 
@@ -565,25 +675,70 @@ impl Point<Physical> {
 /// [`PartialOrd`] is implemented with respect to area, so 
 /// 
 /// [1]: std::cmp::PartialEq
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Size<Kind: GeometryKind> {
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Size<N: Scalar, Kind: GeometryKind> {
     /// The width of the Size.
-    pub width: i32,
+    pub width: N,
     /// The height of the Size.
-    pub height: i32,
+    pub height: N,
 
     _kind: PhantomData<Kind>,
 }
 
-impl<Kind: GeometryKind> PartialOrd for Size<Kind> {
+impl<N, Kind> PartialOrd for Size<N, Kind>
+where
+    N: Scalar + Mul<Output=N>,
+    Kind: GeometryKind
+{
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         self.area().partial_cmp(&rhs.area())
     }
 }
 
-impl<Kind: GeometryKind> Size<Kind> {
+impl<N, Kind> Mul<Scale<N>> for Size<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    type Output = Self;
+
+    fn mul(self, rhs: Scale<N>) -> Self {
+        self.upscale(rhs)
+    }
+}
+
+impl<N, Kind> Div<Scale<N>> for Size<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    type Output = Self;
+
+    fn div(self, rhs: Scale<N>) -> Self {
+        self.downscale(rhs)
+    }
+}
+
+impl<N, Kind> From<(N, N)> for Size<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    fn from(from: (N, N)) -> Self {
+        let (width, height) = from;
+
+        Self {
+            width,
+            height,
+             _kind: PhantomData,
+        }
+    }
+}
+
+impl<N: Scalar, Kind: GeometryKind> Size<N, Kind> {
     /// Creates a new Size.
-    pub fn new(width: i32, height: i32) -> Self {
+    pub const fn new(width: N, height: N) -> Self {
         Self {
             width,
             height,
@@ -592,49 +747,70 @@ impl<Kind: GeometryKind> Size<Kind> {
     }
 
     /// Creates a new Size with all fields set to zero.
-    pub fn zeroed() -> Self {
-        Self::new(0, 0)
+    pub const fn zeroed() -> Self {
+        Self::new(N::ZERO, N::ZERO)
     }
 
     /// Returns true if the area of this size is zero.
     pub fn is_empty(&self) -> bool {
-        self.width == 0 || self.height == 0
+        self.width == N::ZERO || self.height == N::ZERO
     }
 
-    /// Returns the area of the size (width * height).
-    pub fn area(&self) -> i32 {
-        self.width * self.height
-    }
-
-    /// Scales the given Point by a given scale factor on the X and Y axes,
+    /// Upscales the given Point by a given scale factor on the X and Y axes,
     /// with respect to the origin (0,0) at the top left of the coordinate space.
-    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
-        self.scale_gen::<Kind>(scale_x, scale_y)
-    }
-
-    pub(crate) fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Size<K> {
-        let Size {width, height, ..} = *self;
+    pub fn upscale(self, scale: Scale<N>) -> Self {
+        let Size {width, height, _kind} = self;
 
         Size {
-            width: ((width as f32) * scale_x).round() as i32,
-            height: ((height as f32) * scale_y).round() as i32,
+            width: width.upscale(scale.x),
+            height: height.upscale(scale.y),
+            _kind
+        }
+    }
+
+    /// Downscales the given Point by a given scale factor on the X and Y axes,
+    /// with respect to the origin (0,0) at the top left of the coordinate space.
+    pub fn downscale(self, scale: Scale<N>) -> Self {
+        let Size {width, height, _kind} = self;
+
+        Size {
+            width: width.downscale(scale.x),
+            height: height.downscale(scale.y),
+            _kind
+        }
+    }
+}
+
+impl<N: Scalar + Mul<Output=N>, Kind: GeometryKind> Size<N, Kind> {
+    /// Returns the area of the size (width * height).
+    pub fn area(&self) -> N {
+        self.width * self.height
+    }
+}
+
+impl<N: Scalar> Size<N, Logical> {
+    /// Upscales a Size by the given scale, returning it as a Physical size.
+    pub fn as_physical(&self, scale: Scale<N>) -> Size<N, Physical> {
+        let Size {width, height, .. } = self.upscale(scale);
+
+        Size {
+            width,
+            height,
             _kind: PhantomData,
         }
     }
 }
 
-impl Size<Logical> {
-    /// Returns a `Size<Physical>`, scaled by `scale`.
-    pub fn as_physical(&self, scale: f32) -> Size<Physical> {
-        self.scale_gen::<Physical>(scale, scale)
-    }
-}
+impl<N: Scalar> Size<N, Physical> {
+    /// Downscales a Size by the given Scale, returning it as a Logical size.
+    pub fn as_logical(&self, scale: Scale<N>) -> Size<N, Logical> {
+        let Size {width, height, .. } = self.downscale(scale);
 
-impl Size<Physical> {
-    /// Returns a `Size<Logical>`, scaled by **`1 / scale`.**
-    pub fn as_logical(&self, scale: f32) -> Size<Logical> {
-        let inverse = if scale == 0. {0.} else {scale.recip()};
-        self.scale_gen::<Logical>(inverse, inverse)
+        Size {
+            width,
+            height,
+            _kind: PhantomData,
+        }
     }
 }
 
@@ -655,31 +831,32 @@ impl Size<Physical> {
 /// _Note:_ The Default impl returns Rectangle {0, 0, 0, 0}.
 ///
 /// [1]: std::cmp::PartialEq
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Rectangle<Kind: GeometryKind> {
+pub struct Rectangle<N: Scalar, Kind: GeometryKind> {
     /// The point that the Rectangle is anchored to.
-    pub point: Point<Kind>,
+    pub point: Point<N, Kind>,
     /// The size of the Rectangle.
-    pub size: Size<Kind>,
+    pub size: Size<N, Kind>,
 }
 
-impl<Kind: GeometryKind> Default for Rectangle<Kind> {
+impl<N: Scalar, Kind: GeometryKind> Default for Rectangle<N, Kind> {
     fn default() -> Self {
-        Rectangle::new(0, 0, 0, 0)
+        Rectangle::zeroed()
     }
 }
 
-impl<Kind: GeometryKind> Rectangle<Kind> {
-    /// Constructs a new Geometry.
-    pub fn new<N: Into<i32>>(x: N, y: N, h: N, w: N) -> Self {
+impl<N: Scalar, Kind: GeometryKind> Rectangle<N, Kind> {
+    /// Constructs a new `Rectangle`.
+    pub fn new(x: N, y: N, h: N, w: N) -> Self {
         Rectangle {
-            point: Point::new(x.into(), y.into()),
-            size: Size::new(w.into(), h.into())
+            point: Point::new(x, y),
+            size: Size::new(w, h)
         }
     }
 
-    /// Creates a new Rectangle of size (0, 0), anchored at the given `point`.
-    pub fn from_point(point: Point<Kind>) -> Self {
+    /// Creates a new `Rectangle` of size (0, 0), anchored at the given `point`.
+    pub fn from_point(point: Point<N, Kind>) -> Self {
         Rectangle {
             point,
             size: Size::zeroed()
@@ -687,23 +864,23 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     }
 
     /// Creates a new Rectangle of the given `size`, anchored at the origin (0, 0)
-    pub fn from_size(size: Size<Kind>) -> Self {
+    pub fn from_size(size: Size<N, Kind>) -> Self {
         Rectangle {
             point: Point::zeroed(),
             size
         }
     }
 
-    /// Convenience function for constructing a Rectangle with all fields
+    /// Convenience function for constructing a `Rectangle` with all fields
     /// set to zero.
     pub fn zeroed() -> Self {
-        Rectangle::new(0, 0, 0, 0)
+        Rectangle::new(N::ZERO, N::ZERO, N::ZERO, N::ZERO)
     }
 
-    /// Creates a `Geometry` based at the origin (0, 0)
+    /// Creates a `Rectangle` based at the origin (0, 0)
     /// with the given dimensions `height` and `width`.
-    pub fn at_origin(height: i32, width: i32) -> Self {
-        Self::new(0, 0, height, width)
+    pub fn at_origin(height: N, width: N) -> Self {
+        Self::new(N::ZERO, N::ZERO, height, width)
     }
 
     /// Check whether this Rectangle encloses another Rectangle.
@@ -711,15 +888,15 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Rectangle;
+    /// use toaruwm::types::{Rectangle, Logical};
     ///
-    /// let original = Geometry::new(0, 0, 100, 200);
+    /// let original = Rectangle::<i32, Logical>::new(0, 0, 100, 200);
     ///
-    /// let new = Geometry::new(2, 2, 50, 75);
+    /// let new = Rectangle::<i32, Logical>::new(2, 2, 50, 75);
     ///
     /// assert!(original.contains(&new));
     /// ```
-    pub fn contains(&self, other: &Rectangle<Kind>) -> bool {
+    pub fn contains(&self, other: &Self) -> bool {
         match other {
             Rectangle { 
                 point: Point { x, .. }, 
@@ -747,15 +924,15 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::{Geometry, Point};
+    /// use toaruwm::types::{Rectangle, Point, Logical};
     ///
-    /// let original = Geometry::new(0, 0, 100, 200);
+    /// let original = Rectangle::<i32, Logical>::new(0, 0, 100, 200);
     ///
-    /// let point = Point::new(50, 50);
+    /// let point = Point::<i32, Logical>::new(50, 50);
     ///
     /// assert!(original.contains_point(point));
     /// ```
-    pub fn contains_point(&self, pt: Point<Kind>) -> bool {
+    pub fn contains_point(&self, pt: Point<N, Kind>) -> bool {
         let wrange = self.point.x..(self.point.x + self.size.width);
         let hrange = self.point.y..(self.point.y + self.size.height);
 
@@ -764,7 +941,7 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
 
     /// Check whether this Rectangle overlaps with `other`.
     // todo: doctest and example
-    pub fn overlaps_with(&self, other: Rectangle<Kind>) -> bool {
+    pub fn overlaps_with(&self, other: Self) -> bool {
         let a_left = self.point.x;
         let a_right = self.point.x + self.size.width;
         let a_top = self.point.y;
@@ -789,25 +966,106 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         )
     }
 
+    /// Trim off an area from a `Rectangle` from the side corresponding
+    /// to `dir` (`Cardinal::Up` trims the top, `CardinaL::Down`
+    /// trims the bottom).
+    ///
+    /// This returns a new Geometry.
+    #[must_use]
+    pub fn trim(&self, trim: N, dir: Cardinal) -> Self {
+        use Cardinal::*;
+        match dir {
+            Up => Rectangle::new(self.point.x, self.point.y + trim, self.size.height - trim, self.size.width),
+            Down => Rectangle::new(self.point.x, self.point.y, self.size.height - trim, self.size.width),
+            Left => Rectangle::new(self.point.x + trim, self.point.y, self.size.height, self.size.width - trim),
+            Right => Rectangle::new(self.point.x, self.point.y, self.size.height, self.size.width - trim),
+        }
+    }
+
+    /// Creates a new `Rectangle` offset by `delta` pixels in the given
+    /// direction `dir` (unidirectional offset).
+    pub fn unidir_offset(&self, delta: N, dir: Cardinal) -> Self {
+        let Rectangle {point, size} = *self;
+
+        let point = point.unidir_offset(delta, dir);
+
+        Rectangle {point, size}
+    }
+
+    /// Creates a new `Rectangle` offset by `dx, dy` pixels in the given
+    /// directions `dirx, diry` (bidirectional offset).
+    pub fn bidir_offset(&self, dx: N, dy: N, dirx: CardinalX, diry: CardinalY) -> Self {
+        let Rectangle {point, size} = *self;
+
+        let point = point.bidir_offset(dx, dy, dirx, diry);
+
+        Rectangle {point, size}
+    }
+
+    /// Returns a Rectangle formed by the intersection of another Geometry.
+    /// This is effectively a set containing all points found in both Geometries.
+    pub fn intersect(&self, _other: Rectangle<N, Kind>) -> Self {
+        todo!()
+    }
+
+    /// Returns a Rectangle upscaled by a given Scale.
+    /// Also scales the Rectangle's position with respect to the origin (0, 0).
+    pub fn upscale(self, scale: Scale<N>) -> Self {
+        Self {
+            point: self.point.upscale(scale),
+            size: self.size.upscale(scale),
+        }
+    }
+
+    /// Returns a Rectangle downscaled by a given Scale.
+    pub fn downscale(self, scale: Scale<N>) -> Self {
+        Self {
+            point: self.point.downscale(scale),
+            size: self.size.downscale(scale),
+        }
+    }
+}
+
+impl<N: Scalar> Rectangle<N, Logical> {
+    /// Returns a `Rectangle<Physical>`, scaled by `scale`.
+    pub fn as_physical(self, scale: Scale<N>) -> Rectangle<N, Physical> {
+        let point = self.point.as_physical(scale);
+        let size = self.size.as_physical(scale);
+
+        Rectangle {point, size}
+    }
+}
+
+impl<N: Scalar> Rectangle<N, Physical> {
+    /// Returns a `Rectangle<Logical>`, scaled by **`1 / scale`.**
+    pub fn as_logical(self, scale: Scale<N>) -> Rectangle<N, Logical> {
+        let point = self.point.as_logical(scale);
+        let size = self.size.as_logical(scale);
+
+        Rectangle {point, size}
+    }
+}
+
+impl<Kind: GeometryKind> Rectangle<i32, Kind> {
     /// Splits a Rectangle into `n` parts horizontally, each part
     /// covering a region of the original Geometry, top down.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use toaruwm::types::Rectangle;
+    /// use toaruwm::types::{Rectangle, Logical};
     ///
-    /// let original = Rectangle::new(0, 0, 100, 200);
+    /// let original = Rectangle::<i32, Logical>::new(0, 0, 100, 200);
     ///
     /// let new_geoms = original.split_horz_n(2);
     ///
     /// assert_eq!(new_geoms, vec![
-    ///     Geometry::new(0, 0, 50, 200),
-    ///     Geometry::new(0, 50, 50, 200),
+    ///     Rectangle::<i32, Logical>::new(0, 0, 50, 200),
+    ///     Rectangle::<i32, Logical>::new(0, 50, 50, 200),
     /// ]);
     /// ```
     #[must_use]
-    pub fn split_horz_n(&self, n: usize) -> Vec<Self> {
+    pub fn split_horz_n(&self, n: i32) -> Vec<Self> {
         let new_height = self.size.height / n as i32;
 
         let mut ret = Vec::new();
@@ -832,7 +1090,7 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
         ret
     }
 
-    /// Splits a Geometry into `n` parts vertically, each part
+    /// Splits a Rectangle into `n` parts vertically, each part
     /// covering a region of the original Geometry, from left.
     ///
     /// Does *not* split in place.
@@ -1082,158 +1340,34 @@ impl<Kind: GeometryKind> Rectangle<Kind> {
             },
         )
     }
+}
 
-    /// Trim off an area from a Geometry from the side corresponding
-    /// to `dir` (`Cardinal::Up` trims the top, `CardinaL::Down`
-    /// trims the bottom).
-    ///
-    /// This returns a new Geometry.
-    #[must_use]
-    pub fn trim(&self, trim: i32, dir: Cardinal) -> Self {
-        use Cardinal::*;
-        match dir {
-            Up => Rectangle::new(self.point.x, self.point.y + trim, self.size.height - trim, self.size.width),
-            Down => Rectangle::new(self.point.x, self.point.y, self.size.height - trim, self.size.width),
-            Left => Rectangle::new(self.point.x + trim, self.point.y, self.size.height, self.size.width - trim),
-            Right => Rectangle::new(self.point.x, self.point.y, self.size.height, self.size.width - trim),
-        }
-    }
+impl<N, Kind> Mul<Scale<N>> for Rectangle<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    type Output = Self;
 
-    /// Creates a new Geometry offset by `delta` pixels in the given
-    /// direction `dir` (unidirectional offset).
-    pub fn unidir_offset(&self, delta: i32, dir: Cardinal) -> Self {
-        let Rectangle {point, size} = *self;
-
-        let point = point.unidir_offset(delta, dir);
-
-        Rectangle {point, size}
-    }
-
-    /// Creates a new Geometry offset by `dx, dy` pixels in the given
-    /// directions `dirx, diry` (bidirectional offset).
-    pub fn bidir_offset(&self, dx: i32, dy: i32, dirx: CardinalX, diry: CardinalY) -> Self {
-        let Rectangle {point, size} = *self;
-
-        let point = point.bidir_offset(dx, dy, dirx, diry);
-
-        Rectangle {point, size}
-    }
-
-    /// Returns a Rectangle formed by the intersection of another Geometry.
-    /// This is effectively a set containing all points found in both Geometries.
-    pub fn intersect(&self, _other: Rectangle<Kind>) -> Self {
-        todo!()
-    }
-
-    /// Returns a Rectangle by a given scale factor for the x and y axes.
-    /// Also scales the Rectangle's position with respect to the origin (0, 0).
-    pub fn scale(&self, scale_x: f32, scale_y: f32) -> Self {
-        self.scale_gen::<Kind>(scale_x, scale_y)
-    }
-
-    fn scale_gen<K: GeometryKind>(&self, scale_x: f32, scale_y: f32) -> Rectangle<K> {
-        Rectangle {
-            point: self.point.scale_gen::<K>(scale_x, scale_y),
-            size: self.size.scale_gen::<K>(scale_x, scale_y),
+    fn mul(self, scale: Scale<N>) -> Self {
+        Self {
+            point: self.point.upscale(scale),
+            size: self.size.upscale(scale)
         }
     }
 }
 
-impl Rectangle<Logical> {
-    /// Returns a `Rectangle<Physical>`, scaled by `scale`.
-    pub fn as_physical(&self, scale: f32) -> Rectangle<Physical> {
-        self.scale_gen::<Physical>(scale, scale)
+impl<N, Kind> Div<Scale<N>> for Rectangle<N, Kind>
+where
+    N: Scalar,
+    Kind: GeometryKind
+{
+    type Output = Self;
+
+    fn div(self, scale: Scale<N>) -> Self {
+        Self {
+            point: self.point.downscale(scale),
+            size: self.size.downscale(scale)
+        }
     }
-}
-
-impl Rectangle<Physical> {
-    /// Returns a `Rectangle<Logical>`, scaled by **`1 / scale`.**
-    pub fn as_logical(&self, scale: f32) -> Rectangle<Logical> {
-        let inverse = if scale == 0. {0.} else {scale.recip()};
-        self.scale_gen::<Logical>(inverse, inverse)
-    }
-}
-
-/// A representation of a color, following the RGBA model.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Color(u32);
-
-impl Color {
-    /// Creates the Color from a 32-bit integer.
-    pub fn from_hex(hex: u32) -> Self {
-        Self(hex)
-    }
-
-    /// Expresses the Color as a hex string.
-    pub fn as_string(&self) -> String {
-        format!("{:#x}", self.as_u32())
-    }
-
-    /// Returns the (R, G, B) values of the Color
-    /// as bytes.
-    pub fn rgb(&self) -> (u8, u8, u8) {
-        let (r, g, b, _) = self.rgba();
-        (r, g, b)
-    }
-
-    /// Returns the (R, G, B, A) values of the Color
-    /// as bytes.
-    pub fn rgba(&self) -> (u8, u8, u8, u8) {
-        let [r, g, b, a] = u32::to_be_bytes(self.0);
-        (r, g, b, a)
-    }
-
-    /// Returns the (R, G, B) components of the Color
-    /// as proportions of max intensity (255.0).
-    pub fn rgb_f32(&self) -> (f32, f32, f32) {
-        let (r, g, b, _) = self.rgba_f32();
-        (r, g, b)
-    }
-
-    /// Returns the (R, G, B, A) components of the Color
-    /// as proportions of max intensity (255.0).
-    pub fn rgba_f32(&self) -> (f32, f32, f32, f32) {
-        let (r, g, b, a) = self.rgba();
-
-        (
-            r as f32 / 255.0,
-            g as f32 / 255.0,
-            b as f32 / 255.0,
-            a as f32 / 255.0,
-        )
-    }
-
-    /// Returns the color as a u32.
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
-}
-
-impl From<u32> for Color {
-    fn from(from: u32) -> Self {
-        Self::from_hex(from)
-    }
-}
-
-/// Whether the mouse button is pressed, and what state the mouse is in
-#[allow(missing_docs)]
-#[derive(Debug, Clone, Copy)]
-pub enum MouseMode {
-    None,
-    Move,
-    Resize,
-}
-
-/// Determines the colour that should be applied to
-/// the window border.
-///
-/// The actual colour values are specified in `Config`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BorderStyle {
-    /// The colour to be applied to the focused window.
-    Focused,
-    /// The colour to be applied to an unfocused window.
-    Unfocused,
-    /// The colour to applied when a window is marked as urgent.
-    Urgent,
 }

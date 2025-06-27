@@ -114,7 +114,7 @@ impl XCBConn<Initialized> {
 
         Ok(MouseEvent {
             id: id!(ev.child()),
-            location: Point::new(ev.root_x(), ev.root_y()),
+            location: Point::new(ev.root_x() as i32, ev.root_y() as i32),
             state: Mousebind {
                 button,
                 modmask,
@@ -136,7 +136,7 @@ impl XCBConn<Initialized> {
 
         Ok(MouseEvent {
             id: id!(ev.child()),
-            location: Point::new(ev.root_x(), ev.root_y()),
+            location: Point::new(ev.root_x() as i32, ev.root_y() as i32),
             state: Mousebind {
                 button,
                 modmask,

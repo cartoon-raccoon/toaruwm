@@ -241,7 +241,7 @@ pub struct WmHints {
     pub(crate) initial_state: WindowState,
     pub(crate) icon_pixmap: u32,
     pub(crate) icon_window: XWindowID,
-    pub(crate) icon_pos: Point<Logical>,
+    pub(crate) icon_pos: Point<i32, Logical>,
     pub(crate) icon_mask: u32,
     pub(crate) window_group: XWindowID,
 }

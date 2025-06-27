@@ -28,9 +28,9 @@ use super::WorkspaceSpec;
 #[derive(Clone, Debug)]
 pub struct Screen {
     /// The usable geometry of the Screen.
-    pub(crate) effective_geom: Rectangle<Logical>,
+    pub(crate) effective_geom: Rectangle<i32, Logical>,
     /// The actual geometry of the Screen.
-    pub(crate) true_geom: Rectangle<Logical>,
+    pub(crate) true_geom: Rectangle<i32, Logical>,
     /// The index of the Screen.
     pub(crate) idx: i32,
     /// The set of workspaces managed under the screen.
@@ -39,7 +39,7 @@ pub struct Screen {
 
 impl Screen {
     /// Creates a new Screen.
-    pub fn new(screen_idx: i32, geom: Rectangle<Logical>, wix: Vec<String>) -> Self {
+    pub fn new(screen_idx: i32, geom: Rectangle<i32, Logical>, wix: Vec<String>) -> Self {
         Self {
             effective_geom: geom,
             true_geom: geom,
@@ -57,11 +57,11 @@ impl Screen {
         self.true_geom = self.true_geom.trim(trim, dir);
     }
     /// Returns the true geometry of the Screen.
-    pub fn true_geom(&self) -> Rectangle<Logical> {
+    pub fn true_geom(&self) -> Rectangle<i32, Logical> {
         self.true_geom
     }
     /// Returns the effective Geometry of the Screen.
-    pub fn effective_geom(&self) -> Rectangle<Logical> {
+    pub fn effective_geom(&self) -> Rectangle<i32, Logical> {
         self.effective_geom
     }
 }

@@ -115,7 +115,7 @@ impl X11RBConn<Initialized> {
 
         Ok(MouseEvent {
             id: Xid(ev.child),
-            location: Point::new(ev.root_x, ev.root_y),
+            location: Point::new(ev.root_x as i32, ev.root_y as i32),
             state: Mousebind {
                 button,
                 modmask,
@@ -140,7 +140,7 @@ impl X11RBConn<Initialized> {
 
         Ok(MouseEvent {
             id: Xid(ev.child),
-            location: Point::new(ev.root_x, ev.root_y),
+            location: Point::new(ev.root_x as i32, ev.root_y as i32),
             state: Mousebind {
                 button,
                 modmask,

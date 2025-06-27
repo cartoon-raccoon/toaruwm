@@ -155,14 +155,14 @@ pub struct XOutput {
     /// The root window ID.
     pub root: XWindowID,
     /// The geometry of the root window that can be used.
-    pub effective_geom: Rectangle<Logical>,
+    pub effective_geom: Rectangle<i32, Logical>,
     /// The geometry of the physical screen of the root window.
-    pub true_geom: Rectangle<Logical>,
+    pub true_geom: Rectangle<i32, Logical>,
 }
 
 impl XOutput {
     /// Creates a new XOutput.
-    pub fn new(idx: i32, root: XWindowID, geom: Rectangle<Logical>) -> Self {
+    pub fn new(idx: i32, root: XWindowID, geom: Rectangle<i32, Logical>) -> Self {
         Self {
             idx,
             root,
@@ -178,7 +178,7 @@ pub struct XWindow {
     /// The X ID assigned to the window.
     pub id: XWindowID,
     /// The geometry of the window as stored on the X server.
-    pub geom: Rectangle<Logical>,
+    pub geom: Rectangle<i32, Logical>,
 }
 
 impl XWindow {
@@ -191,7 +191,7 @@ impl XWindow {
     }
 
     /// Creates an `XWindow` with the given data.
-    pub fn with_data(id: XWindowID, geom: Rectangle<Logical>) -> Self {
+    pub fn with_data(id: XWindowID, geom: Rectangle<i32, Logical>) -> Self {
         XWindow { id, geom }
     }
 }
@@ -258,7 +258,7 @@ impl XWindow {
     /// Note that this does not update the geometry as tracked by
     /// the X server, and so a request should be made to the server
     /// to update the geometry there as well.
-    pub fn set_geometry(&mut self, geom: Rectangle<Logical>) {
+    pub fn set_geometry(&mut self, geom: Rectangle<i32, Logical>) {
         debug!(
             "Updating geometry for window {}: x: {}, y: {}, h: {}, w: {}",
             self.id, geom.point.x, geom.point.y, geom.size.height, geom.size.width

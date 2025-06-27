@@ -184,7 +184,7 @@ impl XCBConn<Uninitialized> {
 
 impl<S: ConnStatus> XCBConn<S> {
     #[inline]
-    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Rectangle<Logical>> {
+    pub(crate) fn get_geometry_inner(&self, window: XWindowID) -> Result<Rectangle<i32, Logical>> {
         trace!("Getting geometry for window {}", window);
 
         // send the request and grab its reply

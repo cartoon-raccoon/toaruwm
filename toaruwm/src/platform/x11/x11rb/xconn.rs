@@ -59,7 +59,7 @@ impl XCore for X11RBConn<Initialized> {
         self.root
     }
 
-    fn get_geometry(&self, window: XWindowID) -> Result<Rectangle<Logical>> {
+    fn get_geometry(&self, window: XWindowID) -> Result<Rectangle<i32, Logical>> {
         self.get_geometry_inner(window)
     }
 
@@ -306,7 +306,7 @@ impl XCore for X11RBConn<Initialized> {
     }
 
     #[instrument(target = "xconn", level = "trace", skip(self))]
-    fn create_window(&self, ty: WindowClass, geom: Rectangle<Logical>, managed: bool) -> Result<XWindowID> {
+    fn create_window(&self, ty: WindowClass, geom: Rectangle<i32, Logical>, managed: bool) -> Result<XWindowID> {
         use xproto::{CreateWindowAux, WindowClass as XWindowClass};
 
         let (ty, bwidth, class, mut data, depth, visualid) = match ty {
@@ -456,7 +456,7 @@ impl XCore for X11RBConn<Initialized> {
         Ok(())
     }
 
-    fn set_geometry(&self, window: XWindowID, geom: Rectangle<Logical>) -> Result<()> {
+    fn set_geometry(&self, window: XWindowID, geom: Rectangle<i32, Logical>) -> Result<()> {
         self.configure_window(
             window,
             &[ClientConfig::Resize {

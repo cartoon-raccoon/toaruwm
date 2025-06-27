@@ -17,7 +17,7 @@ pub enum ClientConfig {
     /// Width of the window border.
     BorderWidth(u32),
     /// Position of the window.
-    Position(Rectangle<Logical>),
+    Position(Rectangle<i32, Logical>),
     /// Resizing the window.
     Resize {
         /// The height.
