@@ -195,22 +195,107 @@ pub mod marker {
         pub trait Sealed {}
     }
 
-    /// A trait defining marker types `Logical` and `Physical`.
+    use core::ops::{Add, Sub, Mul, Div, Neg};
+
+    /// A sealed trait for marking types as Scalars, that can be used in Points and Rectangles.
+    /// 
+    /// A Scalar should have the following properties defined on it:
+    /// 
+    /// - Multiplication: A Scalar multiplied by another Scalar yields another Scalar.
+    /// - Addition: A Scalar added to another Scalar yields another Scalar.
+    pub trait Scalar: 
+        Sized 
+        + Copy 
+        + PartialEq 
+        + PartialOrd 
+        + Add<Self, Output = Self>
+        + Sub<Self, Output = Self>
+        + Mul<Self, Output = Self> 
+        + Div<Self, Output = Self>
+        + Neg<Output = Self>
+        + Default
+    {
+        /// The minimum value this scalar can have.
+        const MIN: Self;
+        
+        /// The maximum value this scalar can have.
+        const MAX: Self;
+        
+        /// The multiplicative identity of the Scalar, i.e. for any Scalar, when multiplied by its
+        /// multiplicative identity, yields the same value as the Scalar.
+        /// 
+        /// Usually this is 1.
+        const MUL_ID: Self;
+
+        /// The additive identity of the Scalar, i.e. for any Scalar, when added by its additive
+        /// identity, yields the same value as the Scalar.
+        /// 
+        /// Usually this is 0.
+        /// 
+        /// The additive identity should also have the additional property that when any Scalar
+        /// is multiplied by it, yields the additive identity, i.e n * 0 = 0.
+        const ADD_ID: Self;
+
+        /// The zero point of the Scalar. Usually, this is the additive identity of the Scalar.
+        const ZERO: Self = Self::ADD_ID;
+
+        /// Convert to this Scalar from an f64.
+        fn from_f64(v: f64) -> Self;
+
+        /// Convert this Scalar to an f64.
+        fn to_f64(self) -> f64;
+    }
+
+    macro_rules! __impl_scalar {
+        ($mul:literal, $add:literal: $($targ:ty),+) => {
+            $(
+                impl Scalar for $targ {
+                    const MIN: Self = <$targ>::MIN;
+                    const MAX: Self = <$targ>::MAX;
+                    const MUL_ID: Self = $mul;
+                    const ADD_ID: Self = $add;
+
+                    #[inline]
+                    fn from_f64(v: f64) -> Self {
+                        v as Self
+                    }
+
+                    #[inline]
+                    fn to_f64(self) -> f64 {
+                        self as f64
+                    }
+                }
+            )+
+        };
+    }
+
+    __impl_scalar!(1, 0: i8, i32, i64, i128);
+    __impl_scalar!(1., 0.: f32, f64);
+
+    /// A sealed trait defining marker types `Logical` and `Physical`.
     pub trait GeometryKind: Copy + PartialEq + private::Sealed {}
 
-    /// A marker type indicating a geometry type is logical.
-    #[derive(Debug, Default, Clone, Copy, PartialEq)]
-    pub struct Logical;
+    macro_rules! __impl_geometrykind {
+        {$(#[$outer:meta])? $targ:ident} => {
+            $(
+                #[$outer]
+            )?
+            #[derive(Debug, Default, Clone, Copy, PartialEq)]
+            pub struct $targ;
 
-    impl GeometryKind for Logical {}
-    impl private::Sealed for Logical {}
+            impl private::Sealed for $targ {}
+            impl GeometryKind for $targ {}
+        };
+    }
 
-    #[derive(Debug, Default, Clone, Copy, PartialEq)]
-    /// A marker type indicating a geometry type is physical.
-    pub struct Physical;
-
-    impl GeometryKind for Physical {}
-    impl private::Sealed for Physical {}
+    __impl_geometrykind!{
+        /// A type for marking geometrical types as logical.
+        Logical
+    }
+    __impl_geometrykind!{
+        /// A type for marking geometrical types as physical.
+        Physical
+    }
 
 
     use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -228,7 +313,16 @@ pub mod marker {
     impl<T> BitMask for T where T: BitAnd + BitOr + Not + BitAndAssign + BitOrAssign + Sized {}
 }
 
-pub use marker::{GeometryKind, Logical, Physical, BitMask};
+pub use marker::{GeometryKind, Logical, Physical, Scalar, BitMask};
+
+/// A two-dimensional Scale that can be used to scale [`Point`]s, [`Size`]s,
+/// and [`Rectangle`]s.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[allow(missing_docs)]
+pub struct Scale<N: Scalar> {
+    pub x: N,
+    pub y: N,
+}
 
 /// A type for representing a point on a display or screen.
 ///
