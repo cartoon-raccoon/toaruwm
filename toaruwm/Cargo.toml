@@ -27,6 +27,7 @@ smithay = { version = "0.6", features = [
     "xwayland"] }
 
 smithay-drm-extras = "0.1.0"
+glam = "0.30.4"
 
 input = "0.9"
 
@@ -46,3 +47,12 @@ nix = "0.20"
 libc = "0.2.172"
 
 thiserror = "1"
+
+[features]
+default = ["wayland-full", "x11-full"]
+wayland-full = ["xwayland"]
+x11-full = ["x11"]
+xwayland = ["wayland-core"]
+x11 = []
+wayland-core = []
+systemd = []

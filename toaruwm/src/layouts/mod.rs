@@ -269,7 +269,7 @@ pub enum LayoutAction<'layout, P: Platform> {
         /// The Client to apply the geometry to.
         id: &'layout P::Client,
         /// The geometry to apply to the Client.
-        geom: Rectangle<Logical>,
+        geom: Rectangle<i32, Logical>,
     },
     /// Map the given window.
     Map(&'layout P::Client),
