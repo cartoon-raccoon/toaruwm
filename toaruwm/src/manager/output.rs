@@ -46,7 +46,7 @@ impl OutputLayout {
     }
 
     /// Insert an output at a specified Point.
-    pub fn insert_at_point(&mut self, point: Point<Logical>, output: Output) -> Result<(), Output> {
+    pub fn insert_at_point(&mut self, point: Point<i32, Logical>, output: Output) -> Result<(), Output> {
         if self.find_by_name(&output.name).is_some() {
             return Err(output)
         }
@@ -166,7 +166,7 @@ impl Output {
 #[derive(Debug, Clone, Copy)]
 pub struct OutputMode {
     /// The resolution of the mode.
-    pub size: Size<Physical>,
+    pub size: Size<i32, Physical>,
     /// The refresh rate of the mode.
     pub refresh: i32,
 }
@@ -196,7 +196,7 @@ impl OutputEntry {
 #[derive(Debug, Clone, EnumIs)]
 pub(crate) enum OutputPosition {
     /// At a requested point on the global coordinate space.
-    Point(Point<Logical>),
+    Point(Point<i32, Logical>),
     /// Relative to another Output.
     Relative(Cardinal, Weak<OutputEntry>),
     /// Mirroring another Output.
