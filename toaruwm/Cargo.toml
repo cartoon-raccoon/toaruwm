@@ -15,17 +15,6 @@ xcb = { version = "1.2", features = ["randr", "xkb"] }
 x11 = "2.21"
 x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cursor", "randr", "xkb"] }
 
-smithay = { version = "0.6", features = [
-    "wayland_frontend", 
-    "backend_drm", 
-    "backend_egl",
-    "backend_libinput", 
-    "backend_udev", 
-    "backend_session",
-    "desktop",
-    "use_system_lib", 
-    "xwayland"] }
-
 smithay-drm-extras = "0.1.0"
 glam = "0.30.4"
 
@@ -42,11 +31,27 @@ custom_debug_derive = "0.6.1"
 bitflags = "2.5.0"
 byteorder = "1.4.3"
 
+indexmap = {version = "2.10", features = ["std"]}
+
 rustix = "1.0.5"
 nix = "0.20"
 libc = "0.2.172"
 
 thiserror = "1"
+
+[dependencies.smithay]
+version = "0.7"
+features = [
+    "wayland_frontend", 
+    "backend_drm", 
+    "backend_egl",
+    "backend_libinput", 
+    "backend_udev", 
+    "backend_session",
+    "desktop",
+    "use_system_lib", 
+    "xwayland"]
+
 
 [features]
 default = ["wayland-full", "x11-full"]
