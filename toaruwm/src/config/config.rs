@@ -21,7 +21,7 @@ use crate::types::{Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
 
-pub use crate::manager::output::{Output, OutputLayout};
+pub use super::output::{Output, OutputLayout};
 
 /// A trait defining a `WindowManager` configuration.
 ///

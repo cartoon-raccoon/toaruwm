@@ -1,3 +1,5 @@
+//! Types for Output configuration.
+
 use std::sync::{Arc, Weak};
 
 use strum::EnumIs;

@@ -1,17 +1,19 @@
-//! # ToaruWM - A certain X WM
+//! # Toaru - A certain desktop
 //!
-//! ToaruWM is a crate that gives you the tools you need to design
-//! and build your very own X window manager.
+//! Toaru is a crate that gives you the tools you need to design
+//! and build your very own graphical desktop, without having to dig into
+//! the complex plumbing of how it actually works, though it gives
+//! you the ability to dig into, and replace individual parts if you want.
 //! It provides useful types and interfaces that you can use to put
-//! a window manager together, in any way you want. You can design
-//! a full-blown window manager configured with a completely different
-//! language (a la AwesomeWM), or a tiny, minimal window manager
+//! a a desktop together, in any way you want, on X11 or Wayland. You 
+//! can design a full-blown desktop configured with a completely 
+//! different language (a la AwesomeWM), or a tiny, minimal window manager
 //! that is configured within the source code and requires a recompile
 //! (like dwm) each time you change the config.
 //!
 //! ## Design
 //!
-//! ToaruWM was designed in the style of tiling window managers, like
+//! Toaru was designed in the style of tiling window managers, like
 //! dwm or Qtile. Its default tiling layout maintains a main window
 //! on the left of the screen, while other windows are stacked on the
 //! side of the main window. Users can also design their own layouts
@@ -41,105 +43,50 @@
 //! the way you want it. As such, you will need a working knowledge
 //! of Rust, of which the [book](https://doc.rust-lang.org/book/) will
 //! provide more than enough for you to get something up and running.
+//! 
+//! However, if you wish to just install the basic implementation, you
+//! can install it here: // todo
 //!
-//! The core of this crate is the central [`WindowManager`] struct;
-//! it is the entry point to this crate, and everything else in this
-//! crate is built around it. To start exploring this crate, reading
-//! its documentation is the best place to start.
+//! There are two core objects to the entire crate: 
+//! - the [`Toaru`] struct, which provides the generic window management 
+//! functionality;
+//! - and an implementation of the [`Platform`] trait, that provides the
+//! actual link to the underlying graphics platform (X11 or Wayland).
+//! 
+//! Everything else in this crate is built around these two types. 
+//! To start exploring this crate, reading their documentation is the
+//! best place to start.
 //!
-//! That being said, a basic window manager built with ToaruWM has
+//! That being said, a basic desktop built with Toaru has
 //! the following general structure:
 //!
 //! ```no_run
-//!# use toaruwm::WindowManager;
-//!# use toaruwm::{ToaruWM, InitX11RB};
-//!
-//!# // convenience typedef
-//! use toaruwm::{
-//!     ToaruConfig,
-//!     x11rb_backed_wm, hook
-//! };
-//! use toaruwm::bindings::{
-//!     mb, ButtonIndex as Idx,
-//!     Keymap, Keybinds, Mousebinds,
-//!     ModKey, MouseEventKind::*,
-//! };
-//!
-//! type Wm<'a> = &'a mut ToaruWM<InitX11RB>;
-//!
-//! //todo: hide all this behind a declarative macro
-//! // defining keybinds and associated WM actions
-//! const KEYBINDS: &[(&str, fn(Wm))] = &[
-//!     ("M-q", |wm| wm.close_focused_window()),
-//!     ("M-S-q", |wm| wm.quit()),
-//! ];
-//!
-//! //* 1: Setup X Connection and allocate new WM object
-//! let mut wm = x11rb_backed_wm(ToaruConfig::default()).unwrap();
-//!
-//! //* 2: Read/setup config
-//! // if using as a library, declare config here
-//! // else use a Config type to read a config file
-//!
-//! let keymap = Keymap::new().unwrap();
-//!
-//! // adding keybinds
-//! let mut keybinds = Keybinds::new();
-//! for (kb, cb) in KEYBINDS {
-//!     keybinds.insert(
-//!         keymap.parse_keybinding(kb).unwrap(),
-//!         Box::new(cb)
-//!     );
-//! }
-//!
-//! // adding mousebinds
-//! let mut mousebinds = Mousebinds::new();
-//! mousebinds.insert(
-//!     mb(vec![ModKey::Meta], Idx::Left, Motion),
-//!     Box::new(|wm: Wm, pt| wm.move_window_ptr(pt)),
-//! );
-//! mousebinds.insert(
-//!     mb(vec![ModKey::Meta], Idx::Right, Motion),
-//!     Box::new(|wm: Wm, pt| wm.resize_window_ptr(pt)),
-//! );
-//!
-//! //* create a hook if you want
-//! let test_hook = hook!(|wm| {
-//!     wm.dump_internal_state();
-//!     println!("hello from a hook!");
-//! });
-//!
-//! //* 3: Register the WM as a client with the X server
-//! //*    and initialise internal state
-//! //* a: Grab keys and mousebinds
-//! wm.register(vec![test_hook]);
-//! wm.grab_bindings(&keybinds, &mousebinds).unwrap();
-//!
-//! //* 4: We're good to go!
-//! wm.run(keybinds, mousebinds).unwrap();
-//!
+//! // todo
 //! ```
 //!
 //! ## Extensions and Add-Ons
 //!
-//! ToaruWM core has internal support for widgets and extensions through
-//! the [`Widget`](widget::Widget) trait.
+//! Toaru core has internal support for widgets and extensions.
 //!
 //! Additionally, the ToaruWM ecosystem takes the same approach as QTile:
 //! everything _and_ the kitchen sink. A number of extensions and add-ons
-//! such as bars, widgets, and configuration options will be provided
-//! through the planned `toarulib` crate, which will contain
-//! many different additional widgets that you can add you your own
-//! personal configuration.
+//! such as bars, widgets, and configuration options are provided in the
+//! `toarulib` module, which will contain many different additional widgets
+//! that you can add you your own personal configuration.
 //!
 //! Of course, you are still free to use your own bars such as Polybar:
-//! ToaruWM is planned to have support for [EWMH], which are what
+//! Toaru is planned to have support for [EWMH], which are what
 //! makes window managers aware of things like bars and fullscreen,
 //! and account for them accordingly.
 //!
 //! ## Compliance
+//! 
+//! For the full details on compliance, see the `COMPLIANCE` file
+//! in this project's git repository.
+//! 
+//! ### X Window Protocol and Extensions
 //!
-//! ToaruWM is (planned to be) mostly compliant with EWMH, and
+//! Toaru is (planned to be) mostly compliant with EWMH, and
 //! with most sections of the [ICCCM], particularly the ones that
 //! were deemed most important for interoperability with various
 //! X clients, such as notification daemons, pop-up windows,
@@ -149,9 +96,11 @@
 //! have, full compliance with ICCCM, partly because parts of ICCCM
 //! have been superseded by EWMH, and also because other parts of ICCCM
 //! are just [not worth implementing][1].
+//! 
+//! ### Wayland
+//! 
+//! Toaru is compliant with all core and stable Wayland protocols.
 //!
-//! For the full details on compliance, see the `COMPLIANCE` file
-//! in this project's git repository.
 //!
 //! [EWMH]: https://en.wikipedia.org/wiki/Extended_Window_Manager_Hints
 //! [ICCCM]: https://en.wikipedia.org/wiki/Inter-Client_Communication_Conventions_Manual
@@ -166,6 +115,7 @@
 #[macro_use]
 extern crate bitflags;
 
+pub mod config;
 pub mod bindings;
 pub mod core;
 pub mod layouts;
@@ -173,8 +123,6 @@ pub mod manager;
 pub mod toarulib;
 pub mod platform;
 pub mod util;
-
-pub(crate) use util::log;
 
 /// Modules that Toaru is tightly integrated with, re-exported for convenience.
 pub mod reexports {
@@ -184,7 +132,9 @@ pub mod reexports {
 
 pub use crate::core::types;
 #[doc(inline)]
-pub use crate::manager::{Config, ToaruConfig, Toaru};
+pub use crate::manager::{Toaru};
+#[doc(inline)]
+pub use crate::config::{Config, ToaruConfig};
 #[doc(inline)]
 pub use crate::platform::x11::core::XConn;
 #[doc(inline)]
@@ -193,42 +143,9 @@ pub use crate::platform::x11::{x11rb::X11RBConn, xcb::XCBConn};
 pub use crate::platform::{Platform};
 
 use crate::bindings::BindingError;
-use crate::manager::state::{RuntimeConfig, WmConfig};
-use crate::platform::x11::{Initialized};
+use crate::manager::state::{RuntimeConfig};
 
 use std::io;
-
-/// Convenience type definition for a WindowManager
-/// using a WmConfig as its RuntimeConfig.
-pub type ToaruWM<X> = Toaru<X, WmConfig>;
-
-/// Convenience type definition for an Initialized
-/// XCBConn.
-pub type InitXCB = XCBConn<Initialized>;
-
-/// Convenience type definition for an Initialized
-/// X11RBConn.
-pub type InitX11RB = X11RBConn<Initialized>;
-
-/// Convenience function for creating an `xcb`-backed `WindowManager`.
-// pub fn xcb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitXCB>> {
-//     let conn = XCBConn::connect()?;
-//     let conn = conn.init()?;
-
-//     let wm = Toaru::new(conn, config)?;
-
-//     Ok(wm)
-// }
-
-/// Convenience function for creating an `x11rb`-backed `WindowManager`.
-// pub fn x11rb_backed_wm(config: ToaruConfig) -> Result<ToaruWM<InitX11RB>> {
-//     let conn = X11RBConn::connect()?;
-//     let conn = conn.init()?;
-
-//     let wm = Toaru::new(conn, config)?;
-
-//     Ok(wm)
-// }
 
 use thiserror::Error;
 
