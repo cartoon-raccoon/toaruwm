@@ -95,7 +95,12 @@ pub trait WaylandBackend: Debug {
 /// 
 /// This method is called when you call `Wayland::new()`, to initialize any state in your
 /// backend that requires access to a `Wayland` instance.
-pub trait WaylandBackendInit<C: RuntimeConfig>: WaylandBackend + Debug {
+/// 
+/// You need to implement this trait if for every `WaylandBackend` you implement, as it is
+/// a trait bound on [`Wayland::new`][1].
+/// 
+/// [1]: crate::platform::wayland::Wayland::new
+pub trait WaylandBackendInit<C: RuntimeConfig>: WaylandBackend {
     /// Initialize Wayland State
     #[allow(unused_variables)]
     fn init(
