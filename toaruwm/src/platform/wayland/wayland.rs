@@ -62,7 +62,9 @@ where
     
     /// Our backend.
     pub(super) backend: B,
+    /// Our event loop handle.
     pub(super) event_loop: LoopHandle<'static, Self>,
+    /// Everything else.
     pub(super) wl_impl: WaylandImpl<C, B>
 }
 
@@ -198,7 +200,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
     }
 
-    /// Create
+    /// Create the elements for rendering.
     pub fn render_elements(&mut self) {
 
     }
@@ -224,10 +226,70 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
 /// [`Wayland`], without the backend.
 /// 
-/// This allows us to pass in a reference to our overall Wayland platform state without
-/// running into issues with multiple mutable borrows.
+/// `WaylandImpl` stores the core non-backend state of the `Platform` that owns it. This allows
+/// us to pass in mutable references to it, into backend method calls, so we can still access all
+/// our state from the backend method call.
 /// 
-/// You do not need to construct this struct explicitly, it is constructed within 
+/// ## A motivating example
+/// 
+/// When constructing your backend, there will be many instances where you need to insert callbacks
+/// into your event loop through your loop handle. These callbacks are passed a mutable reference to
+/// your state as an argument, so you now have full access to your state and all its fields.
+/// 
+/// Imagine your state was laid out like this:
+/// 
+/// ```no_run
+/// pub struct State {
+///     backend: Backend, // your struct which implements WaylandBackend
+///     /* .. your other state fields ... */
+/// }
+/// 
+/// ...
+/// 
+/// impl Backend {
+///     pub fn method_call(&mut self, state: &mut State) { ... }
+/// }
+/// 
+/// ```
+/// and so when inserting your callback, it looks like this:
+/// 
+/// ```no_run
+/// loop_handle.insert_source(eventsource, |state: &mut State| state.backend.method_call(state));
+/// ```
+/// Oh no! We now have two mutable borrows on `state`, `state.backend` and passing in `state` to the
+/// backend method call! The compiler statically checks this will not work, and rightfully blows up
+/// in our face.
+/// 
+/// Now imagine your state was laid out like this:
+/// 
+/// ```no_run
+/// pub struct StateImpl {
+///     /* ... state fields ... */
+/// }
+/// pub struct State {
+///     backend: Backend,
+///     // State fields are stored under one struct
+///     state_impl: StateImpl,
+/// }
+/// 
+/// impl Backend {
+///     pub fn method_call(&mut self, state_impl: &mut StateImpl) { ... }
+/// }
+/// ```
+/// 
+/// And when we insert our callback, we can do this:
+/// 
+/// ```no_run
+/// loop_handle.insert_source(eventsource, |state: &mut State| state.backend.method_call(&mut state.state_impl));
+/// ```
+/// 
+/// Now, we're borrowing from two different fields, and so the compiler allows us to borrow mutably multiple times,
+/// since the borrows are on disjoint fields.
+/// 
+/// ---
+/// 
+/// You do not need to construct this struct explicitly, it is constructed in [`Wayland::new`],
+/// and owned by the `Wayland` struct.
 #[derive(Debug)]
 pub struct WaylandImpl<C, B>
 where

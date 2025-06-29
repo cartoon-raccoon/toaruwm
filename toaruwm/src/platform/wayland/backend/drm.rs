@@ -1,3 +1,7 @@
+//! A DRM backend for [`Wayland`].
+//! 
+//! This module provides [`DrmBackend`], a backend which is meant to run in a TTY.
+
 use std::path::Path;
 use std::collections::{HashMap, HashSet};
 
