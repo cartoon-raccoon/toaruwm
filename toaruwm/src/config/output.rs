@@ -4,7 +4,7 @@ use std::sync::{Arc, Weak};
 
 use strum::EnumIs;
 
-use crate::types::{Point, Size, Physical, Logical, Cardinal};
+use crate::types::{Point, Size, Physical, Logical, Cardinal, Transform};
 
 /// A set of outputs laid out on a 2D coordinate space, as defined by the user.
 /// You can insert and remove Outputs as needed.
@@ -144,9 +144,10 @@ pub struct Output {
     pub enabled: bool,
     /// Mode of the output. If none, preferred will be chosen.
     pub mode: Option<OutputMode>,
-    /// The scale of the output. If none, the most optimal scale will be chosen
-    /// based on the physical dimensions of the monitor.
-    pub scale: Option<f32>,
+    /// Scale used by the output. If none, preferred will be chosen.
+    pub scale: Option<OutputScale>,
+    /// The transform to be used by the Output.
+    pub transform: Transform,
     /// Whether variable refresh-rate is enabled for this output.
     pub vrr: bool,
 }
@@ -159,18 +160,35 @@ impl Output {
             mode: None,
             enabled: true,
             scale: None,
+            transform: Default::default(),
             vrr: false,
         }
     }
 }
 
 /// A platform, agnostic representation of a physical monitor's mode, as managed by Toaru.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OutputMode {
     /// The resolution of the mode.
     pub size: Size<i32, Physical>,
     /// The refresh rate of the mode.
     pub refresh: i32,
+}
+
+/// The scale used by an Output.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OutputScale {
+    /// An integer scale.
+    Integer(i32),
+    /// A fractional scale, used when supporting fractional scaling.
+    Fractional(f64),
+    /// A scale split between the values advertised to clients.
+    Split {
+        /// An integer advertised to clients that do not support fractional scaling.
+        integer: i32,
+        /// A fractional scale value used elsewhere.
+        fractional: f64
+    }
 }
 
 /// An entry in an OutputLayout.

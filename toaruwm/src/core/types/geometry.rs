@@ -507,6 +507,14 @@ impl<N: Scalar, Kind: GeometryKind> Point<N, Kind> {
         Point { x: N::ZERO, y: N::ZERO, _kind: PhantomData}
     }
 
+    pub fn as_f64(&self) -> Point<f64, Kind> {
+        Point {
+            x: self.x.to_f64(),
+            y: self.y.to_f64(),
+            _kind: PhantomData
+        }
+    }
+
     /// Calculates the x and y offsets between itself and another Point.
     ///
     /// Offset is calculated with reference to itself.
@@ -749,6 +757,14 @@ impl<N: Scalar, Kind: GeometryKind> Size<N, Kind> {
     /// Creates a new Size with all fields set to zero.
     pub const fn zeroed() -> Self {
         Self::new(N::ZERO, N::ZERO)
+    }
+
+    pub fn as_f64(&self) -> Size<f64, Kind> {
+        Size {
+            width: self.width.to_f64(),
+            height: self.height.to_f64(),
+            _kind: PhantomData,
+        }
     }
 
     /// Returns true if the area of this size is zero.

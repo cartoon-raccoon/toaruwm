@@ -13,10 +13,10 @@
 
 use tracing::debug;
 
-use crate::core::{Client, Workspace};
+use crate::core::{Window, Workspace};
 use crate::layouts::{Layout, Layouts};
 use crate::manager::RuntimeConfig;
-use crate::platform::{Platform};
+use crate::platform::{Platform, PlatformOutput};
 use crate::types::{
     Cardinal, Direction, Rectangle, Logical, Ring, Selector
 };
@@ -25,41 +25,45 @@ use crate::{Result, ToaruError::*};
 use super::WorkspaceSpec;
 
 /// Represents a physical monitor.
-#[derive(Clone, Debug)]
-pub struct Screen {
+#[derive(Debug, Clone)]
+pub struct Screen<P: Platform> {
+    pub(crate) name: String,
+    pub(crate) output: P::Output,
     /// The usable geometry of the Screen.
     pub(crate) effective_geom: Rectangle<i32, Logical>,
-    /// The actual geometry of the Screen.
-    pub(crate) true_geom: Rectangle<i32, Logical>,
     /// The index of the Screen.
     pub(crate) idx: i32,
-    /// The set of workspaces managed under the screen.
-    pub(crate) wix: Vec<String>,
 }
 
-impl Screen {
-    /// Creates a new Screen.
-    pub fn new(screen_idx: i32, geom: Rectangle<i32, Logical>, wix: Vec<String>) -> Self {
+impl<P: Platform> Screen<P> {
+
+    /// Creates a new Screen with the given output.
+    pub fn new(output: P::Output, screen_idx: i32) -> Self {
+        let effective_geom = output.geometry().unwrap_or_else(|| Rectangle::zeroed());
         Self {
-            effective_geom: geom,
-            true_geom: geom,
+            name: output.name(),
+            output,
+            effective_geom,
             idx: screen_idx,
-            wix,
         }
     }
-    /// Adds a new workspace to the Screen.
-    pub fn add_workspace<S: Into<String>>(&mut self, wsname: S) {
-        self.wix.push(wsname.into());
-    }
+
     /// Updates the effective area of the screen by trimming off
     /// a section in the given direction.
     pub fn update_effective(&mut self, dir: Cardinal, trim: i32) {
-        self.true_geom = self.true_geom.trim(trim, dir);
+        self.effective_geom = self.effective_geom.trim(trim, dir);
     }
+
+    /// Sets the effective geometry of the screen.
+    pub fn set_effective(&mut self, geom: Rectangle<i32, Logical>) {
+        self.effective_geom = geom;
+    }
+
     /// Returns the true geometry of the Screen.
     pub fn true_geom(&self) -> Rectangle<i32, Logical> {
-        self.true_geom
+        self.output.geometry().unwrap_or_else(|| Rectangle::zeroed())
     }
+
     /// Returns the effective Geometry of the Screen.
     pub fn effective_geom(&self) -> Rectangle<i32, Logical> {
         self.effective_geom
@@ -118,12 +122,12 @@ impl<P: Platform> Desktop<P> {
     }
 
     /// Test whether a certain window is already managed.
-    pub fn is_managing(&self, id: &P::Client) -> bool {
+    pub fn is_managing(&self, id: P::WindowId) -> bool {
         self.workspaces.iter().any(|ws| ws.contains_window(id))
     }
 
     /// Get a reference to the focused client of the focused workspace.
-    pub fn current_client(&self) -> Option<&Client<P>> {
+    pub fn current_client(&self) -> Option<&Window<P>> {
         match self.workspaces.focused() {
             Some(ws) => ws.focused_client(),
             None => None,
@@ -132,7 +136,7 @@ impl<P: Platform> Desktop<P> {
 
     /// Get a mutable reference to the focused client of the focused
     /// workspace.
-    pub fn current_client_mut(&mut self) -> Option<&mut Client<P>> {
+    pub fn current_client_mut(&mut self) -> Option<&mut Window<P>> {
         match self.workspaces.focused_mut() {
             Some(ws) => ws.focused_client_mut(),
             None => None,
@@ -165,7 +169,7 @@ impl<P: Platform> Desktop<P> {
 
     /// Get a reference to the workspace containing the window
     /// and the window's index in the workspace.
-    pub fn retrieve(&mut self, window: &P::Client) -> Option<(&Workspace<P>, usize)> {
+    pub fn retrieve(&mut self, window: P::WindowId) -> Option<(&Workspace<P>, usize)> {
         for ws in self.workspaces.iter() {
             if let Some(idx) = ws.contains(window) {
                 return Some((ws, idx));
@@ -176,7 +180,7 @@ impl<P: Platform> Desktop<P> {
     }
 
     /// `retrieve`'s mutable version.
-    pub fn retrieve_mut(&mut self, window: &P::Client) -> Option<(&mut Workspace<P>, usize)> {
+    pub fn retrieve_mut(&mut self, window: P::WindowId) -> Option<(&mut Workspace<P>, usize)> {
         for ws in self.workspaces.iter_mut() {
             if let Some(idx) = ws.contains(window) {
                 return Some((ws, idx));
@@ -227,8 +231,7 @@ impl<P: Platform> Desktop<P> {
     /// Cycle workspaces in given direction.
     pub fn cycle_to<C>(
         &mut self,
-        pf: &P,
-        scr: &Screen,
+        scr: &Screen<P>,
         cfg: &C,
         direction: Direction,
     ) -> Result<(), P>
@@ -245,11 +248,11 @@ impl<P: Platform> Desktop<P> {
         } else {
             return Err(OtherError("Focused should be Some".into()));
         }
-        self.go_to(&name, pf, scr, cfg)
+        self.go_to(&name, scr, cfg)
     }
 
     /// Switch to a given workspace by its name.
-    pub fn go_to<C>(&mut self, name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
+    pub fn go_to<C>(&mut self, name: &str, scr: &Screen<P>, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {
@@ -267,19 +270,13 @@ impl<P: Platform> Desktop<P> {
             return Ok(());
         }
 
-        // pf.set_property(
-        //     pf.get_root().id,
-        //     Atom::NetCurrentDesktop.as_ref(),
-        //     Property::Cardinal(new_idx as u32),
-        // )?;
-
-        self.current_mut().deactivate(pf);
+        self.current_mut().deactivate();
         self.set_current(new_idx);
 
         debug!("Goto workspace idx {}", new_idx);
 
         if let Some(ws) = self.get_mut(self.current_idx()) {
-            ws.activate(pf, scr, cfg);
+            ws.activate(scr, cfg);
         } else {
             return Err(UnknownWorkspace(name.into()));
         }
@@ -287,7 +284,7 @@ impl<P: Platform> Desktop<P> {
         Ok(())
     }
     /// Sends the currently focused window to the specified workspace.
-    pub fn send_focused_to<C>(&mut self,name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
+    pub fn send_focused_to<C>(&mut self,name: &str, scr: &Screen<P>, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {
@@ -298,16 +295,16 @@ impl<P: Platform> Desktop<P> {
             debug!("No focused window in workspace {}", name);
             return Ok(());
         };
-        self.send_window_to(&winid.clone(), name, pf, scr, cfg)
+        self.send_window_to(winid, name, scr, cfg)
     }
 
     /// Send a window to a given workspace.
-    pub fn send_window_to<C>(&mut self, id: &P::Client, name: &str, pf: &P, scr: &Screen, cfg: &C) -> Result<(), P>
+    pub fn send_window_to<C>(&mut self, id: P::WindowId, name: &str, scr: &Screen<P>, cfg: &C) -> Result<(), P>
     where
         C: RuntimeConfig,
     {
         debug!("Attempting to send window to workspace {}", name);
-        let Some(window) = self.current_mut().take_window(id, pf) else {
+        let Some(window) = self.current_mut().take_window(id) else {
             return Err(UnknownClient(id.clone()))
         };
         debug!("Sending window {:?} to workspace {}", window.id(), name);
@@ -320,7 +317,7 @@ impl<P: Platform> Desktop<P> {
         if ws.focused_client().is_none() {
             ws.windows.set_focused_by_winid(id);
         }
-        self.current_mut().relayout(pf, scr, cfg);
+        self.current_mut().relayout(scr, cfg);
         Ok(())
     }
 }

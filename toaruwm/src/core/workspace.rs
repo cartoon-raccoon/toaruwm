@@ -9,18 +9,17 @@
 use std::fmt;
 
 use tracing::instrument;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, warn, trace};
 
 use crate::core::{
     desktop::Screen,
     ring::Ring,
-    window::{Client, ClientRing, FocusStack},
+    window::{Window, WindowRing, FocusStack},
 };
 use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
 use crate::manager::RuntimeConfig;
 use crate::types::{BorderStyle, Direction};
 use crate::platform::{Platform};
-use crate::core::types::ClientId;
 
 use crate::Result;
 
@@ -121,9 +120,10 @@ where
     P: Platform,
 {
     pub(crate) name: String,
-    pub(crate) windows: ClientRing<P>,
-    pub(crate) focuses: FocusStack<P::Client>,
+    pub(crate) windows: WindowRing<P>,
+    pub(crate) focuses: FocusStack<P::WindowId>,
     pub(crate) layouts: Layouts<P>,
+    pub(crate) monitor: Option<String>,
 }
 
 impl<P: Platform> fmt::Debug for Workspace<P> {
@@ -131,7 +131,8 @@ impl<P: Platform> fmt::Debug for Workspace<P> {
         f.debug_struct("Workspace")
             .field("name", &self.name)
             .field("windows", &self.windows)
-            .field("layout", &Option::<u32>::None)
+            .field("layouts", &Option::<u32>::None)
+            .field("monitor", &self.monitor)
             .finish()
     }
 }
@@ -143,9 +144,10 @@ impl<P: Platform> Workspace<P> {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.into(),
-            windows: ClientRing::new(),
+            windows: WindowRing::new(),
             focuses: FocusStack::new(),
             layouts: Ring::new(),
+            monitor: None,
         }
     }
 
@@ -161,9 +163,10 @@ impl<P: Platform> Workspace<P> {
     {
         Self {
             name: name.into(),
-            windows: ClientRing::new(),
+            windows: WindowRing::new(),
             focuses: FocusStack::new(),
             layouts: Layouts::with_layouts_validated(layouts).expect("validation failed"),
+            monitor: None,
         }
     }
 
@@ -180,16 +183,17 @@ impl<P: Platform> Workspace<P> {
 
         Ok(Self {
             name: spec.name,
-            windows: ClientRing::new(),
+            windows: WindowRing::new(),
             focuses: FocusStack::new(),
             layouts: Layouts::with_layouts_validated(layouts)?,
+            monitor: None
         })
     }
 
     /// Sets the layout to use and applies it to all currently mapped windows.
     ///
     /// Is a no-op if no such layout exists.
-    pub fn set_layout<C>(&mut self, layout: &str, pf: &P, scr: &Screen, cfg: &C)
+    pub fn set_layout<C>(&mut self, layout: &str, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -198,44 +202,44 @@ impl<P: Platform> Workspace<P> {
             return
         };
         self.layouts.set_focused(idx);
-        self.relayout(pf, scr, cfg);
+        self.relayout(scr, cfg);
     }
 
     /// Cycles in the given direction to the next layout, and applies it.
-    pub fn cycle_layout<C>(&mut self, dir: Direction, pf: &P, scr: &Screen, cfg: &C)
+    pub fn cycle_layout<C>(&mut self, dir: Direction, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig,
     {
         self.layouts.cycle_focus(dir);
-        self.relayout(pf, scr, cfg);
+        self.relayout(scr, cfg);
     }
 
     /// Switches to the given layout, and applies it.
-    pub fn switch_layout<S, C>(&mut self, name: S, pf: &P, scr: &Screen, cfg: &C)
+    pub fn switch_layout<S, C>(&mut self, name: S, scr: &Screen<P>, cfg: &C)
     where
         S: AsRef<str>,
         C: RuntimeConfig,
     {
         if let Some((idx, _)) = self.layouts.element_by(|l| l.name() == name.as_ref()) {
             self.layouts.set_focused(idx);
-            self.relayout(pf, scr, cfg);
+            self.relayout(scr, cfg);
         } else {
             error!("could not find layout {}", name.as_ref());
         }
     }
 
     /// Tests whether the workspace contains a specfic window.
-    pub fn contains_window(&self, id: &P::Client) -> bool {
+    pub fn contains_window(&self, id: P::WindowId) -> bool {
         self.windows.contains(id)
     }
 
     /// Returns a reference to the currently focused client.
-    pub fn focused_client(&self) -> Option<&Client<P>> {
+    pub fn focused_client(&self) -> Option<&Window<P>> {
         self.windows.focused()
     }
 
     /// Returns a mutable reference to the currently focused client.
-    pub fn focused_client_mut(&mut self) -> Option<&mut Client<P>> {
+    pub fn focused_client_mut(&mut self) -> Option<&mut Window<P>> {
         self.windows.focused_mut()
     }
 
@@ -247,37 +251,37 @@ impl<P: Platform> Workspace<P> {
 
     /// Returns an iterator over all the clients in the workspace.
     #[inline]
-    pub fn clients(&self) -> impl Iterator<Item = &Client<P>> {
+    pub fn clients(&self) -> impl Iterator<Item = &Window<P>> {
         self.windows.iter()
     }
 
     /// Returns a mutable iterator over all the clients in the workspace.
     #[inline]
-    pub fn clients_mut(&mut self) -> impl Iterator<Item = &mut Client<P>> {
+    pub fn clients_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
         self.windows.iter_mut()
     }
 
     /// Returns an iterator over all the clients currently in the layout.
     #[inline]
-    pub fn clients_in_layout(&self) -> impl Iterator<Item = &Client<P>> {
+    pub fn clients_in_layout(&self) -> impl Iterator<Item = &Window<P>> {
         self.windows.iter().filter(|w| !w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently in the layout.
     #[inline]
-    pub fn clients_in_layout_mut(&mut self) -> impl Iterator<Item = &mut Client<P>> {
+    pub fn clients_in_layout_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
         self.windows.iter_mut().filter(|w| !w.is_off_layout())
     }
 
     /// Returns an iterator over all the clients currently off the layout.
     #[inline]
-    pub fn clients_off_layout(&self) -> impl Iterator<Item = &Client<P>> {
+    pub fn clients_off_layout(&self) -> impl Iterator<Item = &Window<P>> {
         self.windows.iter().filter(|w| w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently off the layout.
     #[inline]
-    pub fn clients_off_layout_mut(&mut self) -> impl Iterator<Item = &mut Client<P>> {
+    pub fn clients_off_layout_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
         self.windows.iter_mut().filter(|w| w.is_off_layout())
     }
 
@@ -327,10 +331,10 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Returns the `Some(idx)` where `idx` is the index of the
-    /// Client in its underlying ring, or `None` if the Client
+    /// Window in its underlying ring, or `None` if the Window
     /// does not exist.
     #[inline]
-    pub fn contains(&self, window: &P::Client) -> Option<usize> {
+    pub fn contains(&self, window: P::WindowId) -> Option<usize> {
         self.windows.get_idx(window)
     }
 
@@ -339,7 +343,7 @@ impl<P: Platform> Workspace<P> {
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    pub fn activate<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
+    pub fn activate<C>(&mut self, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -347,24 +351,10 @@ impl<P: Platform> Workspace<P> {
             return;
         }
 
-        self.relayout(pf, scr, cfg);
-
-        // // for each window, update i
-        // for window in self.windows.iter_rev() {
-        //     // disable events
-        //     window.change_attributes(pf, &[ClientAttrs::DisableClientEvents]);
-        //     // update window geometry in the x server
-        //     //? is this necessary, since Self::relayout already updates the geom
-        //     window.update_geometry(pf);
-        //     // map window
-        //     pf.map_window(window.id())
-        //         .unwrap_or_else(|e| error!("{}", e));
-        //     // re-enable events
-        //     window.change_attributes(pf, &[ClientAttrs::EnableClientEvents]);
-        // }
+        self.relayout(scr, cfg);
 
         if let Some(win) = self.focused_client() {
-            // self.focus_window(win.id(), pf, cfg);
+            self.focus_window(win.id(), cfg);
         } else {
             debug!("no focused window, focusing by ptr");
             // self.focus_window_by_ptr(pf, scr, cfg);
@@ -372,67 +362,67 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Unmaps all the windows in the workspace.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, pf)))]
-    pub fn deactivate(&mut self, pf: &P) {
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
+    pub fn deactivate(&mut self) {
         // for window in self.windows.iter() {
-        //     pf.change_window_attributes(window.id(), &[ClientAttrs::DisableClientEvents])
+        //     pf.change_window_attributes(window.id(), &[WindowAttrs::DisableWindowEvents])
         //         .unwrap_or_else(|e| error!("{}", e));
 
         //     pf.unmap_window(window.id())
         //         .unwrap_or_else(|e| error!("{}", e));
 
-        //     pf.change_window_attributes(window.id(), &[ClientAttrs::EnableClientEvents])
+        //     pf.change_window_attributes(window.id(), &[WindowAttrs::EnableWindowEvents])
         //         .unwrap_or_else(|e| error!("{}", e));
         // }
     }
 
     /// Calls the layout function and applies it to the workspace.
-    pub fn relayout<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
+    pub fn relayout<C>(&mut self, scr: &Screen<P>, cfg: &C) -> Vec<LayoutAction<P>>
     where
         C: RuntimeConfig,
     {
-        let layouts = self.layouts.gen_layout(pf, self, scr, cfg);
-        //self.apply_layout(pf, layouts);
+        let layouts = self.layouts.gen_layout(self, scr, cfg);
+        self.apply_layout(&layouts);
+
+        layouts
     }
 
     /// Adds a window to the workspace in the layout.
-    pub fn add_window_on_layout<C>(&mut self, window: &P::Client, pf: &P, scr: &Screen, cfg: &C)
+    pub fn add_window_on_layout<C>(&mut self, window: P::WindowId, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig
     {
-        self._add_window(pf, scr, cfg, Client::new(window, pf))
+        self._add_window(scr, cfg, Window::new(window, None))
     }
 
     /// Adds a window to the workspace off the layout.
     pub fn add_window_off_layout<C: RuntimeConfig>(
         &mut self,
-        window: &P::Client,
-        pf: &P,
-        scr: &Screen,
+        window: P::WindowId,
+        scr: &Screen<P>,
         cfg: &C,
     )
     {
-        self._add_window(pf, scr, cfg, Client::outside_layout(window, pf))
+        self._add_window(scr, cfg, Window::outside_layout(window, None))
     }
 
     /// Deletes the window from the workspaces and returns it.
     #[cfg_attr(
         debug_assertions,
-        instrument(level = "debug", skip(self, pf, scr, cfg))
+        instrument(level = "debug", skip(self, scr, cfg))
     )]
     pub fn del_window<C: RuntimeConfig>(
         &mut self,
-        id: &P::Client,
-        pf: &P,
-        scr: &Screen,
+        id: P::WindowId,
+        scr: &Screen<P>,
         cfg: &C,
-    ) -> Result<Option<Client<P>>, P> {
+    ) -> Result<Option<Window<P>>, P> {
         //todo: make all workspace methods return Result
         if let Some(win) = self.windows.lookup(id) {
             if win.is_off_layout() {
-                Ok(Some(self._del_window(pf, scr, cfg, id, false)))
+                Ok(Some(self._del_window(scr, cfg, id, false)))
             } else {
-                Ok(Some(self._del_window(pf, scr, cfg, id, true)))
+                Ok(Some(self._del_window(scr, cfg, id, true)))
             }
         } else {
             // fail silently (this accounts for spurious unmap events)
@@ -444,7 +434,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the input focus, internally and on the server, to the given ID.
     ///
     /// Also calls `Self::unfocus_window` internally.
-    pub fn focus_window<C>(&mut self, window: &P::Client, pf: &P, cfg: &C)
+    pub fn focus_window<C>(&mut self, window: P::WindowId, cfg: &C)
     where
         C: RuntimeConfig
     {
@@ -459,40 +449,10 @@ impl<P: Platform> Workspace<P> {
             let id = focused.id();
             //self.unfocus_window(id, pf, cfg);
         }
-        // focus the window
-        self.stack_and_focus_window(pf, cfg, window);
-    }
-
-    /// Unfocuses the given window ID.
-    ///
-    /// You generally shouldn't have to call this directly, as it is also
-    /// called by `Self::focus_window`.
-    pub fn unfocus_window<C>(&mut self, window: &P::Client, pf: &P, cfg: &C)
-    where
-        C: RuntimeConfig
-    {
-        /* all we do is change border color, focus_window
-        handles everything else */
-        // remove focus if window to unfocus is currently focused
-        if self.windows.lookup(window).is_some() {
-            // pf.change_window_attributes(
-            //     window,
-            //     &[ClientAttrs::BorderColour(
-            //         cfg.border_style(BorderStyle::Unfocused),
-            //     )],
-            // )
-            // .unwrap_or_else(|e| error!("{}", e));
-        } else {
-            warn!("no such window {:?} to unfocus", window)
-        }
     }
 
     /// Cycles the focus to the next window in the workspace.
-    pub fn cycle_focus<C>(&mut self, dir: Direction, pf: &P, cfg: &C)
-    where
-        P: Platform,
-        C: RuntimeConfig,
-    {
+    pub fn cycle_focus(&mut self, dir: Direction) {
         // get the currently focused window's ID
         if self.windows.focused_mut().is_none() {
             error!("cycle_focus for ws {}: nothing focused", self.name);
@@ -511,10 +471,9 @@ impl<P: Platform> Workspace<P> {
     /// Deletes the focused window in the workspace and returns it.
     pub fn take_focused_window<C>(
         &mut self,
-        pf: &P,
-        screen: &Screen,
+        screen: &Screen<P>,
         cfg: &C,
-    ) -> Option<Client<P>>
+    ) -> Option<Window<P>>
     where
         C: RuntimeConfig,
     {
@@ -529,7 +488,7 @@ impl<P: Platform> Workspace<P> {
 
     /// Toggles fullscreen on the currently focused window.
     #[allow(unused_variables)]
-    pub fn toggle_focused_fullscreen<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
+    pub fn toggle_focused_fullscreen<C>(&mut self, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -541,7 +500,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Toggles the state of the currently focused window between off or in layout.
-    pub fn toggle_focused_state<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
+    pub fn toggle_focused_state<C>(&mut self, scr: &Screen<P>, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -560,7 +519,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
-    pub fn add_to_layout<C>(&mut self, pf: &P, id: &P::Client, scr: &Screen, cfg: &C)
+    pub fn add_to_layout<C>(&mut self, id: P::WindowId, scr: &Screen<P>, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -570,7 +529,7 @@ impl<P: Platform> Workspace<P> {
         if let Some(win) = self.windows.lookup_mut(id) {
             win.set_on_layout();
             self.focuses.bubble_to_top(id, &self.windows);
-            self.relayout(pf, scr, cfg);
+            self.relayout(scr, cfg);
         }
     }
 
@@ -578,7 +537,7 @@ impl<P: Platform> Workspace<P> {
     /// turning it into a floating window regardless of the current layout style.
     ///
     /// This will also stack the window above any other windows.
-    pub fn remove_from_layout<C>(&mut self, pf: &P, id: &P::Client, scr: &Screen, cfg: &C)
+    pub fn remove_from_layout<C>(&mut self, id: P::WindowId, scr: &Screen<P>, cfg: &C)
     where
         P: Platform,
         C: RuntimeConfig,
@@ -587,7 +546,7 @@ impl<P: Platform> Workspace<P> {
         if let Some(win) = self.windows.lookup_mut(id) {
             win.set_off_layout();
             self.focuses.bubble_to_top(id, &self.windows);
-            self.relayout(pf, scr, cfg);
+            self.relayout(scr, cfg);
         }
     }
 
@@ -596,19 +555,18 @@ impl<P: Platform> Workspace<P> {
     pub fn update_focused_layout<U: IntoUpdate, C>(
         &mut self,
         msg: U,
-        pf: &P,
-        scr: &Screen,
+        scr: &Screen<P>,
         cfg: &C,
     ) where
         P: Platform,
         C: RuntimeConfig,
     {
         self.layouts.send_update(msg.into_update());
-        self.relayout(pf, scr, cfg);
+        self.relayout(scr, cfg);
     }
 
-    /// Checks if the Client with given `id` is managed under layout.
-    pub fn has_window_in_layout(&self, id: &P::Client) -> bool {
+    /// Checks if the Window with given `id` is managed under layout.
+    pub fn has_window_in_layout(&self, id: P::WindowId) -> bool {
         self.clients_in_layout().any(|c| c.id() == id)
     }
 
@@ -633,22 +591,22 @@ impl<P: Platform> Workspace<P> {
     //* ========================================= *//
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    fn _add_window<C>(&mut self, pf: &P, scr: &Screen, cfg: &C, mut window: Client<P>)
+    fn _add_window<C>(&mut self, scr: &Screen<P>, cfg: &C, mut window: Window<P>)
     where
         C: RuntimeConfig,
     {
         trace!("adding window {:#?}", window);
+        todo!()
     }
 
     /// Deletes a window
     fn _del_window<C>(
         &mut self,
-        pf: &P,
-        scr: &Screen,
+        scr: &Screen<P>,
         cfg: &C,
-        id: &P::Client,
+        id: P::WindowId,
         on_layout: bool,
-    ) -> Client<P>
+    ) -> Window<P>
     where
         P: Platform,
         C: RuntimeConfig,
@@ -659,36 +617,35 @@ impl<P: Platform> Workspace<P> {
         };
         self.focuses.remove_by_id(id);
 
-        // the ClientRing should cycle to a new focused when remove our window
+        // the WindowRing should cycle to a new focused when remove our window
         if let Some(win) = self.windows.focused() {
             // self.stack_and_focus_window(pf, cfg, win.id());
         }
 
-        // if empty, no need to unset focused, the ClientRing will do that for us
+        // if empty, no need to unset focused, the WindowRing will do that for us
 
         if on_layout {
-            self.relayout(pf, scr, cfg);
+            self.relayout(scr, cfg);
         }
 
         window
     }
 
     /// Pushes a window directly without calling the layout.
-    pub(crate) fn put_window(&mut self, window: Client<P>) {
-        let id = window.id().clone();
+    pub(crate) fn put_window(&mut self, window: Window<P>) {
+        let id = window.id();
         self.windows.push(window);
-        self.focuses.add_by_layout_status(&id, &self.windows);
+        self.focuses.add_by_layout_status(id, &self.windows);
     }
 
     /// Takes a window directly without calling the layout.
-    pub(crate) fn take_window(&mut self, window: &P::Client, pf: &P) -> Option<Client<P>> {
-        let mut window = self.windows.remove_by_id(window)?;
-        window.unmap(pf);
+    pub(crate) fn take_window(&mut self, window: P::WindowId) -> Option<Window<P>> {
+        let window = self.windows.remove_by_id(window)?;
         Some(window)
     }
 
     /// Updates the focus to the window under the pointer.
-    pub(crate) fn focus_window_by_ptr<C>(&mut self, pf: &P, scr: &Screen, cfg: &C)
+    pub(crate) fn focus_window_by_ptr<C>(&mut self, scr: &Screen<P>, cfg: &C)
     where
         C: RuntimeConfig,
     {
@@ -700,28 +657,21 @@ impl<P: Platform> Workspace<P> {
         // self.focus_window(reply.child, pf, cfg);
     }
 
-    fn apply_layout(&mut self, pf: &P, layouts: Vec<LayoutAction<'_, P>>) {
+    fn apply_layout(&mut self, layouts: &[LayoutAction<P>]) {
         for rsaction in layouts {
             match rsaction {
                 LayoutAction::Resize { id, geom } => {
-                    let window = self.windows.lookup_mut(id).unwrap();
-                    window.set_and_update_geometry(pf, geom);
-                }
-                LayoutAction::Map(id) => {
-                    let window = self.windows.lookup_mut(id).unwrap();
-                    window.map(pf);
-                }
-                LayoutAction::Unmap(id) => {
-                    let window = self.windows.lookup_mut(id).unwrap();
-                    window.unmap(pf);
+                    let window = self.windows.lookup_mut(*id).unwrap();
+                    window.set_geometry(*geom);
                 }
                 LayoutAction::StackOnTop(id) => {
-                    self.focuses.bubble_to_top(id, &self.windows);
+                    self.focuses.bubble_to_top(*id, &self.windows);
                 }
                 LayoutAction::Remove(id) => {
-                    let window = self.windows.lookup_mut(id).unwrap();
+                    let window = self.windows.lookup_mut(*id).unwrap();
                     window.set_off_layout();
                 }
+                _ => {}
             }
         }
 
@@ -729,83 +679,11 @@ impl<P: Platform> Workspace<P> {
         // stack floaters in reverse order, so the last item (the first in sequence)
         // ends up on top
         for floater in self.floaters_rev_mut() {
-            //floater.configure(pf, &[ClientConfig::StackingMode(StackMode::Above(None))]);
+            //floater.configure(pf, &[WindowConfig::StackingMode(StackMode::Above(None))]);
         }
     }
 
-    fn floaters_rev_mut(&mut self) -> impl Iterator<Item = &mut Client<P>> {
+    fn floaters_rev_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
         self.windows.iter_rev_mut().filter(|c| c.is_off_layout())
-    }
-
-    /// Convenience function that does the following:
-    ///
-    /// - Stacks the given window at the top in the layer that it resides in.
-    /// - Sets the input focus to it.
-    ///
-    /// Note 1: This does not change the internal sequence of the `ClientRing`.
-    /// Note 2: THE WINDOW MUST EXIST.
-    fn stack_and_focus_window<C>(&mut self, pf: &P, cfg: &C, window: &P::Client)
-    where
-        C: RuntimeConfig,
-    {
-        // disable events
-        // pf.change_window_attributes(window, &[ClientAttrs::DisableClientEvents])
-        //     .unwrap_or_else(|e| warn!("{}", e));
-
-        // move window to the top of its layer in the stacking order
-        // self.focuses.bubble_to_top(window, &self.windows);
-
-        // //* Enforce stacking policy
-        // if !self.has_window_in_layout(window) {
-        //     // if the window is not under layout, stack it above everything
-        //     debug!("window {} is off layout, stacking above everything", window);
-        //     let win = self.windows.lookup_mut(window).unwrap();
-        //     win.configure(pf, &[ClientConfig::StackingMode(StackMode::Above(None))]);
-        // } else if let Some(last_off_layout) = self.focuses.off_layout(&self.windows).last() {
-        //     // if window is in layout but there are existing clients off layout
-        //     // in this case, stack below the last off layout
-
-        //     /* copy the value out or the borrow checker will yell */
-        //     let last_off_layout = *last_off_layout;
-        //     debug!(
-        //         "window {} is on layout, stacking below last floater {}",
-        //         window, last_off_layout
-        //     );
-        //     // else, stack it just below the last window off layout
-        //     let win = self.windows.lookup_mut(window).unwrap();
-        //     win.configure(
-        //         pf,
-        //         &[ClientConfig::StackingMode(StackMode::Below(Some(
-        //             last_off_layout,
-        //         )))],
-        //     );
-        // } else {
-        //     debug!("{:?}", self.focuses);
-        //     // if we got none, we can assume there are no off-layout windows
-
-        //     debug!("no floaters, stacking window {} above everything", window);
-        //     let win = self.windows.lookup_mut(window).unwrap();
-        //     win.configure(pf, &[ClientConfig::StackingMode(StackMode::Above(None))]);
-        // }
-
-        //? naive approach if we need it
-        // this just stacks every window instead of doing checks
-        // for c in self.focuses.iter_rev() {
-
-        // }
-
-        // let win = self.windows.lookup_mut(window).unwrap();
-        // //* focus to current window visually...
-        // win.set_border(pf, cfg.border_style(BorderStyle::Focused));
-        // //* ...server-ly...
-        // pf.set_input_focus(window)
-        //     .unwrap_or_else(|e| warn!("{}", e));
-        // //* ...and internally
-        // self.windows.set_focused_by_winid(window);
-        // self.focuses.set_focused_by_winid(window);
-
-        // // re-enable events
-        // pf.change_window_attributes(window, &[ClientAttrs::EnableClientEvents])
-        //     .unwrap_or_else(|e| error!("{}", e));
     }
 }

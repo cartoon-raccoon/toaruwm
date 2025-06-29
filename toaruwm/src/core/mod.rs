@@ -15,6 +15,6 @@ pub use desktop::{Desktop, Screen};
 #[doc(inline)]
 pub use ring::{Ring, Selector};
 #[doc(inline)]
-pub use window::{Client, ClientRing};
+pub use window::{Window, WindowRing};
 #[doc(inline)]
 pub use workspace::{Workspace, WorkspaceSpec};

@@ -20,13 +20,6 @@ use std::fmt::Debug;
 use std::collections::HashMap;
 use std::any::Any;
 
-/// A type that can uniquely identify any client connected to a
-/// running ToaruWM instance.
-/// 
-/// It is backend-agnostic, and each backend provides their own
-/// type that implements this trait.
-pub trait ClientId: Debug + Clone + Eq + Hash {}
-
 /// Data about a given client.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ClientData {
@@ -55,6 +48,28 @@ macro_rules! dict {
             __dict
         }
     };
+}
+
+/// A transformation on a generic 2D plane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Transform {
+    /// The identity transform (nothing happens).
+    #[default]
+    Ident,
+    /// The plane is rotated by 90 degrees.
+    Rot90,
+    /// The plane is rotated by 180 degrees.
+    Rot180,
+    /// The plane is rotated by 270 degrees.
+    Rot270,
+    /// The plane is flipped vertically.
+    Flipped,
+    /// The plane is flipped and then rotated by 90 degrees.
+    Flipped90,
+    /// The plane is flipped and then rotated by 180 degrees.
+    Flipped180,
+    /// The plane is flipped and then rotated by 270 degrees.
+    Flipped270
 }
 
 /// Specifies a direction.
