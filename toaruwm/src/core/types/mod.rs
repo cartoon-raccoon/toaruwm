@@ -1,12 +1,4 @@
 //! Basic core types used throughout this crate at a high level.
-//!
-//! # Important Note
-//!
-//! For types pertaining to the cartesian plane,
-//! all of them assume the default X server window gravity (NorthWest).
-//!
-//! For X server-specific types, see [`crate::x::core`].
-
 
 #[doc(inline)]
 pub use crate::core::{Ring, Selector};

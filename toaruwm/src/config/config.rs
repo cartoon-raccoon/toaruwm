@@ -108,8 +108,8 @@ impl<P: Platform + 'static> ToaruConfig<P> {
     /// need it to uphold are indeed upheld. To help with this, you can insert
     /// additional code to check that your user-added keys are valid.
     ///
-    /// If you have no code you want to insert, pass in the
-    /// [`NO_CHECKS`] constant.
+    /// If you have no code you want to insert, pass in [`no_checks`] as a 
+    /// function pointer.
     ///
     /// # Example
     ///

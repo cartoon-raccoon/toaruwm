@@ -368,7 +368,7 @@ impl<N: Scalar> From<N> for Scale<N> {
 
 /// A type for representing a point on a display or screen.
 ///
-/// Implements [`PartialEq`][1], so you can compare it directly with
+/// Implements [`PartialEq`], so you can compare it directly with
 /// another Point. You can also directly add and subtract `Point`s,
 /// as they implement [`Add`] and [`Sub`] on themselves, and you can
 /// also multiply and divide them by [`Scale`]s, as they implement
@@ -379,8 +379,6 @@ impl<N: Scalar> From<N> for Scale<N> {
 ///
 /// The (0, 0) reference is by default taken from the top left
 /// corner of the 2D plane.
-///
-/// [1]: std::cmp::PartialEq
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point<N: Scalar, Kind: GeometryKind> {
@@ -678,13 +676,11 @@ impl<N: Scalar> Point<N, Physical> {
 /// A type for representing a 2D rectangular space, without
 /// respect to its position on the coordinate space.
 /// 
-/// Implements [`PartialEq`][1], so you can compare it directly
+/// Implements [`PartialEq`], so you can compare it directly
 /// with another Size.
 /// 
-/// [`PartialOrd`] is implemented with respect to area, so 
-/// 
-/// [1]: std::cmp::PartialEq
-#[repr(C)]
+/// [`PartialOrd`] is implemented with respect to area, and
+/// is only implemented if the `Scalar` generic implements [`Mul`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Size<N: Scalar, Kind: GeometryKind> {
     /// The width of the Size.
@@ -836,7 +832,7 @@ impl<N: Scalar> Size<N, Physical> {
 /// A type for representing a 2D rectangular space, anchored to a
 /// Point on the coordinate space.
 ///
-/// Implements [`PartialEq`][1], so you can compare it directly with
+/// Implements [`PartialEq`], so you can compare it directly with
 /// another Rectangle.
 ///
 /// # Note on Gravity
@@ -847,8 +843,7 @@ impl<N: Scalar> Size<N, Physical> {
 /// or downwards.
 ///
 /// _Note:_ The Default impl returns Rectangle {0, 0, 0, 0}.
-///
-/// [1]: std::cmp::PartialEq
+/// 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rectangle<N: Scalar, Kind: GeometryKind> {

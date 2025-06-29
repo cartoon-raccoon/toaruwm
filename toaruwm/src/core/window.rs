@@ -4,7 +4,7 @@
 //! an individual window on the X server that is also managed
 //! by a `WindowManager`.
 //!
-//! See the [`Client`] documentation for more details.
+//! See the [`Window`] documentation for more details.
 
 use std::ops::{Deref, DerefMut};
 

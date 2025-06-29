@@ -82,8 +82,8 @@ impl WorkspaceSpec {
 ///
 /// You may notice that a lot of the methods on `Workspace` have many
 /// scary-looking trait bounds; this is because they are also
-/// generic over the two types `WindowManager` itself is generic over:
-/// an [`XConn`], and a [`RuntimeConfig`]. These two provide an interface
+/// generic over the two types [`Toaru`][1] itself is generic over:
+/// an [`Platform`], and a [`RuntimeConfig`]. These two provide an interface
 /// that the `Workspace` needs to perform a lot of its functionality.
 ///
 /// Generally speaking, if you're using `WindowManager` itself, chances
@@ -115,6 +115,8 @@ impl WorkspaceSpec {
 /// `Layouts`' invariants are not upheld.
 ///
 /// See [`Layouts`] for more information.
+/// 
+/// [1]: crate::Toaru
 pub struct Workspace<P>
 where
     P: Platform,

@@ -369,13 +369,12 @@ where
 ///
 /// Like Keybinds, it consists of a mousebind and its associated
 /// callback function. It accepts a mutable reference to a WindowManager
-/// and a [Point][1], which contains the current coordinates of the pointer.
+/// and a [Point], which contains the current coordinates of the pointer.
 /// This point is used internally by the WindowManager and should not appear
 /// in the user-facing API.
 ///
 /// Clone is not implemented for this type since Callbacks are not Clone.
-///
-/// [1]: crate::core::types::Point
+/// 
 #[derive(Default, Debug)]
 pub struct Mousebinds<P, C>
 where

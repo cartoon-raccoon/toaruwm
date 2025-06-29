@@ -62,7 +62,7 @@ use crate::types::{Rectangle, Logical};
 ///
 /// # Usage in a WindowManager
 ///
-/// An implementation of `XConn` is required for using a [WindowManager][1].
+/// An implementation of `XConn` is required for using [`Toaru`][1].
 /// The backend library used does not directly appear inside `WindowManager`.
 /// Thus, it is possible to create your own XConn type using a different
 /// library, possibly using XLib, and in theory this crate can run on
@@ -74,7 +74,7 @@ use crate::types::{Rectangle, Logical};
 /// This crate provides two implementations of XConn: [XCBConn][2] and
 /// [X11RBConn][3].
 ///
-/// [1]: crate::manager::WindowManager
+/// [1]: crate::Toaru
 /// [2]: crate::x::xcb::XCBConn
 /// [3]: crate::x::x11rb::X11RBConn
 pub trait XConn: XCore + RandR + Xkb {}
@@ -132,12 +132,12 @@ pub trait XCore {
 
     /// Get the value of an atom by its name.
     ///
-    /// You can use [Atom][1]'s `as_ref()` method to get a
+    /// You can use [Atom]'s [`as_ref()`][1] method to get a
     /// known atom's string representation.
     ///
     /// If the atom is unknown, intern it.
     ///
-    /// [1]: crate::x::atom::Atom
+    /// [1]: Atom::as_ref
     fn atom(&self, atom: &str) -> Result<XAtom>;
 
     /// Looks up the name of an atom.

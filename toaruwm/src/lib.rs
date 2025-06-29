@@ -136,11 +136,7 @@ pub use crate::manager::{Toaru};
 #[doc(inline)]
 pub use crate::config::{Config, ToaruConfig};
 #[doc(inline)]
-pub use crate::platform::x11::core::XConn;
-#[doc(inline)]
-pub use crate::platform::x11::{x11rb::X11RBConn, xcb::XCBConn};
-
-pub use crate::platform::{Platform};
+pub use crate::platform::Platform;
 
 use crate::bindings::BindingError;
 use crate::manager::state::{RuntimeConfig};

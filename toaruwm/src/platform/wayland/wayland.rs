@@ -67,7 +67,7 @@ where
 }
 
 impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
-    /// Creates a new Wayland compositor, and runs [`init()`][1] on the given `backend`.
+    /// Creates a new Wayland compositor, and runs [`init`][1] on the given `backend`.
     /// On success, returns a (Self, Display) tuple, and the
     /// display should be ultimately passed into the run() method.
     /// 
@@ -79,7 +79,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
     /// - a `calloop` event loop handle.
     /// - a `calloop` loop signal.
     /// 
-    /// [1]: backend::WaylandBackend::init
+    /// [1]: super::backend::WaylandBackendInit::init
     pub fn new(
         mut backend: B,
         backend_args: Option<Dict>,

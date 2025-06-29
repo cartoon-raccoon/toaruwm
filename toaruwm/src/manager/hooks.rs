@@ -9,7 +9,7 @@ use super::Toaru;
 /// implementing [`FnMut`].
 /// You would generally use this through the [`hook`](crate::hook)
 /// macro's much more ergonomic interface.
-pub type Hook<X, C> = Box<dyn FnMut(&mut Toaru<X, C>)>;
+pub type Hook<X, C> = Box<dyn for<'t> FnMut(&'t mut Toaru<X, C>)>;
 
 /// Macro for creating a hook that can be run by the window manager.
 ///

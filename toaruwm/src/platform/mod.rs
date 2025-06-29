@@ -1,7 +1,9 @@
-//! Traits and structs for the platform the [WindowManager] runs on.
+//! Traits and structs for the backing platform of a [`Toaru`][1] instance.
 //! 
 //! There are two possible platforms: X11 and Wayland. For more details
 //! on how to use either platform, consult the module-level documentation.
+//! 
+//! [1]: crate::Toaru
 
 use std::hash::Hash;
 use std::fmt::Debug;
