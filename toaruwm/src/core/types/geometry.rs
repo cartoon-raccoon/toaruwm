@@ -507,6 +507,7 @@ impl<N: Scalar, Kind: GeometryKind> Point<N, Kind> {
         Point { x: N::ZERO, y: N::ZERO, _kind: PhantomData}
     }
 
+    /// Converts `self` to a `Point<f64, Kind>`.
     pub fn as_f64(&self) -> Point<f64, Kind> {
         Point {
             x: self.x.to_f64(),
@@ -759,6 +760,7 @@ impl<N: Scalar, Kind: GeometryKind> Size<N, Kind> {
         Self::new(N::ZERO, N::ZERO)
     }
 
+    /// Converts `self` to a `Point<f64, Kind>`.
     pub fn as_f64(&self) -> Size<f64, Kind> {
         Size {
             width: self.width.to_f64(),
@@ -897,6 +899,19 @@ impl<N: Scalar, Kind: GeometryKind> Rectangle<N, Kind> {
     /// with the given dimensions `height` and `width`.
     pub fn at_origin(height: N, width: N) -> Self {
         Self::new(N::ZERO, N::ZERO, height, width)
+    }
+
+    /// Converts `self` to a `Point<f64, Kind>`.
+    pub fn as_f64(&self) -> Rectangle<f64, Kind> {
+        Rectangle {
+            point: self.point.as_f64(),
+            size: self.size.as_f64(),
+        }
+    }
+
+    /// Converts `self` to a `Point<f64, Kind>`.
+    pub fn is_empty(&self) -> bool {
+        self.size.is_empty()
     }
 
     /// Check whether this Rectangle encloses another Rectangle.
