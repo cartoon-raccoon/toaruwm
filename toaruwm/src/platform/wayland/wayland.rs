@@ -35,7 +35,7 @@ use super::backend::{
 
 use super::{ClientData, Platform, PlatformType};
 
-use crate::platform::{PlatformWindowId, wayland::output::WaylandOutput};
+use crate::platform::{PlatformWindowId, wayland::WaylandOutput};
 use crate::manager::state::{RuntimeConfig};
 use crate::types::{Dict, Rectangle, Logical};
 
