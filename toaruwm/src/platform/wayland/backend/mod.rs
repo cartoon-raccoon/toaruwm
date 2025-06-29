@@ -6,7 +6,6 @@ use smithay::reexports::{
         protocol::wl_surface::WlSurface,
         DisplayHandle
     },
-    calloop::LoopHandle,
 };
 use smithay::backend::allocator::dmabuf::Dmabuf;
 
@@ -17,8 +16,7 @@ pub use drm::{DrmBackend, DrmBackendError};
 pub use winit::WinitBackend;
 
 use super::util::IdCounter;
-use super::state::WlState;
-use super::{Wayland, WaylandError};
+use super::{WaylandImpl, WaylandError};
 
 use crate::manager::state::{RuntimeConfig};
 use crate::types::Dict;
@@ -85,27 +83,29 @@ pub trait WaylandBackend: Debug {
     /// [2]: smithay::backend::renderer::multigpu::GpuManager::early_import
     #[allow(unused_variables)]
     fn early_import(&mut self, surface: &WlSurface) {}
+}
 
-    /// Initialize state that needs access to the internal fields of the `Wayland` struct.
-    /// 
-    /// Since all `WaylandBackend`s are created before the actual Wayland struct (`Wayland`
-    /// requires a `backend` parameter to be created), there might be some state that you need
-    /// to initialize that cannot be done without access to the objects owned by the `Wayland`
-    /// struct, such as the display handle or compositor state. If that is the case, re-implement
-    /// this method to do so.
-    /// 
-    /// This method is called when you call `Wayland::new()`, to initialize any state in your
-    /// backend that requires access to a `Wayland` instance.
+/// Initialize state that needs access to the internal fields of the `Wayland` struct.
+/// 
+/// Since all `WaylandBackend`s are created before the actual Wayland struct (`Wayland`
+/// requires a `backend` parameter to be created), there might be some state that you need
+/// to initialize that cannot be done without access to the objects owned by the `Wayland`
+/// struct, such as the display handle or compositor state. If that is the case, re-implement
+/// this method to do so.
+/// 
+/// This method is called when you call `Wayland::new()`, to initialize any state in your
+/// backend that requires access to a `Wayland` instance.
+pub trait WaylandBackendInit<C: RuntimeConfig>: WaylandBackend + Debug {
+    /// Initialize Wayland State
     #[allow(unused_variables)]
-    fn init<C>(
+    fn init(
         &mut self,
-        loophandle: LoopHandle<'static, Wayland<C, Self>>,
         display: DisplayHandle,
-        wlstate: &mut WlState<C, Self>,
+        wl_impl: &mut WaylandImpl<C, Self>,
         args: Dict)-> Result<(), WaylandError>
     where
         Self: Sized,
-        C: RuntimeConfig
+        C: RuntimeConfig,
     { Ok(()) }
 }
 

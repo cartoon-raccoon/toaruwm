@@ -57,12 +57,12 @@ use smithay::utils::{
 use smithay_drm_extras::drm_scanner::{DrmScanner, DrmScanEvent};
 
 use crate::platform::wayland::{
-    WaylandError, Wayland,
+    WaylandError, Wayland, WaylandImpl,
     backend::WaylandBackendError
 };
 use crate::manager::state::RuntimeConfig;
 use crate::types::Dict;
-use super::{WaylandBackend, OutputId, OutputName, super::state::WlState};
+use super::{WaylandBackend, WaylandBackendInit, OutputId, OutputName, super::state::WlState};
 
 /*
 THINGS THAT A DRM-BACKED WAYLAND COMPOSITOR NEEDS TO INITIALIZE
@@ -158,7 +158,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
             .map_err(|e| WaylandError::UdevErr(e.to_string()))?;
 
         let udev_dispatcher = Dispatcher::new(udev_backend, move |event, _, wayland: &mut Wayland<C, DrmBackend<C>>| {
-            wayland.backend.on_udev_event(event);
+            wayland.backend.on_udev_event(event, &mut wayland.wl_impl);
         });
         handle.register_dispatcher(udev_dispatcher.clone()).expect("could not register udev dispatcher");
 
@@ -226,7 +226,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         })
     }
 
-    fn device_added(&mut self, node: DrmNode, path: &Path) -> Result<(), DrmBackendError> {
+    fn device_added(&mut self, node: DrmNode, path: &Path, wl: &mut WaylandImpl<C, Self>) -> Result<(), DrmBackendError> {
         // open a new DRM device with our session handle
         let flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOCTTY | OFlags:: NONBLOCK;
         let fd = self.session.open(path, flags)?;
@@ -302,13 +302,13 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         
     }
     
-    fn on_udev_event(&mut self, event: UdevEvent) {
+    fn on_udev_event(&mut self, event: UdevEvent, wl: &mut WaylandImpl<C, Self>) {
         match event {
             UdevEvent::Added { device_id, path } => {
                 match DrmNode::from_dev_id(device_id) {
                     Ok(node) => {
                         // fixme: awful error handling
-                        self.device_added(node, &path).unwrap_or_else(|e| {
+                        self.device_added(node, &path, wl).unwrap_or_else(|e| {
                             error!("error while adding device {path:?}: {e}");
                             ()
                         })
@@ -391,22 +391,22 @@ impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
             }
         }
     }
+}
 
-    fn init<Cfg>(
+impl<C: RuntimeConfig> WaylandBackendInit<C> for DrmBackend<C> {
+    fn init(
         &mut self,
-        _loophandle: LoopHandle<'static, Wayland<Cfg, Self>>,
         display: DisplayHandle,
-        wlstate: &mut WlState<Cfg, Self>,
+        wl_impl: &mut WaylandImpl<C, Self>,
         _args: Dict)-> Result<(), WaylandError>
     where
         Self: Sized,
-        Cfg: RuntimeConfig
     { 
         let mut renderer = self.gpu_manager
             .single_renderer(&self.primary_node)
             .unwrap();
 
-        wlstate.shm_state.update_formats(
+        wl_impl.state.shm_state.update_formats(
             renderer.shm_formats()
         );
 
@@ -415,7 +415,7 @@ impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
         for (device_id, path) in self.udev_dispatcher.clone().as_source_ref().device_list() {
             let node = DrmNode::from_dev_id(device_id)
                 .expect("could not create DRM node");
-            if let Err(e) = self.device_added(node, path) {
+            if let Err(e) = self.device_added(node, path, wl_impl) {
                 warn!("error while adding device: {e:?}");
             }
         }

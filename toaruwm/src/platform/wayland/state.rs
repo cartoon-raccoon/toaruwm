@@ -95,7 +95,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> BufferHandler for Wayland<C, B> {
 
 impl<C: RuntimeConfig, B: WaylandBackend> ShmHandler for Wayland<C, B> {
     fn shm_state(&self) -> &ShmState {
-        &self.state.shm_state
+        &self.state().shm_state
     }
 }
 
@@ -103,7 +103,7 @@ delegate_shm!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland
 
 impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> DmabufHandler for Wayland<C, B> {
     fn dmabuf_state(&mut self) -> &mut DmabufState {
-        &mut self.state.dmabuf_state
+        &mut self.state_mut().dmabuf_state
     }
 
     fn dmabuf_imported(&mut self, _global: &DmabufGlobal, dmabuf: Dmabuf, notifier: ImportNotifier) {
@@ -123,7 +123,7 @@ impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> SeatHandler for Wa
     type TouchFocus = WlSurface;
 
     fn seat_state(&mut self) -> &mut SeatState<Self> {
-        &mut self.state.seat_state
+        &mut self.state_mut().seat_state
     }
 
     // todo: reimplement provided methods as needed

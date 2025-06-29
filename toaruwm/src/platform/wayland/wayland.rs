@@ -2,22 +2,19 @@ use std::ffi::OsString;
 use std::sync::Arc;
 use std::os::unix::net::UnixStream;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use thiserror::Error;
 use tracing::warn;
 
-use smithay::reexports::{
+use smithay::{output::Output, reexports::{
     calloop::{
-        generic::Generic, Error as CalloopError,
-        EventLoop, Interest, LoopHandle, Mode, PostAction, LoopSignal,
+        generic::Generic, Error as CalloopError, EventLoop, Interest, LoopHandle, LoopSignal, Mode, PostAction
     }, 
     wayland_server::{
-        protocol::{
-            wl_surface::WlSurface,
-        },
-        Display, DisplayHandle, BindError,
+        protocol::wl_surface::WlSurface, BindError, Display, DisplayHandle
     }
-};
+}};
 use smithay::backend::{
     input::{InputEvent, InputBackend},
     session::{
@@ -33,7 +30,7 @@ use smithay::desktop::{Space, Window};
 use super::state::{ClientState, WlState};
 use super::window::{Unmapped};
 use super::backend::{
-    WaylandBackend, WaylandBackendError,
+    WaylandBackend, WaylandBackendInit, WaylandBackendError,
 };
 
 use super::{ClientData, Platform, PlatformType};
@@ -62,23 +59,11 @@ where
     C: RuntimeConfig + 'static,
     B: WaylandBackend + 'static
 {
-    /// The core Toaru struct handling functionality.
-    pub(super) toaru: Toaru<Self, C>,
+    
     /// Our backend.
     pub(super) backend: B,
-    /// Unmapped windows.
-    pub(super) unmapped: HashMap<WlSurface, Unmapped>,
-    /// Cached root surface for every surface, so that we can access it in destroyed()
-    /// where the normal get_parent is cleared out.
-    pub(super) root_surfaces: HashMap<WlSurface, WlSurface>,
-    /// The global space that all windows are mapped onto.
-    pub(super) global_space: Space<Window>,
-    /// Our smithay state.
-    pub(super) state: WlState<C, B>,
-    pub(super) seat: Seat<Self>,
-    pub(super) socketname: OsString,
     pub(super) event_loop: LoopHandle<'static, Self>,
-    pub(super) stop_signal: LoopSignal,
+    pub(super) wl_impl: WaylandImpl<C, B>
 }
 
 impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
@@ -101,7 +86,10 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         toaru: Toaru<Self, C>, 
         loophandle: LoopHandle<'static, Self>,
         loopsignal: LoopSignal,
-    ) -> Result<(Self, Display<Self>), WaylandError> {
+    ) -> Result<(Self, Display<Self>), WaylandError>
+    where
+        B: WaylandBackendInit<C>
+    {
 
         let display = Display::new().expect("error initializing Wayland display");
 
@@ -119,25 +107,30 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
         let backend_args = if let Some(args) = backend_args {args} else {Dict::new()};
 
-        backend.init(loophandle.clone(), display.handle(), &mut state, backend_args)?;
-
         let mut seat = state.seat_state.new_wl_seat(&display.handle(), backend.seat_name());
 
         // todo: add keyboard
 
         seat.add_pointer();
 
-        Ok((Self {
+        let mut wl_impl = WaylandImpl {
             toaru,
-            backend,
             unmapped: HashMap::new(),
             root_surfaces: HashMap::new(),
             global_space: Space::default(),
             state,
             seat,
             socketname,
-            event_loop: loophandle,
+            event_loop: loophandle.clone(),
             stop_signal: loopsignal
+        };
+
+        backend.init(display.handle(), &mut wl_impl, backend_args)?;
+
+        Ok((Self {
+            backend,
+            event_loop: loophandle,
+            wl_impl
         }, display))
     }
 
@@ -150,11 +143,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
     }
 
     pub fn state(&self) -> &WlState<C, B> {
-        &self.state
+        &self.wl_impl.state
     }
 
     pub fn state_mut(&mut self) -> &mut WlState<C, B> {
-        &mut self.state
+        &mut self.wl_impl.state
     }
 
     pub fn get_loop_handle(&self) -> &LoopHandle<'static, Self> {
@@ -166,11 +159,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
     }
 
     pub fn get_display_handle(&self) -> &DisplayHandle {
-        &self.state.display_handle
+        &self.state().display_handle
     }
 
     pub fn new_display_handle(&self) -> DisplayHandle {
-        self.state.display_handle.clone()
+        self.state().display_handle.clone()
     }
 
 
@@ -223,9 +216,53 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
             restricted: false,
             credentials_unknown: false
         };
-        if let Err(e) = self.state.display_handle.insert_client(client, Arc::new(data)) {
+        if let Err(e) = self.state_mut().display_handle.insert_client(client, Arc::new(data)) {
             warn!("error while registering new client: {e}");
         }
+    }
+}
+
+/// [`Wayland`], without the backend.
+/// 
+/// This allows us to pass in a reference to our overall Wayland platform state without
+/// running into issues with multiple mutable borrows.
+/// 
+/// You do not need to construct this struct explicitly, it is constructed within 
+#[derive(Debug)]
+pub struct WaylandImpl<C, B>
+where
+    C: RuntimeConfig + 'static,
+    B: WaylandBackend + 'static 
+{
+    /// The core Toaru struct handling functionality.
+    pub(super) toaru: Toaru<Wayland<C, B>, C>,
+    /// Unmapped windows.
+    pub(super) unmapped: HashMap<WlSurface, Unmapped>,
+    /// Cached root surface for every surface, so that we can access it in destroyed()
+    /// where the normal get_parent is cleared out.
+    pub(super) root_surfaces: HashMap<WlSurface, WlSurface>,
+    /// The global space that all windows are mapped onto.
+    pub(super) global_space: Space<Window>,
+    /// Our smithay state.
+    pub(super) state: WlState<C, B>,
+    pub(super) seat: Seat<Wayland<C, B>>,
+    pub(super) socketname: OsString,
+    pub(super) event_loop: LoopHandle<'static, Wayland<C, B>>,
+    pub(super) stop_signal: LoopSignal,
+}
+
+impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> WaylandImpl<C, B> {
+
+    pub fn loop_handle_new(&self) -> LoopHandle<'static, Wayland<C, B>> {
+        self.event_loop.clone()
+    }
+
+    pub fn add_output(&mut self, output: Output, refresh_interval: Duration, vrr: bool) {
+        todo!()
+    }
+
+    pub fn remove_output(&mut self, output: &Output) {
+        todo!()
     }
 }
 

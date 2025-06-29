@@ -12,7 +12,7 @@ use crate::platform::wayland::prelude::*;
 
 impl<C: RuntimeConfig, B: WaylandBackend> WlrLayerShellHandler for Wayland<C, B> {
     fn shell_state(&mut self) -> &mut WlrLayerShellState {
-        &mut self.state.layer_shell
+        &mut self.state_mut().layer_shell
     }
 
     fn new_layer_surface(&mut self, 

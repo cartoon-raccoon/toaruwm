@@ -28,8 +28,8 @@ use tracing::{error};
 
 use thiserror::Error;
 
-use super::{WaylandBackendError, super::state::WlState};
-use crate::platform::wayland::{prelude::*, WaylandError};
+use super::{WaylandBackendError, WaylandBackendInit, super::state::WlState};
+use crate::platform::wayland::{prelude::*, WaylandImpl, WaylandError};
 use crate::types::Dict;
 use crate::dict;
 
@@ -95,11 +95,22 @@ impl WaylandBackend for WinitBackend {
 
     }
 
-    fn init<C>(
+    fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
+        match self.winit.renderer().import_dmabuf(dmabuf, None) {
+            Ok(_txtr) => true,
+            Err(e) => {
+                error!("error while importing DMA-BUF: {e}");
+                false
+            }
+        }
+    }
+}
+
+impl<C: RuntimeConfig> WaylandBackendInit<C> for WinitBackend {
+    fn init(
         &mut self, 
-        loophandle: LoopHandle<'static, Wayland<C, Self>>,
         display: DisplayHandle,
-        wlstate: &mut WlState<C, Self>,
+        wl_impl: &mut WaylandImpl<C, Self>,
         mut args: Dict)-> Result<(), WaylandError>
     where
         Self: Sized,
@@ -114,7 +125,7 @@ impl WaylandBackend for WinitBackend {
             warn!("error binding display to renderer: {err}");
         }
 
-        loophandle.insert_source(winitev, |event, _, wayland| {
+        wl_impl.event_loop.insert_source(winitev, |event, _, wayland| {
             match event {
                 WinitEvent::Resized {size, scale_factor} => {
 
@@ -122,23 +133,13 @@ impl WaylandBackend for WinitBackend {
                 WinitEvent::Focus(_) => {}
                 WinitEvent::Input(ievent) => wayland.handle_input_event(ievent),
                 WinitEvent::Redraw => { /* todo */}
-                WinitEvent::CloseRequested => wayland.stop_signal.stop(),
+                WinitEvent::CloseRequested => wayland.wl_impl.stop_signal.stop(),
             }
         }).map_err(|e| e.error)?;
 
         // todo: create dma-buf default feedback
         
         Ok(())
-    }
-
-    fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
-        match self.winit.renderer().import_dmabuf(dmabuf, None) {
-            Ok(_txtr) => true,
-            Err(e) => {
-                error!("error while importing DMA-BUF: {e}");
-                false
-            }
-        }
     }
 }
 

@@ -32,7 +32,7 @@ where
     B: WaylandBackend + 'static
 {
     fn compositor_state(&mut self) -> &mut CompositorState {
-        &mut self.state.compositor_state
+        &mut self.state_mut().compositor_state
     }
 
     fn client_compositor_state<'a>(&self, client: &'a WlClient) -> &'a CompositorClientState {
@@ -54,12 +54,12 @@ where
             root = parent;
         }
 
-        self.root_surfaces.insert(surface.clone(), root.clone());
+        self.wl_impl.root_surfaces.insert(surface.clone(), root.clone());
 
         // this is a root surface commit that might have mapped a previously-unmapped toplevel.
         if surface == &root {
             // the toplevel is currently unmapped in our state.
-            if let Entry::Occupied(entry) = self.unmapped.entry(surface.clone()) {
+            if let Entry::Occupied(entry) = self.wl_impl.unmapped.entry(surface.clone()) {
                 if is_mapped(surface) {
                     // the toplevel got mapped.
                 } else {

@@ -20,14 +20,14 @@ use crate::platform::wayland::{
 
 impl<C: RuntimeConfig, B: WaylandBackend> XdgShellHandler for Wayland<C, B> {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState {
-        &mut self.state.xdg_shell
+        &mut self.state_mut().xdg_shell
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let wl_surface = surface.wl_surface().clone();
         let unmapped = Unmapped::new(Window::new_wayland_window(surface));
 
-        assert!(self.unmapped.insert(wl_surface, unmapped).is_none());
+        assert!(self.wl_impl.unmapped.insert(wl_surface, unmapped).is_none());
     }
 
     fn new_popup(&mut self, surface: PopupSurface, positioner: PositionerState) {
