@@ -301,12 +301,12 @@ macro_rules! mousebinds {
 }
 
 /// A function is run when a keybind is invoked.
-pub type KeyCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>)>;
+pub type KeyCallback<P, C> = Box<dyn for<'t> FnMut(&'t mut Toaru<P, C>)>;
 
 /// A function that is run when a mousebind is invoked.
 ///
 /// An additional Point is supplied to track the location of the pointer.
-pub type MouseCallback<P, C> = Box<dyn FnMut(&mut Toaru<P, C>, Point<i32, Logical>)>;
+pub type MouseCallback<P, C> = Box<dyn for<'t> FnMut(&'t mut Toaru<P, C>, Point<i32, Logical>)>;
 
 /// A set of keybinds that can be run by the the window manager.
 ///

@@ -171,7 +171,7 @@ pub enum ToaruError<P: Platform> {
 
     /// Received a reference to a client not tracked by ToaruWM.
     #[error("Unknown client {0:?}")]
-    UnknownClient(P::Client),
+    UnknownClient(P::WindowId),
 
     /// An request to switch to a workspace unknown to ToaruWM.
     #[error("Unknown workspace {0}")]

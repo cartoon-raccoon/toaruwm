@@ -23,7 +23,7 @@ impl<P: Platform> Layout<P> for Floating {
         Box::new(*self)
     }
 
-    fn layout(&self, _: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>> {
+    fn layout(&self, _: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
         vec![]
     }
 

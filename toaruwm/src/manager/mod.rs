@@ -1,56 +1,33 @@
 //! The window manager itself, and associated modules.
 
-#![allow(unused_variables, unused_imports)] //fixme
+#![allow(unused_variables)] //fixme
 
-use std::ffi::OsStr;
 use std::fmt;
-use std::iter::FromIterator;
-use std::process::{Command, Stdio};
-use std::marker::PhantomData;
+use std::collections::HashMap;
 
 //use std::marker::PhantomData;
 
 //use std::sync::OnceLock;
 
 use tracing::instrument;
-use tracing::{debug, error, info, span, warn, Level};
+use tracing::{warn};
 
-use crate::bindings::{Keybind, Keybinds, Mousebind, Mousebinds};
-use crate::core::{Desktop, Screen, WorkspaceSpec};
+use crate::core::{Desktop, Screen, WorkspaceSpec, Window};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
-use crate::log::DefaultErrorHandler;
-use crate::types::{Cardinal, Direction, Point, Logical, Ring, Selector, ClientId};
+use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
 use crate::platform::{Platform};
+use crate::config::{Config};
 
-use crate::{ErrorHandler, Result, ToaruError};
+use crate::{Result, ToaruError};
 
-pub mod config;
-/// A translation layer for converting X events into `WindowManager` actions.
-pub mod event;
 /// Macros and storage types for window manager hooks.
 pub mod hooks;
 pub mod state;
-/// Output management.
-pub mod output;
 
-#[doc(inline)]
-pub use config::{Config, ToaruConfig};
-#[doc(inline)]
-pub use event::EventAction;
 #[doc(inline)]
 pub use hooks::{Hook, Hooks};
 #[doc(inline)]
 pub use state::{RuntimeConfig, ToaruState};
-
-//static ERR_HANDLER: OnceLock<&dyn FnMut(ToaruError)> = OnceLock::new();
-
-macro_rules! handle_err {
-    ($call:expr, $_self:expr) => {
-        if let Err(e) = $call {
-            $_self.ehandler.call($_self.state(), e.into());
-        }
-    };
-}
 
 /// Removes the focused window if under layout.
 macro_rules! _rm_if_under_layout {
@@ -69,33 +46,52 @@ macro_rules! _rm_if_under_layout {
 }
 
 /// The main object that defines client management functionality.
+/// 
+/// `Toaru` abstracts over shared commonality between the Wayland and X11 
+/// protocols, presenting a unified interface that you can use to manage windows 
+/// in a platform-agnostic manner.
 ///
 /// `Toaru` is generic over two types:
 ///
-/// - P, that is its backing platform and so must implement
-/// the [`Platform`] trait. This is the type by which `Toaru`
-/// connects to the X server, and receives events and issues requests.
+/// - `P`, that is its backing platform and so must implement the [`Platform`]
+/// trait.
+/// 
+/// - `C`, that is its runtime configuration and must implement the [`RuntimeConfig`]
+/// trait. This stores all configuration during the window manager's lifetime, and 
+/// holds both information defined by this crate, as well as user-defined data.
 ///
-/// - C, that is its runtime configuration and must implement the
-/// [`RuntimeConfig`] trait. This stores all configuration during
-/// the window manager's lifetime, and holds both information
-/// defined by this crate, as well as user-defined data.
+/// These two traits are _central_ to the operation of a window manager, and as such 
+/// you will see them pop up in a lot of places, mostly `Workspace` or `Desktop` 
+/// methods, but also the occasional `Client` method.
 ///
-/// These two traits are _central_ to the operation of a window manager,
-/// and as such you will see them pop up in a lot of places, mostly
-/// `Workspace` or `Desktop` methods, but also the occasional
-/// `Client` method.
+/// # Structure and Management Model
 ///
-/// # Structure
+/// Toaru's window management model involves a set of uniquely named workspaces, multiplexed
+/// between a set of monitors. At any given time, if a monitor is active, it has a workspace
+/// active on it, which manages windows, both mapped and unmapped.
 ///
-/// This type combines a [`Platform`] and a [`Desktop`] which
-/// combines [`Workspace`][1]s. As the top-level struct, `Toaru`
-/// has methods that apply to its sub-structures, and thus are
-/// organized accordingly: top-level, `Desktop`-level,
-/// and `Workspace`-level.
+/// # Relationship between `Toaru` and its `Platform`
+/// 
+/// `Toaru` serves as your interface to the platform. You manipulate its state 
+/// through your keybind callbacks or in your code, and the `Platform` implements it
+/// for you. Any eye-candy that the `Platform` might implement is transparent to `Toaru`.
+/// That is, assuming `Toaru` implements its logic correctly, all window operations
+/// on it should be atomic, and there is no such thing as inconsistent state between any
+/// two window operations, as presented to the `Platform`.
+/// 
+/// Take for example, the Platform is in the middle of running an animation, transitioning
+/// from one workspace to another, when a new window opens in the destination workspace.
+/// By the time the new window opens, the internal `Toaru` state is already at the destination,
+/// and the new window event is transmitted to `Toaru`, which seamlessly accounts for it.
+/// Between these two events, there is no inconsistent state such as `Toaru` being halfway between
+/// workspaces.
+/// 
+/// However, it is a different case in the backing `Platform`, where there is such a thing.
+/// When a new window opens in a platform, it might play its own animation, and such there
+/// is a conflict between the new animation that must play and the currently playing animation.
+/// Resolving this conflict is transparent to `Toaru`, and is a `Platform`-level policy.
 ///
-/// # Usage
-///
+/// [1]: crate::core::Workspace
 pub struct Toaru<P, C>
 where
     P: Platform,
@@ -106,18 +102,10 @@ where
     /// The desktop containing all windows.
     desktop: Desktop<P>,
     /// All screens connected to the computer.
-    screens: Ring<Screen>,
-    /// A main error handler function.
-    ehandler: Box<dyn ErrorHandler<P, C>>,
+    screens: HashMap<String, Screen<P>>,
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
-    selected: Option<P::Client>,
-    /// Used when window is moved to track pointer location.
-    last_mouse_pos: Point<Logical>,
-    // If the wm is running.
-    running: bool,
-    // Set if the loop breaks and the user wants a restart.
-    restart: bool,
+    selected: Option<P::WindowId>,
 }
 
 /// General `WindowManager`-level commands.
@@ -158,53 +146,17 @@ where
         Ok(Self {
             config: config.into_runtime_config(),
             desktop,
-            screens: Ring::new(),
-            ehandler: Box::new(DefaultErrorHandler),
+            screens: HashMap::new(),
             selected: None,
-            last_mouse_pos: Point::zeroed(),
-            running: false,
-            restart: false,
         })
     }
 
-    //* Public Methods
-
-    /// Registers the executable as a window manager
-    /// with the X server, as well as setting properties
-    /// required by ICCCM or EWMH.
-    ///
-    /// Selects for subtructure redirect and notify,
-    /// grabs required keys for keybinds,
-    /// and runs any registered startup hooks.
-    pub fn register<I>(&mut self, hooks: I)
-    where
-        I: IntoIterator<Item = Hook<P, C>>,
-    {
-        todo!()
+    /// Returns a reference to the internal runtime configuration of Toaru.
+    pub fn config(&self) -> &dyn RuntimeConfig {
+        &self.config
     }
 
-    /// Run an external command.
-    pub fn run_external<S: AsRef<OsStr>>(&mut self, cmd: S, args: &[S]) {
-        debug!("Running command [{:?}]", <S as AsRef<OsStr>>::as_ref(&cmd));
-        let result = Command::new(&cmd)
-            .args(args)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
-
-        match result {
-            Ok(_) => {}
-            Err(e) => (self.ehandler).call(self.state(), ToaruError::SpawnProc(e.to_string())),
-        }
-    }
-
-    /// Starts an external command and maintains a handle to it.
-    #[allow(unused_variables)]
-    pub fn start_external<S: AsRef<OsStr>>(&mut self, cmd: S, args: &[S]) {
-        todo!()
-    }
-
-    /// Provides a WMState for introspection.
+    /// Provides a ToaruState for introspection.
     pub fn state(&self) -> ToaruState<'_, P, C> {
         ToaruState {
             config: &self.config,
@@ -214,23 +166,18 @@ where
         }
     }
 
-    /// Set an error handler for WindowManager.
-    pub fn set_error_handler<E>(&mut self, ehandler: E)
-    where
-        E: ErrorHandler<P, C> + 'static,
-    {
-        self.ehandler = Box::new(ehandler);
+    /// Creates a new window and inserts it into the currently focused workspace,
+    /// returning the geometry assigned to the window by the layout engine.
+    /// 
+    /// If `None` is returned, the `Platform` should size the window however the client
+    /// that owns the window wants it to be sized.
+    pub fn insert_window(&mut self, id: P::WindowId) -> Option<Rectangle<i32, Logical>> {
+        todo!()
     }
 
-    /// Quits the event loop.
-    pub fn quit(&mut self) {
-        self.running = false;
-    }
-
-    /// Restarts the window manager in-place.
-    pub fn restart(&mut self) {
-        self.running = false;
-        self.restart = true;
+    /// Removes the window identified by `id`.
+    pub fn delete_window(&mut self, id: P::WindowId) -> Window<P> {
+        todo!()
     }
 
     /// Dumps the internal state of WindowManager to stderr.
@@ -246,24 +193,10 @@ impl<P, C> Toaru<P, C>
 where
     P: Platform<Error = ToaruError<P>>,
     C: RuntimeConfig,
-{
-    /// Creates a new client and inserts it into the currently focused workspace.
-    pub fn insert_client(&mut self, id: P::Client) {
-        // todo
-    }
-    
+{   
     /// Goes to the specified workspace.
-    #[instrument(level = "debug", skip(self))]
     pub fn goto_workspace(&mut self, name: &str) {
-        // handle_err!(
-        //     self.desktop.go_to(
-        //         name,
-        //         &self.platform,
-        //         self.screens.focused().unwrap(),
-        //         &self.config
-        //     ),
-        //     self
-        // );
+        
     }
 
     /// Cycles the focused workspace.
@@ -382,7 +315,7 @@ where
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
     //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    pub fn move_window_ptr(&mut self, pt: Point<Logical>) {
+    pub fn move_window_ptr(&mut self, pt: Point<i32, Logical>) {
         // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         // if let Some(win) = self.selected {
@@ -405,8 +338,8 @@ where
     ///
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
-    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    pub fn resize_window_ptr(&mut self, pt: Point<Logical>) {
+    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
+    pub fn resize_window_ptr(&mut self, pt: Point<i32, Logical>) {
         // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
         // if let Some(win) = self.selected {
@@ -470,204 +403,9 @@ where
 }
 
 #[doc(hidden)]
-//* Private Methods *//
-impl<P, C> Toaru<P, C>
-where
-    P: Platform,
-    C: RuntimeConfig,
-{
-    /// Receive the next event from the connection and process it
-    /// into a actions to be taken by the window manager.
-    fn process_next_event(&mut self) -> Result<Option<Vec<EventAction<P>>>, P> {
-        // let Some(event) = self.platform.poll_next_event()? else {return Ok(None)};
-        // Ok(EventAction::from_xevent(event, self.state()))
-        todo!()
-    }
-
-    #[cfg_attr(
-        debug_assertions,
-        instrument(level = "debug", skip(self, actions, mousebinds, keybinds))
-    )]
-    fn handle_event(
-        &mut self,
-        actions: Vec<EventAction<P>>,
-        mousebinds: &mut Mousebinds<P, C>,
-        keybinds: &mut Keybinds<P, C>,
-    ) -> Result<(), P> {
-
-        Ok(())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn update_focus(&mut self, id: &P::Client) -> Result<(), P> {
-        // get target id
-        // set input focus to main window
-        // send clientmessage to focus if not focused
-        // set focused border colour
-        // set unfocused border colour
-        // update focus internally
-        // if client not found, set focus to root window
-        // let target = if self.desktop.is_managing(id) {
-        //     id
-        // } else {
-        //     match self.focused_client_id() {
-        //         Some(c) => c,
-        //         None =>
-        //         /*handle this*/
-        //         {
-        //             return Err(ToaruError::UnknownClient(id))
-        //         }
-        //     }
-        // };
-        // self.desktop
-        //     .current_mut()
-        //     .focus_window(target, &self.conn, &self.config);
-        Ok(())
-    }
-
-    fn focused_client_id(&self) -> Option<&P::Client> {
-        self.desktop.current_client().map(|c| c.id())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn set_focused_screen(&mut self, ptr: Option<Point<Logical>>) -> Result<(), P> {
-        
-        //todo: if per-screen workspaces, need to focus workspace also
-        Ok(())
-    }
-
-    /// Query _NET_WM_NAME or WM_NAME and change it accordingly
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn client_name_change(&mut self, id: &P::Client) -> Result<(), P> {
-        //todo
-        // if let Some(c) = self.desktop.current_client_mut() {
-        //     c.update_dynamic(&self.conn, &self.config);
-        // }
-        Ok(())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn map_tracked_client(&mut self, id: &P::Client) -> Result<(), P> {
-        // let current = self.desktop.current_mut();
-        // if self.conn.should_float(id, self.config.float_classes()) || current.is_floating() {
-        //     current.add_window_off_layout(
-        //         id,
-        //         &self.conn,
-        //         self.screens.focused().unwrap(),
-        //         &self.config,
-        //     )
-        // } else {
-        //     current.add_window_on_layout(
-        //         id,
-        //         &self.conn,
-        //         self.screens.focused().unwrap(),
-        //         &self.config,
-        //     )
-        // }
-        Ok(())
-    }
-
-    fn map_untracked_client(&self, id: &P::Client) -> Result<(), P> {
-        Ok(())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn unmap_client(&mut self, id: &P::Client) -> Result<(), P> {
-        // the client itself handles the unmapping, so we just handle internal state
-        // self.desktop.current_mut().del_window(
-        //     id,
-        //     &self.conn,
-        //     self.screens.focused().unwrap(),
-        //     &self.config,
-        // )?;
-        Ok(())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn configure_client(&mut self, /* data: ConfigureRequestData */ ) -> Result<(), P> {
-        //todo
-        Ok(())
-    }
-
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    fn client_to_workspace(&mut self, id: &P::Client, idx: usize) -> Result<(), P> {
-        // let name = match self.desktop.get(idx) {
-        //     Some(ws) => ws.name.to_string(),
-        //     None => return Ok(()),
-        // };
-
-        // self.desktop.send_window_to(
-        //     id,
-        //     &name,
-        //     &self.conn,
-        //     self.screens.focused().unwrap(),
-        //     &self.config,
-        // )
-
-        Ok(())
-    }
-
-    /// Runs the keybind.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
-    fn run_keybind(&mut self, kb: Keybind, bdgs: &mut Keybinds<P, C>, id: &P::Client) {
-        if let Some(cb) = bdgs.get_mut(&kb) {
-            cb(self);
-        } else {
-            warn!("Binding not found for keypress event");
-        }
-    }
-
-    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, bdgs)))]
-    fn run_mousebind(
-        &mut self,
-        mb: Mousebind,
-        bdgs: &mut Mousebinds<P, C>,
-        id: &P::Client,
-        pt: Point<Logical>,
-    ) -> Result<(), P> {
-        // match mb.kind {
-        //     // assume that we want to do something with the pointer,
-        //     // so grab it
-        //     MouseEventKind::Press => {
-        //         self.platform.grab_pointer(self.root.id, 0)?;
-        //         self.selected = Some(id);
-        //         self.last_mouse_pos = pt;
-        //     }
-        //     MouseEventKind::Release => {
-        //         self.platform.ungrab_pointer()?;
-        //         self.selected = None;
-        //         self.last_mouse_pos = pt;
-        //     }
-        //     MouseEventKind::Motion => {}
-        // }
-
-        // if let Some(cb) = bdgs.get_mut(&mb) {
-        //     cb(self, pt);
-        // } else {
-        //     warn!("Binding not found for mouse event");
-        // }
-        Ok(())
-    }
-
-    fn set_fullscreen(&mut self, _id: &P::Client, _should_fullscreen: bool) -> Result<(), P> {
-        todo!()
-    }
-
-    fn toggle_urgency(&mut self, _id: &P::Client) -> Result<(), P> {
-        //todo
-        Ok(())
-    }
-
-    fn screen_reconfigure(&mut self) -> Result<(), P> {
-        todo!()
-    }
-
-    fn focus_screen(&mut self, idx: usize) {
-        self.screens.set_focused(idx);
-    }
-
-    pub(crate) fn handle_error(&mut self, err: P::Error, /* _evt: XEvent */) {
-        // (self.ehandler).call(self.state(), ToaruError::BackendError(err.into()));
+impl<P: Platform, C: RuntimeConfig> Toaru<P, C> {
+    fn find_workspace_screen(&self) -> Option<&Screen<P>> {
+        None
     }
 }
 

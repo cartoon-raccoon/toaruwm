@@ -74,7 +74,7 @@ pub trait Layout<P: Platform>
     ///
     /// A `LayoutCtxt` is provided to give the layout any additional
     /// information it might need to enforce its policy.
-    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>>;
+    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
     fn boxed(&self) -> Box<dyn Layout<P>>;
@@ -92,16 +92,13 @@ use custom_debug_derive::Debug;
 #[derive(Debug)]
 pub struct LayoutCtxt<'t, P: Platform> {
     //fixme: custom debug is just a bodge rn
-    /// A handle to the platform to make requests if needed.
-    #[debug(skip)]
-    pub pf: &'t P,
     /// The runtime configuration of the window manager.
     #[debug(skip)]
     pub config: &'t dyn RuntimeConfig,
     /// The workspace that called the Layout.
     pub workspace: &'t Workspace<P>,
     /// The current screen the workspace is on.
-    pub screen: &'t Screen,
+    pub screen: &'t Screen<P>,
 }
 
 /// A Ring of layouts applied on a workspace.
@@ -198,11 +195,10 @@ impl<P: Platform> Layouts<P> {
     /// Generates the layout for the currently focused layout.
     pub fn gen_layout<'t>(
         &'t self,
-        pf: &P,
         ws: &Workspace<P>,
-        scr: &Screen,
+        scr: &Screen<P>,
         cfg: &dyn RuntimeConfig,
-    ) -> Vec<LayoutAction<'t, P>> {
+    ) -> Vec<LayoutAction<P>> {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
         self.focused()
@@ -210,7 +206,6 @@ impl<P: Platform> Layouts<P> {
             .layout(LayoutCtxt {
                 workspace: ws,
                 config: cfg,
-                pf,
                 screen: scr,
             })
     }
@@ -263,20 +258,20 @@ impl LayoutType {
 /// layout currently in effect.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LayoutAction<'layout, P: Platform> {
+pub enum LayoutAction<P: Platform> {
     /// Resize a given client.
     Resize {
         /// The Client to apply the geometry to.
-        id: &'layout P::Client,
+        id: P::WindowId,
         /// The geometry to apply to the Client.
         geom: Rectangle<i32, Logical>,
     },
     /// Map the given window.
-    Map(&'layout P::Client),
+    Map(P::WindowId),
     /// Unmap the given window.
-    Unmap(&'layout P::Client),
+    Unmap(P::WindowId),
     /// Stack the given window on top.
-    StackOnTop(&'layout P::Client),
+    StackOnTop(P::WindowId),
     /// Remove the given window from the layout.
-    Remove(&'layout P::Client),
+    Remove(P::WindowId),
 }

@@ -8,18 +8,19 @@ use super::{
 };
 
 use crate::core::Workspace;
-use crate::types::{Cardinal, Rectangle};
+use crate::types::{Cardinal, Rectangle, Logical};
 use crate::platform::{Platform};
 
 /// A simple dynamic tiling layout, with a main window
 /// and a stack on the side.
+#[derive(Debug)]
 pub struct DynamicTiled<P: Platform> {
     // the proportion of space that the main window should take up
     ratio: Cell<f32>,
     // the border width set by the user.
     bwidth: Cell<u32>,
     // the ID of the main window, if set
-    main: Cell<Option<P::Client>>,
+    main: Cell<Option<P::WindowId>>,
 }
 
 impl<P: Platform> DynamicTiled<P> {
@@ -39,7 +40,7 @@ impl<P: Platform> Layout<P> for DynamicTiled<P> {
         "DTiled"
     }
 
-    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>> {
+    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
         self._layout(ctxt)
     }
 
@@ -63,7 +64,7 @@ impl<P: Platform> Layout<P> for DynamicTiled<P> {
 
 #[doc(hidden)]
 impl<P: Platform> DynamicTiled<P> {
-    fn _layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<'_, P>> {
+    fn _layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
         let geom = ctxt.screen.effective_geom();
         let ws = ctxt.workspace;
 
@@ -93,10 +94,10 @@ impl<P: Platform> DynamicTiled<P> {
 
     // fn _layout_with_main(
     //     &self,
-    //     main_id: &P::Client,
-    //     geom: Geometry,
+    //     main_id: P::Window,
+    //     geom: Rectangle<i32, Logical>,
     //     ws: &Workspace<P>,
-    // ) -> Vec<LayoutAction<'_, P>> {
+    // ) -> Vec<LayoutAction<P>> {
     //     use Cardinal::*;
 
     //     let bwidth = self.bwidth.get() as i32;
@@ -168,7 +169,7 @@ impl<P: Platform> DynamicTiled<P> {
     //         };
 
     //         //todo: account for border width
-    //         let sec_geoms = sec.split_horz_n(sec_count);
+    //         let sec_geoms = sec.split_horz_n(sec_count as i32);
 
     //         ws.clients_in_layout()
     //             .filter(|c| c.id() != current_main)

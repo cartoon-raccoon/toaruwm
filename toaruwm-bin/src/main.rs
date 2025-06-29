@@ -25,28 +25,33 @@ use toaruwm::Toaru;
 use tracing::Level;
 use tracing_subscriber::{fmt as logger, fmt::format::FmtSpan};
 
-fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+fn main() -> Result<(), Box<dyn Error>> {
+    // init logger
     logger::fmt()
         .with_span_events(FmtSpan::ACTIVE)
         .with_max_level(Level::TRACE)
-        .try_init()?;
+        .try_init().expect("could not create logger");
 
+    // create config
     let config = ToaruConfig::builder().finish(|_| Ok(()))?;
 
+    // create the event loop
     let event_loop = EventLoop::try_new()?;
 
+    // create the backend for the Wayland config
     let backend = DrmBackend::new(event_loop.handle())?;
     
+    // create the overall Toaru struct
     let toaru = Toaru::new(config)?;
 
+    // create the platform driven by the backend we made earlier
     let (mut platform, display) = Wayland::new(
-        backend, 
+        backend,
+        None,
         toaru, 
         event_loop.handle(), 
         event_loop.get_signal()
     )?;
-
-    platform.init(event_loop.handle(), display.handle())?;
 
     platform.run(display, event_loop)?;
 

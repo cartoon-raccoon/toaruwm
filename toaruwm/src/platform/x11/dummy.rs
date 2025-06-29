@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 
-use crate::core::{Client, Screen};
+use crate::core::{Window, Screen};
 use crate::types::Rectangle;
 use crate::platform::{
     x11::{

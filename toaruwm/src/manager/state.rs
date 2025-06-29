@@ -10,10 +10,10 @@ use std::fmt::Debug;
 
 use crate::{core::{
     types::{BorderStyle, Color, Dict},
-    Client, Desktop, Ring, Workspace,
+    Window, Desktop, Ring, Workspace,
 }};
 use crate::platform::Platform;
-use crate::manager::config::{WaylandConfig, X11Config, OutputLayout};
+use crate::config::{OutputLayout};
 
 /// An object that can provide information about your
 /// configuration at runtime.
@@ -128,6 +128,16 @@ pub trait RuntimeConfig: Debug {
     }
 }
 
+/// A type that returns Wayland-specific configs.
+pub trait WaylandConfig {
+
+}
+
+/// A type that returns X11-specific configs.
+pub trait X11Config {
+
+}
+
 /// The an implementation of runtime configuration for 
 /// [`Toaru`](super::Toaru).
 ///
@@ -210,7 +220,7 @@ where
     /// The workspaces maintained by the window manager.
     pub workspaces: &'t Ring<Workspace<P>>,
     /// The selected window, if any.
-    pub selected: Option<&'t P::Client>,
+    pub selected: Option<&'t P::WindowId>,
     pub(crate) desktop: &'t Desktop<P>,
 }
 
@@ -220,12 +230,12 @@ where
     C: RuntimeConfig,
 {
     /// Looks up a client with the given X ID.
-    pub fn lookup_client(&self, id: &P::Client) -> Option<&Client<P>> {
+    pub fn lookup_client(&self, id: P::WindowId) -> Option<&Window<P>> {
         self.desktop.current().windows.lookup(id)
     }
 
     /// Checks whether the window `id` is currently managed.
-    pub fn is_managing(&self, id: &P::Client) -> bool {
+    pub fn is_managing(&self, id: P::WindowId) -> bool {
         self.desktop.is_managing(id)
     }
 }

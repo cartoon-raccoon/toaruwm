@@ -41,7 +41,6 @@ pub use atom::{Atom, Atoms};
 pub use event::XEvent;
 #[doc(inline)]
 pub use traits::{XConn, RandR, Xkb};
-pub(crate) use property::*;
 
 #[doc(inline)]
 pub use self::x11rb::X11RBConn;

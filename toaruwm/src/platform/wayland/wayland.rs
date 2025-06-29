@@ -1,6 +1,7 @@
 use std::ffi::OsString;
 use std::sync::Arc;
 use std::os::unix::net::UnixStream;
+use std::collections::HashMap;
 
 use thiserror::Error;
 use tracing::warn;
@@ -11,7 +12,9 @@ use smithay::reexports::{
         EventLoop, Interest, LoopHandle, Mode, PostAction, LoopSignal,
     }, 
     wayland_server::{
-        backend::{ClientId as WlsClientId, InvalidId},
+        protocol::{
+            wl_surface::WlSurface,
+        },
         Display, DisplayHandle, BindError,
     }
 };
@@ -21,20 +24,21 @@ use smithay::backend::{
         libseat::Error as SeatError,
     }
 };
+use smithay::input::Seat;
 use smithay::wayland::{
     socket::ListeningSocketSource,
 };
 use smithay::desktop::{Space, Window};
 
 use super::state::{ClientState, WlState};
-
+use super::window::{Unmapped};
 use super::backend::{
     WaylandBackend, WaylandBackendError,
 };
 
 use super::{ClientData, Platform, PlatformType};
 
-use crate::{core::types::ClientId, platform::Output};
+use crate::platform::{PlatformWindowId, wayland::output::WaylandOutput};
 use crate::manager::state::{RuntimeConfig};
 use crate::types::{Dict, Rectangle, Logical};
 
@@ -44,9 +48,9 @@ use crate::Toaru;
 /// 
 /// This is the `Client` associated type for [`Wayland`]'s implementation
 /// of [`Platform`].
-pub type WaylandClientId = WlsClientId;
+pub type WaylandClientId = u64;
 
-impl ClientId for WaylandClientId {}
+impl PlatformWindowId for WaylandClientId {}
 
 /// An implementation of the Wayland platform.
 /// 
@@ -55,15 +59,25 @@ impl ClientId for WaylandClientId {}
 #[derive(Debug)]
 pub struct Wayland<C, B>
 where
-    C: RuntimeConfig,
-    B: WaylandBackend
+    C: RuntimeConfig + 'static,
+    B: WaylandBackend + 'static
 {
-    pub(super) toaru: Toaru<Wayland<C, B>, C>,
-    pub(super) global_space: Space<Window>,
-    pub(super) state: WlState,
+    /// The core Toaru struct handling functionality.
+    pub(super) toaru: Toaru<Self, C>,
+    /// Our backend.
     pub(super) backend: B,
+    /// Unmapped windows.
+    pub(super) unmapped: HashMap<WlSurface, Unmapped>,
+    /// Cached root surface for every surface, so that we can access it in destroyed()
+    /// where the normal get_parent is cleared out.
+    pub(super) root_surfaces: HashMap<WlSurface, WlSurface>,
+    /// The global space that all windows are mapped onto.
+    pub(super) global_space: Space<Window>,
+    /// Our smithay state.
+    pub(super) state: WlState<C, B>,
+    pub(super) seat: Seat<Self>,
     pub(super) socketname: OsString,
-    pub(super) event_loop: LoopHandle<'static, Wayland<C, B>>,
+    pub(super) event_loop: LoopHandle<'static, Self>,
     pub(super) stop_signal: LoopSignal,
 }
 
@@ -92,7 +106,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         let display = Display::new().expect("error initializing Wayland display");
 
         // create new compositor state and initialize all handlers
-        let mut state = WlState::new::<C, B>(display.handle());
+        let mut state = WlState::new(display.handle());
 
         let socket = ListeningSocketSource::new_auto()?;
         let socketname = socket.socket_name().to_os_string();
@@ -107,11 +121,20 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
         backend.init(loophandle.clone(), display.handle(), &mut state, backend_args)?;
 
+        let mut seat = state.seat_state.new_wl_seat(&display.handle(), backend.seat_name());
+
+        // todo: add keyboard
+
+        seat.add_pointer();
+
         Ok((Self {
             toaru,
+            backend,
+            unmapped: HashMap::new(),
+            root_surfaces: HashMap::new(),
             global_space: Space::default(),
             state,
-            backend,
+            seat,
             socketname,
             event_loop: loophandle,
             stop_signal: loopsignal
@@ -126,11 +149,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         &mut self.backend
     }
 
-    pub fn state(&self) -> &WlState {
+    pub fn state(&self) -> &WlState<C, B> {
         &self.state
     }
 
-    pub fn state_mut(&mut self) -> &mut WlState {
+    pub fn state_mut(&mut self) -> &mut WlState<C, B> {
         &mut self.state
     }
 
@@ -206,17 +229,6 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
     }
 }
 
-/// The result of a rendering operation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RenderResult {
-    /// The frame was successfully rendered and submitted.
-    Submitted,
-    /// Rendering was successful but there was no damage.
-    NoDamage,
-    /// The frame was not rendered and submitted.
-    Skipped
-}
-
 
 #[derive(Error, Debug)]
 pub enum WaylandError {
@@ -230,8 +242,6 @@ pub enum WaylandError {
     EventLoopErr(#[from] CalloopError),
     #[error(transparent)]
     SocketBindErr(#[from] BindError),
-    #[error("no such client: {1:?}")]
-    NoSuchClient(#[source] InvalidId, WlsClientId),
 }
 
 impl<E: WaylandBackendError + 'static> From<E> for WaylandError {
@@ -241,7 +251,8 @@ impl<E: WaylandBackendError + 'static> From<E> for WaylandError {
 }
 
 impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
-    type Client = WlsClientId;
+    type WindowId = u64;
+    type Output = WaylandOutput;
     type Error = WaylandError;
 
     fn name(&self) -> &str {
@@ -256,11 +267,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
         self.backend.name() == "winit"
     }
 
-    fn all_outputs(&self) -> Result<&[Output], WaylandError> {
+    fn all_outputs(&self) -> Result<&[Self::Output], WaylandError> {
         todo!()
     }
 
-    fn query_tree(&self, client: &WlsClientId) -> Result<Rectangle<Logical>, WaylandError> {
+    fn query_tree(&self, client: u64) -> Result<Rectangle<i32, Logical>, WaylandError> {
         todo!()
     }
 
@@ -268,7 +279,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
         todo!()
     }
 
-    fn query_client_data(&self, clid: &WlsClientId) -> Result<ClientData, WaylandError> {
+    fn query_window_data(&self, clid: u64) -> Result<ClientData, WaylandError> {
         todo!()
     }
 }

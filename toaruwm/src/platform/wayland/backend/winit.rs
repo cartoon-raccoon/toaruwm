@@ -1,24 +1,84 @@
-use smithay::backend::{
-    renderer::gles::GlesRenderer,
-    winit::{self, WinitGraphicsBackend, WinitEventLoop}
-};
+use tracing::warn;
 
-use super::WaylandBackend;
+use smithay::backend::renderer::{ImportDma, ImportEgl};
+use smithay::reexports::{
+    wayland_server::DisplayHandle,
+    calloop::LoopHandle,
+};
+use smithay::backend::{
+    renderer::{
+        gles::GlesRenderer,
+        damage::OutputDamageTracker,
+    },
+    winit::{
+        self,
+        WinitGraphicsBackend, WinitEventLoop, WinitEvent,
+        Error as WinitError,
+    },
+    allocator::{
+        dmabuf::Dmabuf,
+    }
+};
+use smithay::output::{
+    Mode, Output, PhysicalProperties, Subpixel,
+};
+use smithay::utils::Transform;
+
+use tracing::{error};
+
+use thiserror::Error;
+
+use super::{WaylandBackendError, super::state::WlState};
+use crate::platform::wayland::{prelude::*, WaylandError};
+use crate::types::Dict;
+use crate::dict;
+
+const OUTPUT_NAME: &str = "winit";
 
 #[derive(Debug)]
 pub struct WinitBackend {
     pub(crate) winit: WinitGraphicsBackend<GlesRenderer>,
-    pub(crate) eventloop: WinitEventLoop,
+    pub(crate) dmg_tracker: OutputDamageTracker,
+    pub(crate) output: Output,
 }
 
 impl WinitBackend {
-    pub fn new() -> Self {
-        let (winit, eventloop) = winit::init().unwrap(); // fixme
+    /// Creates a new Winit backend, returning additional args inside a `Dict`
+    /// that must be passed into its `init` method.
+    pub fn new() -> Result<(Self, Dict), WaylandError> {
+        let (winit, eventloop) = winit::init()  
+            .map_err(|e| WinitBackendError::from(e))?;
 
-        Self {
+        let size = winit.window_size();
+        let mode = Mode {
+            size,
+            refresh: 60_000,
+        };
+
+        let output = Output::new(
+            OUTPUT_NAME.to_string(),
+            PhysicalProperties {
+                size: (0, 0).into(),
+                subpixel: Subpixel::Unknown,
+                make: "Toaru".into(),
+                model: "Winit".into(),
+            }
+        );
+
+        output.change_current_state(Some(mode), Some(Transform::Flipped180), None, Some((0, 0).into()));
+        output.set_preferred(mode);
+
+        let dmg_tracker = OutputDamageTracker::from_output(&output);
+
+        let args = dict! {
+            "winitev" => eventloop,
+        };
+
+        Ok((Self {
             winit,
-            eventloop,
-        }
+            dmg_tracker,
+            output,
+        }, args))
     }
 }
 
@@ -27,7 +87,71 @@ impl WaylandBackend for WinitBackend {
         "winit"
     }
 
+    fn seat_name(&self) -> &str {
+        "winit"
+    }
+
     fn render(&mut self) {
 
+    }
+
+    fn init<C>(
+        &mut self, 
+        loophandle: LoopHandle<'static, Wayland<C, Self>>,
+        display: DisplayHandle,
+        wlstate: &mut WlState<C, Self>,
+        mut args: Dict)-> Result<(), WaylandError>
+    where
+        Self: Sized,
+        C: RuntimeConfig
+    {
+        let winitev = args.remove("winitev")
+            .and_then(|wev| wev.downcast::<WinitEventLoop>().ok())
+            .expect("error in initializing WinitBackend: no Winit Event Loop was provided");
+
+        let renderer = self.winit.renderer();
+        if let Err(err) = renderer.bind_wl_display(&display) {
+            warn!("error binding display to renderer: {err}");
+        }
+
+        loophandle.insert_source(winitev, |event, _, wayland| {
+            match event {
+                WinitEvent::Resized {size, scale_factor} => {
+
+                }
+                WinitEvent::Focus(_) => {}
+                WinitEvent::Input(ievent) => wayland.handle_input_event(ievent),
+                WinitEvent::Redraw => { /* todo */}
+                WinitEvent::CloseRequested => wayland.stop_signal.stop(),
+            }
+        }).map_err(|e| e.error)?;
+
+        // todo: create dma-buf default feedback
+        
+        Ok(())
+    }
+
+    fn import_dmabuf(&mut self, dmabuf: &Dmabuf) -> bool {
+        match self.winit.renderer().import_dmabuf(dmabuf, None) {
+            Ok(_txtr) => true,
+            Err(e) => {
+                error!("error while importing DMA-BUF: {e}");
+                false
+            }
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("winit backend error: {src}")]
+pub struct WinitBackendError {
+    #[source]
+    #[from]
+    src: WinitError,
+}
+
+impl WaylandBackendError for WinitBackendError {
+    fn backend_name(&self) -> &str {
+        "winit"
     }
 }
