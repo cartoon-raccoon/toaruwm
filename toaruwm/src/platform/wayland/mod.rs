@@ -5,7 +5,6 @@ pub mod backend;
 pub mod util;
 pub mod render;
 pub mod window;
-pub mod output;
 
 pub(crate) mod handlers;
 

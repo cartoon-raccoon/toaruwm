@@ -1,1 +1,0 @@
-//! A Wayland representation of an Output.
