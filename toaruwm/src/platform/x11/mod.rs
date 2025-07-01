@@ -29,6 +29,7 @@ pub mod event;
 pub mod input;
 pub mod property;
 pub mod types;
+pub mod config;
 
 pub mod x11rb;
 pub mod xcb;
@@ -41,6 +42,8 @@ pub use atom::{Atom, Atoms};
 pub use event::XEvent;
 #[doc(inline)]
 pub use traits::{XConn, RandR, Xkb};
+#[doc(inline)]
+pub use config::{X11Config, ToaruX11Config};
 
 #[doc(inline)]
 pub use self::x11rb::X11RBConn;

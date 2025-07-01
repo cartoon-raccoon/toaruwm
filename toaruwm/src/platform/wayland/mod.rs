@@ -6,20 +6,23 @@ pub mod util;
 pub mod render;
 pub mod window;
 pub mod input;
+pub mod config;
 
 pub(crate) mod handlers;
 
 pub(self) mod convert;
 
-pub use state::WlState;
-
-use super::{ClientData, Platform, PlatformType};
-
 mod wayland;
+
+// Public re-exports.
 #[doc(inline)]
 pub use wayland::*;
+pub use state::WlState;
+pub use config::{WaylandConfig, ToaruWaylandConfig};
 
 pub(self) mod prelude {
+    //! Convenient all-import for all traits that Wayland has requirements for.
+    
     pub use super::Wayland;
     pub use crate::config::RuntimeConfig;
     pub use super::backend::WaylandBackend;
@@ -28,6 +31,7 @@ pub(self) mod prelude {
 use crate::types::{Point, Logical, Transform};
 use crate::config::{OutputScale, OutputMode};
 use crate::platform::PlatformOutput;
+use super::{ClientData, Platform, PlatformType};
 
 /// An Output as used by the Wayland platform.
 pub type WaylandOutput = smithay::output::Output;
