@@ -16,7 +16,7 @@ use crate::core::{Desktop, Screen, WorkspaceSpec, Window};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
 use crate::platform::{Platform};
-use crate::config::{Config};
+use crate::config::{Config, RuntimeConfig};
 
 use crate::{Result, ToaruError};
 
@@ -27,7 +27,7 @@ pub mod state;
 #[doc(inline)]
 pub use hooks::{Hook, Hooks};
 #[doc(inline)]
-pub use state::{RuntimeConfig, ToaruState};
+pub use state::ToaruState;
 
 /// Removes the focused window if under layout.
 macro_rules! _rm_if_under_layout {

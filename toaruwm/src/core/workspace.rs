@@ -17,7 +17,7 @@ use crate::core::{
     window::{Window, WindowRing, FocusStack},
 };
 use crate::layouts::{update::IntoUpdate, Layout, LayoutAction, LayoutType, Layouts};
-use crate::manager::RuntimeConfig;
+use crate::config::RuntimeConfig;
 use crate::types::{BorderStyle, Direction};
 use crate::platform::{Platform};
 

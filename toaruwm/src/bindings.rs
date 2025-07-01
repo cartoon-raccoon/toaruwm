@@ -8,7 +8,8 @@ use strum::*;
 use custom_debug_derive::Debug;
 use thiserror::Error;
 
-use crate::manager::{RuntimeConfig, Toaru};
+use crate::Toaru;
+use crate::config::RuntimeConfig;
 use crate::types::{Point, Logical};
 pub use crate::platform::x11::input::MouseEventKind;
 use crate::platform::x11::{

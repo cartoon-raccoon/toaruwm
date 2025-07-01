@@ -16,13 +16,13 @@ use crate::layouts::{
     Floating, Layout,
 };
 #[doc(inline)]
-pub use crate::manager::state::{RuntimeConfig, WmConfig};
+pub use crate::manager::state::{WmConfig};
 use crate::types::{Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
 
 use super::output::{OutputLayout};
-use super::{Config};
+use super::{Config, RuntimeConfig};
 
 /// The central configuration object.
 ///

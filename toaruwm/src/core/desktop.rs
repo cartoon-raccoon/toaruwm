@@ -15,7 +15,7 @@ use tracing::debug;
 
 use crate::core::{Window, Workspace};
 use crate::layouts::{Layout, Layouts};
-use crate::manager::RuntimeConfig;
+use crate::config::RuntimeConfig;
 use crate::platform::{Platform, PlatformOutput};
 use crate::types::{
     Cardinal, Direction, Rectangle, Logical, Ring, Selector

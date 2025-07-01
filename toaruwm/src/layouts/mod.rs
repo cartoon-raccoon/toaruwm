@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use tracing::debug;
 
 use crate::core::{Ring, Screen, Workspace};
-use crate::manager::RuntimeConfig;
+use crate::config::RuntimeConfig;
 use crate::types::{Rectangle, Logical};
 use crate::platform::{Platform};
 use crate::{Result, ToaruError};

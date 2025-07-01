@@ -18,7 +18,7 @@ pub use winit::WinitBackend;
 use super::util::IdCounter;
 use super::{WaylandImpl, WaylandError};
 
-use crate::manager::state::{RuntimeConfig};
+use crate::config::RuntimeConfig;
 use crate::types::Dict;
 
 static OUTPUT_ID_COUNTER: IdCounter = IdCounter::new();

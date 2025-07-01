@@ -139,7 +139,7 @@ pub use crate::config::{Config, ToaruConfig};
 pub use crate::platform::Platform;
 
 use crate::bindings::BindingError;
-use crate::manager::state::{RuntimeConfig};
+use crate::config::RuntimeConfig;
 
 use std::io;
 

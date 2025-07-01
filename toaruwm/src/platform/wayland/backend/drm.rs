@@ -64,7 +64,7 @@ use crate::platform::wayland::{
     WaylandError, Wayland, WaylandImpl,
     backend::WaylandBackendError
 };
-use crate::manager::state::RuntimeConfig;
+use crate::platform::wayland::prelude::*;
 use crate::types::Dict;
 use super::{WaylandBackend, WaylandBackendInit, OutputId, OutputName, super::state::WlState};
 

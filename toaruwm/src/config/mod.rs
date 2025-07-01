@@ -1,6 +1,15 @@
 //! Types and helpers for configuring `Toaru`.
 
+pub mod output;
+pub mod rules;
+pub mod runtime;
+pub mod section;
+
 mod config;
+
+pub use output::{Output, OutputLayout, OutputMode, OutputScale};
+pub use runtime::{RuntimeConfig};
+pub use section::ConfigSection;
 
 #[doc(inline)]
 pub use config::*;
@@ -78,8 +87,3 @@ pub trait Config<P> {
     /// Perform the conversion into the RuntimeConfig.
     fn into_runtime_config(self) -> Self::Runtime;
 }
-
-pub mod output;
-pub mod rules;
-
-pub use output::{Output, OutputLayout, OutputMode, OutputScale};

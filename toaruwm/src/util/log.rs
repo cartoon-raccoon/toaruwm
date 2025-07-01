@@ -20,7 +20,8 @@ macro_rules! trace {
     }
 }
 
-use crate::manager::{RuntimeConfig, ToaruState};
+use crate::manager::ToaruState;
+use crate::config::RuntimeConfig;
 use crate::{ErrorHandler, ToaruError, Platform};
 use tracing::error;
 
