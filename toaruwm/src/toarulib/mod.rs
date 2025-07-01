@@ -1,3 +1,4 @@
 //! Various add-ons that you can include in your `Toaru` instance.
 
-pub mod widget;
+pub mod decoration;
+pub mod bars;
