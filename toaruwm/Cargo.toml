@@ -13,7 +13,6 @@ path = "src/lib.rs"
 [dependencies]
 xcb = { version = "1.2", features = ["randr", "xkb"] }
 x11 = "2.21"
-x11rb = { git = "https://github.com/cartoon-raccoon/x11rb.git", features = ["cursor", "randr", "xkb"] }
 
 smithay-drm-extras = "0.1.0"
 glam = "0.30.4"
@@ -39,6 +38,8 @@ libc = "0.2.172"
 
 thiserror = "1"
 
+toaru-macro = { path = "../toaru-macro" }
+
 [dependencies.smithay]
 version = "0.7"
 features = [
@@ -52,12 +53,16 @@ features = [
     "use_system_lib", 
     "xwayland"]
 
+[dependencies.x11rb]
+git = "https://github.com/cartoon-raccoon/x11rb.git"
+features = ["cursor", "randr", "xkb"]
+
 
 [features]
 default = ["wayland-full", "x11-full"]
 wayland-full = ["xwayland"]
-x11-full = ["x11"]
+x11-full = ["x11-core"]
 xwayland = ["wayland-core"]
-x11 = []
+x11-core = []
 wayland-core = []
 systemd = []

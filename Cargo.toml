@@ -1,6 +1,7 @@
 [workspace]
-members = [
+members = [ 
+    "toaru-macro",
     "toaruwm", 
-    "toaruwm-bin"
+    "toaruwm-bin",
 ]
 resolver = "3"
