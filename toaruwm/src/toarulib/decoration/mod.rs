@@ -2,17 +2,16 @@
 
 pub mod config;
 
-pub use config::DecorationConfig;
-
-use crate::types::Color;
+pub use config::{DecorationConfig, ToaruDecorationConfig};
 
 /// Window decorations for a single window.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct WindowDecoration {
 
 }
 
-
+/// A border around a window.
+#[derive(Debug, Clone, Copy)]
 pub struct Border {
 
 }
