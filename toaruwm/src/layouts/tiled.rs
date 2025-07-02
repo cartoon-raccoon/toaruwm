@@ -69,9 +69,8 @@ impl<P: Platform> DynamicTiled<P> {
         let ws = ctxt.workspace;
 
         /* we have a main window */
-        if let Some(main_id) = self.main.replace(None) {
-            //self._layout_with_main(&main_id, geom, ws)
-            vec![]
+        if let Some(main_id) = self.main.get() {
+            self._layout_with_main(main_id, geom, ws)
         } else {
             // we have no main
             if ws.managed_count() == 0 {
@@ -92,96 +91,98 @@ impl<P: Platform> DynamicTiled<P> {
         }
     }
 
-    // fn _layout_with_main(
-    //     &self,
-    //     main_id: P::Window,
-    //     geom: Rectangle<i32, Logical>,
-    //     ws: &Workspace<P>,
-    // ) -> Vec<LayoutAction<P>> {
-    //     use Cardinal::*;
+    fn _layout_with_main(
+        &self,
+        main_id: P::WindowId,
+        geom: Rectangle<i32, Logical>,
+        ws: &Workspace<P>,
+    ) -> Vec<LayoutAction<P>> {
+        use Cardinal::*;
 
-    //     let bwidth = self.bwidth.get() as i32;
+        let bwidth = self.bwidth.get() as i32;
 
-    //     /* weird ass bodge because of X server shenaniganery:
-    //     we have to trim off double the bwidth because of how
-    //     the X server counts window borders.*/
-    //     let usable_geom = geom.trim(bwidth * 2, Right).trim(bwidth * 2, Down);
+        /* weird ass bodge because of X server shenaniganery:
+        we have to trim off double the bwidth because of how
+        the X server counts window borders.*/
+        let usable_geom = geom.trim(bwidth * 2, Right).trim(bwidth * 2, Down);
 
-    //     if ws.managed_count() == 0 {
-    //         /* managed count is 0 but we have a main,
-    //         means the main just got closed and
-    //         the workspace is now empty */
-    //         debug!("Tiled count is 0, unsetting main");
-    //         self.main.set(None);
-    //         return vec![];
-    //     }
+        if ws.managed_count() == 0 {
+            /* managed count is 0 but we have a main,
+            means the main just got closed and
+            the workspace is now empty */
+            debug!("Tiled count is 0, unsetting main");
+            self.main.set(None);
+            return vec![];
+        }
 
-    //     /* at this point we can assume managed count is >= 1 */
+        /* at this point we can assume managed count is >= 1 */
 
-    //     // run check to set new main if needed
-    //     if !ws.has_window_in_layout(main_id) {
-    //         /* main window is no longer under layout,
-    //         pick a new main */
-    //         debug!("main is now off layout, choosing new main");
-    //         let new_main = ws
-    //             .clients_in_layout()
-    //             .next()
-    //             .expect("should have at least 1 client under layout")
-    //             .id();
+        // run check to set new main if needed
+        if !ws.has_window_in_layout(main_id) {
+            /* main window is no longer under layout,
+            pick a new main */
+            debug!("main is now off layout, choosing new main");
+            let new_main = ws
+                .clients_in_layout()
+                .next()
+                .expect("should have at least 1 client under layout")
+                .id();
 
-    //         self.main.set(Some(new_main.clone()));
-    //     }
+            self.main.set(Some(new_main.clone()));
+        }
 
-    //     // then proceed to generate geoms
-    //     if ws.managed_count() == 1 {
-    //         /* we only have a main window */
-    //         debug!("Only main exists, tiling to full window");
+        let current_main = self.main.get().unwrap();
 
-    //         debug!("new window geom: {:?}", usable_geom);
-    //         vec![LayoutAction::Resize {
-    //             id: &self.main.unwrap(),
-    //             geom: usable_geom,
-    //         }]
-    //     } else {
-    //         // managed count > 1
-    //         debug_assert!(ws.managed_count() > 1);
-    //         debug!("Multiple windows mapped, recalculating");
+        // then proceed to generate geoms
+        if ws.managed_count() == 1 {
+            /* we only have a main window */
+            debug!("Only main exists, tiling to full window");
 
-    //         let (main, sec) = usable_geom.split_vert_ratio(self.ratio.get());
+            debug!("new window geom: {:?}", usable_geom);
+            vec![LayoutAction::Resize {
+                id: current_main,
+                geom: usable_geom,
+            }]
+        } else {
+            // managed count > 1
+            debug_assert!(ws.managed_count() > 1);
+            debug!("Multiple windows mapped, recalculating");
 
-    //         // do standard division and round up to nearest integer
-    //         /* this ensures that if bwidth is odd, we always round up
-    //         while keeping it unaffected if bwidth is even */
-    //         let half_bwidth = (bwidth as f32 / 2.0).ceil() as i32;
+            let (main, sec) = usable_geom.split_vert_ratio(self.ratio.get());
 
-    //         //let odd_bwidth = bwidth % 2 != 0;
+            // do standard division and round up to nearest integer
+            /* this ensures that if bwidth is odd, we always round up
+            while keeping it unaffected if bwidth is even */
+            let half_bwidth = (bwidth as f32 / 2.0).ceil() as i32;
 
-    //         let mut ret = vec![LayoutAction::Resize {
-    //             id: current_main,
-    //             geom: main.trim(half_bwidth, Right),
-    //         }];
+            //let odd_bwidth = bwidth % 2 != 0;
 
-    //         // get no of secondary windows
-    //         let sec_count = if ws.managed_count() == 0 {
-    //             unreachable!()
-    //         } else {
-    //             ws.managed_count() - 1
-    //         };
+            let mut ret = vec![LayoutAction::Resize {
+                id: current_main,
+                geom: main.trim(half_bwidth, Right),
+            }];
 
-    //         //todo: account for border width
-    //         let sec_geoms = sec.split_horz_n(sec_count as i32);
+            // get no of secondary windows
+            let sec_count = if ws.managed_count() == 0 {
+                unreachable!()
+            } else {
+                ws.managed_count() - 1
+            };
 
-    //         ws.clients_in_layout()
-    //             .filter(|c| c.id() != current_main)
-    //             .enumerate()
-    //             .for_each(|(i, c)| {
-    //                 ret.push(LayoutAction::Resize {
-    //                     id: c.id(),
-    //                     geom: sec_geoms[i],
-    //                 })
-    //             });
+            //todo: account for border width
+            let sec_geoms = sec.split_horz_n(sec_count as i32);
 
-    //         ret
-    //     }
-    // }
+            ws.clients_in_layout()
+                .filter(|c| c.id() != current_main)
+                .enumerate()
+                .for_each(|(i, c)| {
+                    ret.push(LayoutAction::Resize {
+                        id: c.id(),
+                        geom: sec_geoms[i],
+                    })
+                });
+
+            ret
+        }
+    }
 }

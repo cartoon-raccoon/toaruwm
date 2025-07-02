@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use tracing::debug;
 
-use crate::core::{Ring, Screen, Workspace};
+use crate::core::{Ring, Monitor, Workspace};
 use crate::config::RuntimeConfig;
 use crate::types::{Rectangle, Logical};
 use crate::platform::{Platform};
@@ -98,7 +98,7 @@ pub struct LayoutCtxt<'t, P: Platform> {
     /// The workspace that called the Layout.
     pub workspace: &'t Workspace<P>,
     /// The current screen the workspace is on.
-    pub screen: &'t Screen<P>,
+    pub screen: &'t Monitor<P>,
 }
 
 /// A Ring of layouts applied on a workspace.
@@ -196,7 +196,7 @@ impl<P: Platform> Layouts<P> {
     pub fn gen_layout<'t>(
         &'t self,
         ws: &Workspace<P>,
-        scr: &Screen<P>,
+        scr: &Monitor<P>,
         cfg: &dyn RuntimeConfig,
     ) -> Vec<LayoutAction<P>> {
         debug!("self.focused is {:?}", self.focused);
