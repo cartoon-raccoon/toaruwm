@@ -651,6 +651,41 @@ impl<N: Scalar, Kind: GeometryKind> Point<N, Kind> {
     }
 }
 
+impl<Kind: GeometryKind> Point<f64, Kind> {
+    /// Convert a `Point<f64, _>` for integer-space manipulations, by rounding.
+    pub fn to_int_round<N: Scalar>(self) -> Point<N, Kind> {
+        let Point { x, y, _kind } = self;
+
+        Point {
+            x: N::from_f64(x.round()),
+            y: N::from_f64(y.round()),
+            _kind
+        }
+    }
+
+    /// Convert a `Point<f64, _>` for integer-space manipulations, by flooring.
+    pub fn to_int_floor<N: Scalar>(self) -> Point<N, Kind> {
+        let Point { x, y, _kind } = self;
+
+        Point {
+            x: N::from_f64(x.floor()),
+            y: N::from_f64(y.floor()),
+            _kind
+        }
+    }
+
+    /// Convert a `Point<f64, _>` for integer-space manipulations, by ceiling float values.
+    pub fn to_int_ceil<N: Scalar>(self) -> Point<N, Kind> {
+        let Point { x, y, _kind } = self;
+
+        Point {
+            x: N::from_f64(x.ceil()),
+            y: N::from_f64(y.ceil()),
+            _kind
+        }
+    }
+}
+
 impl<N: Scalar> Point<N, Logical> {
     /// Returns a `Point<Physical>`, scaled by `scale`.
     pub fn as_physical(self, scale: Scale<N>) -> Point<N, Physical> {
