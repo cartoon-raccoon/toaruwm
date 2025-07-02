@@ -5,11 +5,13 @@
 //! to call [`Workspace`] and [`Desktop`] methods with your own
 //! types.
 
-use std::any::Any;
-
-use crate::config::{OutputLayout, RuntimeConfig};
+use crate::config::{OutputLayout, RuntimeConfig, ConfigSection};
+use crate::platform::{
+    wayland::{WaylandConfig, ToaruWaylandConfig}, 
+    x11::{X11Config, ToaruX11Config},
+};
 use crate::core::{
-    types::{Color, Dict, BorderStyle, Ring},
+    types::Ring,
     Workspace, Desktop, Window
 };
 use crate::Platform;
@@ -30,32 +32,18 @@ use crate::Platform;
 ///
 /// This type implements `RuntimeConfig`.
 #[derive(Debug)]
-pub struct WmConfig {
+pub struct ToaruRuntimeConfig {
     pub(crate) float_classes: Vec<String>,
-    pub(crate) border_px: u32,
     pub(crate) window_gap: u32,
     pub(crate) focus_follows_ptr: bool,
     pub(crate) outputs: OutputLayout,
-    pub(crate) unfocused: Color,
-    pub(crate) focused: Color,
-    pub(crate) urgent: Color,
-    pub(crate) keys: Dict,
+    pub(crate) waylandcfg: ToaruWaylandConfig,
+    pub(crate) x11cfg: ToaruX11Config,
 }
 
-impl RuntimeConfig for WmConfig {
+impl RuntimeConfig for ToaruRuntimeConfig {
     fn float_classes(&self) -> &[String] {
         &self.float_classes
-    }
-
-    fn border_px(&self) -> u32 {
-        self.border_px
-    }
-    fn border_style(&self, style: BorderStyle) -> Color {
-        match style {
-            BorderStyle::Focused => self.focused,
-            BorderStyle::Unfocused => self.unfocused,
-            BorderStyle::Urgent => self.urgent,
-        }
     }
 
     fn window_gap(&self) -> u32 {
@@ -66,12 +54,20 @@ impl RuntimeConfig for WmConfig {
         self.focus_follows_ptr
     }
 
-    fn outputs(&mut self) -> &mut OutputLayout {
-        &mut self.outputs
+    fn outputs(&self) -> &OutputLayout {
+        &self.outputs
     }
 
-    fn get_key(&self, key: &str) -> Option<&dyn Any> {
-        self.keys.get(&key.to_string()).map(|v| v as &dyn Any)
+    fn section(&self, name: &str) -> Option<&dyn ConfigSection> {
+        None // todo
+    }
+
+    fn wayland(&self) -> &dyn WaylandConfig {
+        &self.waylandcfg
+    }
+
+    fn x11(&self) -> &dyn X11Config {
+        &self.x11cfg
     }
 }
 
