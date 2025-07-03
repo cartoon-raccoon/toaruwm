@@ -234,6 +234,29 @@ impl From<u32> for Color {
     }
 }
 
+/// A color gradient.
+/// 
+/// A color gradient consists of a set of one or more colors
+/// that are interpolated between when being shown.
+#[derive(Debug, Clone)]
+pub struct Gradient {
+    colors: Vec<Color>
+}
+
+impl Gradient {
+    /// Creates a new `Gradient`.
+    pub fn new<I: IntoIterator<Item = Color>>(colors: I) -> Self {
+        Self {
+            colors: colors.into_iter().collect()
+        }
+    }
+
+    /// Retrieves the colors that a present in this Gradient.
+    pub fn colors(&self) -> &[Color] {
+        &self.colors
+    }
+}
+
 /// Whether the mouse button is pressed, and what state the mouse is in
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy)]
@@ -241,18 +264,4 @@ pub enum MouseMode {
     None,
     Move,
     Resize,
-}
-
-/// Determines the colour that should be applied to
-/// the window border.
-///
-/// The actual colour values are specified in `Config`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BorderStyle {
-    /// The colour to be applied to the focused window.
-    Focused,
-    /// The colour to be applied to an unfocused window.
-    Unfocused,
-    /// The colour to applied when a window is marked as urgent.
-    Urgent,
 }
