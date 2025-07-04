@@ -131,7 +131,7 @@ impl<P: Platform> Layouts<P> {
 
     /// Returns Self with the given layouts and
     /// the focused item set to the first item in the Ring.
-    pub fn with_layouts_validated<I>(layouts: I) -> Result<Self, P>
+    pub fn with_layouts_validated<I>(layouts: I) -> Result<Self>
     where
         I: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
@@ -160,7 +160,7 @@ impl<P: Platform> Layouts<P> {
 
     /// Validates the namespace and ensures there are no name conflicts.
     #[allow(clippy::len_zero)]
-    pub fn validate(&self) -> Result<(), P> {
+    pub fn validate(&self) -> Result<()> {
         if self.focused.is_none() {
             return Err(ToaruError::OtherError("no focused item".into()));
         }
@@ -185,7 +185,7 @@ impl<P: Platform> Layouts<P> {
                 .into_iter()
                 .for_each(|s1| all.retain(|s2| s1 != *s2));
 
-            Err(ToaruError::LayoutConflict(all.join(", ")))
+            Err(ToaruError::NamespaceConflict(all.join(", ")))
         }
     }
 

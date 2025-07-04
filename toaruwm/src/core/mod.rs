@@ -11,7 +11,7 @@ pub mod window;
 pub mod workspace;
 
 #[doc(inline)]
-pub use desktop::{Desktop, Monitor, WorkspaceMux, WorkspaceMuxHandle};
+pub use desktop::{Monitor, Workspaces, WorkspaceMux, WorkspaceMuxHandle};
 #[doc(inline)]
 pub use ring::{Ring, Selector};
 #[doc(inline)]

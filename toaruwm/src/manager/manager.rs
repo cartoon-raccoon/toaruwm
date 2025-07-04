@@ -8,14 +8,33 @@ use std::collections::HashMap;
 use tracing::instrument;
 use tracing::{warn};
 
-use crate::core::{Desktop, Monitor, WorkspaceSpec, Window};
+use crate::core::{
+    Monitor, WorkspaceSpec, Window, Workspace, WorkspaceMux, WorkspaceMuxHandle
+};
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
-use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
+use crate::types::{Cardinal, Direction, Point, Logical};
 use crate::platform::{Platform};
 use crate::config::{Config, RuntimeConfig};
 
 use crate::{Result, ToaruError};
 use super::ToaruState;
+
+/// Removes the focused window if under layout.
+macro_rules! _rm_if_under_layout {
+    ($_self:expr, $id:expr) => {
+        let is_under_layout = $_self.desktop.current().has_window_in_layout($id);
+
+        if is_under_layout {
+            $_self.desktop.current_mut().remove_from_layout(
+                &$_self.platform.handle(),
+                $id,
+                $_self.screens.focused().unwrap(),
+                &$_self.config,
+            );
+        }
+    };
+}
+
 
 /// The main object that defines client management functionality.
 /// 
@@ -71,8 +90,8 @@ where
 {
     /// The internal config of the WindowManager.
     config: C,
-    /// The desktop containing all windows.
-    desktop: Desktop<P>,
+    /// The workspaces.
+    workspaces: WorkspaceMux<P>,
     /// All screens connected to the computer.
     monitors: HashMap<P::Output, Monitor<P>>,
     /// The window currently being manipulated
@@ -100,24 +119,30 @@ where
     /// all your invariants are upheld.
     ///
     /// See [`Config`] for more details.
-    pub fn new<E, W, L>(mut config: E) -> Result<Toaru<P, C>, P>
+    pub fn new<E, W, L>(mut config: E) -> Result<Toaru<P, C>>
     where
         E: Config<P, Runtime = C, Workspaces = W, Layouts = L>,
         W: IntoIterator<Item = WorkspaceSpec>,
         L: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
-        let workspaces: Vec<WorkspaceSpec> = config.take_workspaces().into_iter().collect();
+        let specs: Vec<WorkspaceSpec> = config.take_workspaces().into_iter().collect();
         let layouts = Layouts::with_layouts_validated(
             config.take_layouts()
                 .into_iter()
                 .collect::<Vec<Box< dyn Layout<P>>>>()   
         )?;
 
-        let desktop = Desktop::new(workspaces, layouts)?;
+        let mut wksps = Vec::new();
+
+        for spec in specs.into_iter().rev() {
+            wksps.push(Workspace::from_spec(spec, &layouts, None)?);
+        }
+
+        let workspaces = WorkspaceMux::new(wksps)?;
 
         Ok(Self {
             config: config.into_runtime_config(),
-            desktop,
+            workspaces,
             monitors: HashMap::new(),
             selected: None,
         })
@@ -129,21 +154,17 @@ where
     }
 
     /// Provides a ToaruState for introspection.
-    pub fn state(&self) -> ToaruState<'_, P, C> {
+    pub fn state(&self, monitor: &P::Output) -> ToaruState<'_, P, C> {
+        let mon = self.monitors.get(monitor).expect("output should already be present");
         ToaruState {
             config: &self.config,
-            workspaces: &self.desktop.workspaces,
-            desktop: &self.desktop,
+            workspaces: &mon.workspace_handle,
             selected: self.selected.as_ref(),
         }
     }
 
-    /// Creates a new window and inserts it into the currently focused workspace,
-    /// returning the geometry assigned to the window by the layout engine.
-    /// 
-    /// If `None` is returned, the `Platform` should size the window however the client
-    /// that owns the window wants it to be sized.
-    pub fn insert_window(&mut self, id: P::WindowId, pointer: Point<i32, Logical>) -> Option<Rectangle<i32, Logical>> {
+    /// Creates a new window and inserts it into the currently focused workspace.
+    pub fn insert_window(&mut self, id: P::WindowId) {
         todo!()
     }
 
@@ -152,11 +173,21 @@ where
         todo!()
     }
 
+    /// Maps the window, configuring it within its workspace.
+    pub fn map_window(&mut self, id: P::WindowId) {
+        todo!()
+    }
+
+    /// Unmaps the window.
+    pub fn unmap_window(&mut self, id: P::WindowId) {
+        todo!()
+    }
+
     /// Add a new output to Toaru.
     pub fn add_output(&mut self, output: P::Output) {
         let idx = self.monitors.len();
 
-        let monitor = Monitor::new(output.clone(), idx as i32);
+        let monitor = Monitor::new(output.clone(), self.workspaces.handle(&output), idx as i32);
 
         // todo: reconfigure workspaces to account for the new output
 
@@ -167,19 +198,12 @@ where
     pub fn remove_output(&mut self, output: &P::Output) -> Option<Monitor<P>> {
         todo!()
     }
-
-    /// Dumps the internal state of WindowManager to stderr.
-    pub fn dump_internal_state(&self) {
-        eprintln!("============== | INTERNAL STATE DUMP | ==============");
-        eprintln!("{:#?}", &self);
-        eprintln!("====================| END DUMP |=====================")
-    }
 }
 
 /// Desktop-level commands.
 impl<P, C> Toaru<P, C>
 where
-    P: Platform<Error = ToaruError<P>>,
+    P: Platform<Error = ToaruError>,
     C: RuntimeConfig,
 {   
     /// Goes to the specified workspace on the currently active monitor.
@@ -329,12 +353,7 @@ where
 
 #[doc(hidden)]
 impl<P: Platform, C: RuntimeConfig> Toaru<P, C> {
-    fn find_workspace_screen(&self, name: &str) -> Option<&Monitor<P>> {
-        self.desktop.workspaces.iter().find(|ws| ws.name.as_str() == name)
-            .map(|ws| ws.monitor.as_ref());
 
-        None
-    }
 }
 
 impl<P, C> fmt::Debug for Toaru<P, C>
@@ -345,7 +364,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("WindowManager")
             .field("config", &self.config)
-            .field("workspaces", &self.desktop.workspaces)
+            .field("workspaces", &self.workspaces)
             .field("screens", &self.monitors)
             .field("selected", &self.selected)
             .finish()

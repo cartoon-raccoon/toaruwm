@@ -13,7 +13,7 @@ use tracing::{debug, error, warn};
 use super::{ring::InsertPoint, Ring, Selector};
 
 use crate::core::types::{Logical, Rectangle,};
-use crate::platform::{Platform, PlatformWindowId};
+use crate::platform::{Platform, PlatformWindow, PlatformWindowId};
 
 /// A ring of Windows.
 ///
@@ -123,31 +123,34 @@ impl<P: Platform> WindowRing<P> {
 /// Represents a Window managed by a Toaru instance.
 #[derive(Debug, Clone)]
 pub struct Window<P: Platform> {
-    pub(crate) id: P::WindowId,
+    pub(crate) window: P::Window,
     geom: Rectangle<i32, Logical>,
 
     initial_geom: Rectangle<i32, Logical>,
     urgent: bool,
     fullscreen: bool,
 
-    // Indicates whether or not the Window is part of the current layout.
+    /// Indicates whether or not the Window is part of the current layout.
     inside_layout: bool,
 
+    /// Indicates whether or not the Window is visible.
+    ///
+    /// Always `false` when the `Workspace` that this window is in is deactivated.
     mapped: bool,
 }
 
 impl<P: Platform> PartialEq for Window<P> {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
 
 impl<P: Platform> Window<P> {
     /// Creates a new Client from a given `id`.
-    pub fn new(id: P::WindowId, geom: Option<Rectangle<i32, Logical>>) -> Self {
+    pub fn new(window: P::Window, geom: Option<Rectangle<i32, Logical>>) -> Self {
         let geom = geom.unwrap_or_else(|| Rectangle::zeroed());
         Self {
-            id,
+            window,
             geom,
             initial_geom: geom,
             urgent: false,
@@ -158,7 +161,7 @@ impl<P: Platform> Window<P> {
     }
 
     /// Returns a Client that should float.
-    pub fn outside_layout(from: P::WindowId, geom: Option<Rectangle<i32, Logical>>) -> Self {
+    pub fn outside_layout(from: P::Window, geom: Option<Rectangle<i32, Logical>>) -> Self {
         let mut new = Self::new(from, geom);
         new.inside_layout = false;
 
@@ -168,7 +171,7 @@ impl<P: Platform> Window<P> {
     /// Returns the X ID of the client.
     #[inline(always)]
     pub fn id(&self) -> P::WindowId {
-        self.id
+        self.window.id()
     }
 
     /// Returns the x coordinate of the window.
@@ -219,16 +222,48 @@ impl<P: Platform> Window<P> {
         self.urgent
     }
 
+    /// Toggles the window's urgent state.
+    #[inline(always)]
+    pub fn toggle_urgent(&mut self) {
+        self.urgent = !self.urgent;
+    }
+
     /// Returns whether the Window is fullscreen.
     #[inline(always)]
     pub fn is_fullscreen(&self) -> bool {
         self.fullscreen
     }
 
+    /// Toggles the window's fullscreen state.
+    #[inline(always)]
+    pub fn toggle_fullscreen(&mut self) {
+        self.fullscreen = !self.fullscreen;
+    }
+
     /// Returns whether the Window is mapped.
     #[inline(always)]
     pub fn is_mapped(&self) -> bool {
         self.mapped
+    }
+
+    /// Maps the Window.
+    /// 
+    /// Is a no-op if the Window is already mapped.
+    #[inline(always)]
+    pub fn map(&mut self) {
+        if !self.mapped {
+            self.mapped = true;
+        }
+    }
+
+    /// Unmaps the Window.
+    /// 
+    /// Is a no-op if the Window is already unmapped.
+    #[inline(always)]
+    pub fn unmap(&mut self) {
+        if self.mapped {
+            self.mapped = false;
+        }
     }
 
     /// Returns whether the Window should be floated regardless
@@ -274,8 +309,8 @@ impl<C: PlatformWindowId> FocusStack<C> {
         Self(Ring::new())
     }
 
-    pub fn add_by_layout_status<P: Platform<WindowId = C>>(&mut self, id: C, clients: &WindowRing<P>) {
-        let Some(cl) = clients.lookup(id) else {
+    pub fn add_by_layout_status<P: Platform<WindowId = C>>(&mut self, id: C, windows: &WindowRing<P>) {
+        let Some(cl) = windows.lookup(id) else {
             warn!("could not find client with id {:?} in clientring", id);
             return
         };
@@ -283,7 +318,7 @@ impl<C: PlatformWindowId> FocusStack<C> {
         if cl.is_off_layout() {
             self.push(id.clone());
         } else {
-            let idx = self.partition_idx(clients);
+            let idx = self.partition_idx(windows);
             self.insert(InsertPoint::Index(idx), id.clone());
         }
     }

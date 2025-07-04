@@ -258,8 +258,8 @@ pub enum BindingError {
     InvalidKeybind(String),
 }
 
-impl<P: Platform> From<BindingError> for ToaruError<P> {
-    fn from(f: BindingError) -> ToaruError<P> {
+impl From<BindingError> for ToaruError {
+    fn from(f: BindingError) -> ToaruError {
         ToaruError::Bindings(f)
     }
 }
@@ -271,34 +271,6 @@ impl From<io::Error> for BindingError {
     fn from(f: io::Error) -> BindingError {
         BindingError::KeymapError(f.to_string())
     }
-}
-
-// macro_rules! _impl_bindings {
-//     ($inner:expr, $bind:ty) => {
-
-//     };
-// }
-
-//todo
-/// An ergonomic wrapper for creating a [`Keybinds`].
-#[macro_export]
-macro_rules! keybinds {
-    ($($kb:expr => |$wm:ident| {$($code:stmt)*}),*) => {{
-        let mut kbs: Keybinds<_, _> = Keybinds::new();
-
-        $(
-            kbs.insert(expr, |$wm| {$($code)*});
-        )*
-
-        kbs
-    }};
-}
-
-//todo
-/// An ergonomic wrapper for creating a [`Mousebinds`].
-#[macro_export]
-macro_rules! mousebinds {
-    () => {};
 }
 
 /// A function is run when a keybind is invoked.

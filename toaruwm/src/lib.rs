@@ -1,105 +1,93 @@
 //! # Toaru - A certain desktop
 //!
-//! Toaru is a crate that gives you the tools you need to design
-//! and build your very own graphical desktop, without having to dig into
-//! the complex plumbing of how it actually works, though it gives
-//! you the ability to dig into, and replace individual parts if you want.
-//! It provides useful types and interfaces that you can use to put
-//! a a desktop together, in any way you want, on X11 or Wayland. You 
-//! can design a full-blown desktop configured with a completely 
-//! different language (a la AwesomeWM), or a tiny, minimal window manager
-//! that is configured within the source code and requires a recompile
-//! (like dwm) each time you change the config.
+//! Toaru is a crate that gives you the tools you need to design and build your very own graphical desktop, 
+//! without having to dig into the complex plumbing of how it actually works, though it gives you the ability
+//! to dig into it, and replace individual parts if you want. It provides useful types and interfaces that 
+//! you can use to put a desktop together, in any way you want, on X11 or Wayland. You  can design a full-blown 
+//! desktop configured with a completely different language (a la AwesomeWM), or a tiny, minimal window 
+//! manager that is configured within the source code and requires a recompile (like dwm) each time you 
+//! change the config.
 //!
 //! ## Design
 //!
-//! Toaru was designed in the style of tiling window managers, like
-//! dwm or Qtile. Its default tiling layout maintains a main window
-//! on the left of the screen, while other windows are stacked on the
-//! side of the main window. Users can also design their own layouts
-//! and switch between each layout on the fly.
-//!
-//! Like Qtile and dwm, ToaruWM also maintains a number of workspaces
-//! that the user can switch between using bindings. Each workspace
-//! has its own set of layouts that can be hotswapped.
-//!
-//! ToaruWM also provides the ability to run arbitrary commands and
-//! code at almost any point in the runtime of the window manager,
-//! through hooks. This means that the user can run various commands
-//! such as an autostart script, either by invoking a shell script
-//! or directly in the window manager. Hooks can also be triggered
-//! on various events, such as mapping/unmapping of a certain window.
-//!
-//! ToaruWM was designed to be all about choices. You write it the way
-//! you want, from the ground up; what we do is provide the tools
-//! to make it easier for you to do so.
-//!
-//! ## Usage
-//!
-//! Note that this crate, as it exists on Crates.io, is not a binary
-//! that you can download and immediately run; you will have to create
-//! a separate Rust project and pull this crate as a dependency, and
-//! write a Rust program that ties everything inside this crate together
-//! the way you want it. As such, you will need a working knowledge
-//! of Rust, of which the [book](https://doc.rust-lang.org/book/) will
-//! provide more than enough for you to get something up and running.
+//! Toaru was designed around traits, and every major component of a complete Toaru implementation is coupled
+//! together by traits. This allows you to implement exactly as much as you want, and whatever you want to
+//! delegate to this crate, it can provide an implementation that will slot in nicely without any fuss.
 //! 
-//! However, if you wish to just install the basic implementation, you
-//! can install it here: // todo
-//!
-//! There are two core objects to the entire crate: 
-//! - the [`Toaru`] struct, which provides the generic window management 
-//! functionality;
-//! - and an implementation of the [`Platform`] trait, that provides the
-//! actual link to the underlying graphics platform (X11 or Wayland).
+//! ### Core Traits
 //! 
-//! Everything else in this crate is built around these two types. 
-//! To start exploring this crate, reading their documentation is the
-//! best place to start.
-//!
-//! That being said, a basic desktop built with Toaru has
-//! the following general structure:
+//! Toaru's two core traits are the [`Manager`] and [`Platform`] traits, and everything in this crate ultimately
+//! revolves around these two traits. The `Manager` trait defines the abstract window management functionality
+//! such as window layout, while the `Platform` trait defines the functionality provided by the underlying
+//! graphical platform, such as Wayland or the X Server.
+//! 
+//! For more information, consult their module-level documentation.
+//! 
+//! ### Event Loops and Tracking State
+//! 
+//! A program that implements a graphical desktop will invariably incorporate an event loop, as it
+//! needs to receive and respond to various requests. As such, there is a lot of state of keep track of
+//! in various places, and multiple places will need to own a reference to the same data, to make it
+//! easier to maintain internal consistency.
+//! 
+//! As such, Toaru's various implementations make the assumption that all of `Platform`'s associated types
+//! incorporate some form of reference counting for multiple ownership, such as using [`std::rc::Rc`] or its 
+//! [atomic variant][4], using something like [`std::cell::RefCell`] for interior mutability. For example, 
+//! the associated types used by the [`Wayland`] implementation use Smithay's implementations of [`Window`][5] 
+//! and [`Output`][6], which are internally reference counted. If your code makes use of any of Toaru's types
+//! anywhere, it should take this into account.
+//! 
+//! ### A Basic Example
+//! 
+//! A basic desktop built with Toaru that runs on Wayland has the following general structure:
 //!
 //! ```no_run
 //! // todo
 //! ```
+//! 
+//! ### Feature Flags
+//! 
+//! Toaru provides feature flags to reduce the amount of compiled code. // todo
+//! 
+//!
+//! ## Usage
+//!
+//! Note that this crate, as it exists on Crates.io, is not a binary that you can download and immediately run;
+//! you will have to create a separate Rust project and pull this crate as a dependency, and write a Rust program
+//! that ties everything inside this crate together the way you want it. As such, you will need a working knowledge
+//! of Rust, of which the [book](https://doc.rust-lang.org/book/) will provide more than enough for you to get
+//! something up and running.
+//! 
+//! However, if you wish to just install the default implementation, you can install it here: // todo
 //!
 //! ## Extensions and Add-Ons
 //!
-//! Toaru core has internal support for widgets and extensions.
+//! Toaru core has internal support for widgets and extensions. The Toaru ecosystem takes the same approach as 
+//! QTile: everything _and_ the kitchen sink. A number of extensions and add-ons such as bars, widgets, and 
+//! configuration options are provided in the `toarulib` module, which will contain many different additional 
+//! widgets that you can add you your own personal configuration.
 //!
-//! Additionally, the ToaruWM ecosystem takes the same approach as QTile:
-//! everything _and_ the kitchen sink. A number of extensions and add-ons
-//! such as bars, widgets, and configuration options are provided in the
-//! `toarulib` module, which will contain many different additional widgets
-//! that you can add you your own personal configuration.
-//!
-//! Of course, you are still free to use your own bars such as Polybar:
-//! Toaru is planned to have support for [EWMH], which are what
-//! makes window managers aware of things like bars and fullscreen,
-//! and account for them accordingly.
+//! Of course, you are still free to use your own bars such as Polybar or Waybar: Toaru's `Platform` implementations
+//! can recognize bars and allocate monitor space for them.
 //!
 //! ## Compliance
 //! 
-//! For the full details on compliance, see the `COMPLIANCE` file
-//! in this project's git repository.
+//! For the full details on compliance, see the `COMPLIANCE` file in this project's git repository.
 //! 
 //! ### X Window Protocol and Extensions
 //!
-//! Toaru is (planned to be) mostly compliant with EWMH, and
-//! with most sections of the [ICCCM], particularly the ones that
-//! were deemed most important for interoperability with various
-//! X clients, such as notification daemons, pop-up windows,
-//! full-screen clients, etc.
+//! Toaru is (planned to be) mostly compliant with [EWMH], and with most sections of the [ICCCM], particularly 
+//! the ones that were deemed most important for interoperability with various X clients, such as notification daemons,
+//! pop-up windows, full-screen clients, etc.
 //!
-//! Important to note is that this project does not, and will _never_
-//! have, full compliance with ICCCM, partly because parts of ICCCM
-//! have been superseded by EWMH, and also because other parts of ICCCM
-//! are just [not worth implementing][1].
+//! Important to note is that this project does not, and will _never_ have, full compliance with ICCCM, partly because
+//! parts of ICCCM have been superseded by EWMH, and also because other parts of ICCCM are just
+//! [not worth implementing][1].
 //! 
 //! ### Wayland
 //! 
-//! Toaru is compliant with all core and stable Wayland protocols.
+//! Toaru is compliant with all core and stable protocols, and some unstable protocols. See the COMPLIANCE file for full
+//! details.
 //!
 //!
 //! [EWMH]: https://en.wikipedia.org/wiki/Extended_Window_Manager_Hints
@@ -132,11 +120,13 @@ pub mod reexports {
 
 pub use crate::core::types;
 #[doc(inline)]
-pub use crate::manager::{Toaru};
+pub use crate::manager::{Toaru, Manager};
 #[doc(inline)]
 pub use crate::config::{Config, ToaruConfig};
 #[doc(inline)]
 pub use crate::platform::Platform;
+
+use crate::platform::PlatformError;
 
 use crate::bindings::BindingError;
 use crate::config::RuntimeConfig;
@@ -148,10 +138,10 @@ use thiserror::Error;
 /// Everything that could possibly go wrong while Toaru is running.
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum ToaruError<P: Platform> {
+pub enum ToaruError {
     /// An error with the underlying X connection.
-    #[error(transparent)]
-    BackendError(P::Error),
+    #[error("platform error: {0}")]
+    PlatformError(Box<dyn PlatformError>),
 
     /// Unable to spawn process.
     #[error("Error while running program: {0}")]
@@ -167,7 +157,7 @@ pub enum ToaruError<P: Platform> {
 
     /// Received a reference to a client not tracked by ToaruWM.
     #[error("Unknown client {0:?}")]
-    UnknownClient(P::WindowId),
+    UnknownClient(u64), // fixme
 
     /// An request to switch to a workspace unknown to ToaruWM.
     #[error("Unknown workspace {0}")]
@@ -178,8 +168,8 @@ pub enum ToaruError<P: Platform> {
     InvalidPoint(i32, i32),
 
     /// A name conflict in the given set of layouts.
-    #[error("Layout name conflict: {0}")]
-    LayoutConflict(String),
+    #[error("Namespace conflict: {0}")]
+    NamespaceConflict(String),
 
     /// One or more configuration invariants was not upheld.
     #[error("Invalid configuration: {0}")]
@@ -236,14 +226,14 @@ macro_rules! toaruerr {
     };
 }
 
-impl<P: Platform> From<io::Error> for ToaruError<P> {
-    fn from(e: io::Error) -> ToaruError<P> {
+impl From<io::Error> for ToaruError {
+    fn from(e: io::Error) -> ToaruError {
         ToaruError::SpawnProc(e.to_string())
     }
 }
 
 /// The general result type used by ToaruWM.
-pub type Result<T, P> = ::core::result::Result<T, ToaruError<P>>;
+pub type Result<T> = ::core::result::Result<T, ToaruError>;
 
 use crate::manager::ToaruState;
 /// An error handler that can be used to handle an error type.
@@ -256,5 +246,5 @@ where
     C: RuntimeConfig,
 {
     /// Calls the error handler.
-    fn call(&self, state: ToaruState<'_, P, C>, err: ToaruError<P>);
+    fn call(&self, state: ToaruState<'_, P, C>, err: ToaruError);
 }

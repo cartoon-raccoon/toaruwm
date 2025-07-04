@@ -7,7 +7,7 @@ pub mod section;
 
 mod config;
 
-pub use output::{Output, OutputLayout, OutputMode, OutputScale};
+pub use output::{Output, OutputLayout, OutputMode, OutputScale, OutputInfo};
 pub use runtime::{RuntimeConfig};
 pub use section::ConfigSection;
 

@@ -10,10 +10,7 @@ use crate::platform::{
     wayland::{WaylandConfig, ToaruWaylandConfig}, 
     x11::{X11Config, ToaruX11Config},
 };
-use crate::core::{
-    types::Ring,
-    Workspace, Desktop, Window
-};
+use crate::core::{WorkspaceMuxHandle};
 use crate::Platform;
 
 /// The an implementation of runtime configuration for 
@@ -90,10 +87,9 @@ where
     /// The inner configuration of the WindowManager.
     pub config: &'t C,
     /// The workspaces maintained by the window manager.
-    pub workspaces: &'t Ring<Workspace<P>>,
+    pub workspaces: &'t WorkspaceMuxHandle<P>,
     /// The selected window, if any.
     pub selected: Option<&'t P::WindowId>,
-    pub(crate) desktop: &'t Desktop<P>,
 }
 
 impl<'t, P, C> ToaruState<'t, P, C>
@@ -101,13 +97,8 @@ where
     P: Platform,
     C: RuntimeConfig,
 {
-    /// Looks up a client with the given X ID.
-    pub fn lookup_client(&self, id: P::WindowId) -> Option<&Window<P>> {
-        self.desktop.current().windows.lookup(id)
-    }
-
     /// Checks whether the window `id` is currently managed.
     pub fn is_managing(&self, id: P::WindowId) -> bool {
-        self.desktop.is_managing(id)
+        todo!()
     }
 }

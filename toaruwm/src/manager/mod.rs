@@ -16,20 +16,24 @@ pub use hooks::{Hook, Hooks};
 #[doc(inline)]
 pub use state::ToaruState;
 
-/// Removes the focused window if under layout.
-macro_rules! _rm_if_under_layout {
-    ($_self:expr, $id:expr) => {
-        let is_under_layout = $_self.desktop.current().has_window_in_layout($id);
+use crate::platform::Platform;
+use crate::config::RuntimeConfig;
+use crate::types::{Rectangle, Logical};
 
-        if is_under_layout {
-            $_self.desktop.current_mut().remove_from_layout(
-                &$_self.platform.handle(),
-                $id,
-                $_self.screens.focused().unwrap(),
-                &$_self.config,
-            );
-        }
-    };
+/// A type that implements window management functionality.
+pub trait Manager {
+    /// The platform used by the Manager.
+    type Platform: Platform;
+
+    /// The runtime configuration of the Manager.
+    type Config: RuntimeConfig;
+
+    /// Add an output to the Manager..
+    fn add_output(&mut self, output: <Self::Platform as Platform>::Output);
+
+    /// Remove an output from the Manager.
+    fn remove_output(&mut self, output: &<Self::Platform as Platform>::Output);
+
+    /// Insert a new window into the Manager.
+    fn insert_window(&mut self, id: <Self::Platform as Platform>::WindowId) -> Option<Rectangle<i32, Logical>>;
 }
-
-

@@ -16,13 +16,17 @@ use crate::layouts::{
     Floating, Layout,
 };
 #[doc(inline)]
-pub use crate::manager::state::{WmConfig};
+pub use crate::manager::state::{ToaruRuntimeConfig};
+use crate::platform::{
+    wayland::ToaruWaylandConfig,
+    x11::ToaruX11Config,
+};
 use crate::types::{Color};
 use crate::{Result, ToaruError::*};
 use crate::platform::Platform;
 
 use super::output::{OutputLayout};
-use super::{Config, RuntimeConfig};
+use super::{Config, ConfigSection};
 
 /// The central configuration object.
 ///
@@ -82,7 +86,7 @@ pub struct ToaruConfig<P: Platform> {
 //* passing in None would cause type inference issues.
 /// A const function that simply returns Ok. Pass this into validate if you have no
 /// user-defined checks to run.
-pub const fn no_checks<P: Platform>(_: &ToaruConfig<P>) -> Result<(), P> {
+pub const fn no_checks<P: Platform>(_: &ToaruConfig<P>) -> Result<()> {
     Ok(())
 }
 
@@ -140,9 +144,9 @@ impl<P: Platform + 'static> ToaruConfig<P> {
     /// config2.validate(NO_CHECKS).expect("invalid config2");
     /// ```
     #[allow(clippy::len_zero)]
-    pub fn validate<F>(&self, checks: F) -> Result<(), P>
+    pub fn validate<F>(&self, checks: F) -> Result<()>
     where
-        F: FnOnce(&ToaruConfig<P>) -> Result<(), P>,
+        F: FnOnce(&ToaruConfig<P>) -> Result<()>,
     {
         if self.workspaces.len() < 1 {
             return Err(InvalidConfig("workspaces is empty".into()));
@@ -231,7 +235,7 @@ impl<P: Platform + 'static> ToaruConfig<P> {
 }
 
 impl<P: Platform> Config<P> for ToaruConfig<P> {
-    type Runtime = WmConfig;
+    type Runtime = ToaruRuntimeConfig;
     type Workspaces = Vec<WorkspaceSpec>;
     type Layouts = Vec<Box<dyn Layout<P>>>;
 
@@ -244,16 +248,13 @@ impl<P: Platform> Config<P> for ToaruConfig<P> {
     }
 
     fn into_runtime_config(self) -> Self::Runtime {
-        WmConfig {
+        ToaruRuntimeConfig {
             float_classes: self.float_classes,
-            border_px: self.border_px,
             window_gap: self.window_gap,
             focus_follows_ptr: self.focus_follows_ptr,
             outputs: self.output_layout,
-            unfocused: self.unfocused,
-            focused: self.focused,
-            urgent: self.urgent,
-            keys: self.keys,
+            waylandcfg: ToaruWaylandConfig::default(),
+            x11cfg: ToaruX11Config {}
         }
     }
 }
@@ -384,9 +385,9 @@ impl<P: Platform> ToaruConfigBuilder<P> {
     ///
     /// You can supply an additional `check` to run
     /// additional code to validate your config.
-    pub fn finish<F>(self, check: F) -> Result<ToaruConfig<P>, P>
+    pub fn finish<F>(self, check: F) -> Result<ToaruConfig<P>>
     where
-        F: FnOnce(&ToaruConfig<P>) -> Result<(), P>,
+        F: FnOnce(&ToaruConfig<P>) -> Result<()>,
     {
         let config = self.inner;
         for layout in config.layouts.iter() {
@@ -395,4 +396,10 @@ impl<P: Platform> ToaruConfigBuilder<P> {
         config.validate(check)?;
         Ok(config)
     }
+}
+
+/// A type that can supply general config keys that cannot be categorized elsewhere.
+pub trait GeneralConfig: ConfigSection {
+    /// Whether client-side decoration is preferred.
+    fn prefer_csd(&self) -> bool;
 }
