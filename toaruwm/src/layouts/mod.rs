@@ -4,6 +4,7 @@
 //! read its documentation before looking at anything else.
 
 use std::collections::HashSet;
+use std::ops::{Deref, DerefMut};
 
 use tracing::debug;
 
@@ -97,43 +98,39 @@ pub struct LayoutCtxt<'t, P: Platform> {
     pub config: &'t dyn RuntimeConfig,
     /// The workspace that called the Layout.
     pub workspace: &'t Workspace<P>,
-    /// The current screen the workspace is on.
-    pub screen: &'t Monitor<P>,
+    /// The working area that the Layout can tile windows in.
+    pub working_area: Rectangle<i32, Logical>,
 }
 
 /// A Ring of layouts applied on a workspace.
 ///
-/// A set of layouts that a workspace can use to apply on its
-/// managed windows.
+/// A set of layouts that a workspace can use to apply on its managed windows.
 ///
 /// ## A Note to Programmers
 ///
-/// `Layouts` has some unique invariants that normal
-/// `Rings` do not have:
+/// `Layouts` has some unique invariants that normal `Rings` do not have:
 ///
 /// 1. It must _never_ be empty.
 /// 2. It must _always_ have something in focus.
 /// 3. There must be _no_ name conflicts
 /// (i.e. no two layouts can have the same name).
 ///
-/// To this end, there are runtime checks on startup
-/// and initialization to ensure that these invariants
-/// are upheld at the start of runtime. However, these
-/// checks are not always carried out in normal operation,
-/// which means if they are violated in some way at this
-/// point, your code may panic!
-pub type Layouts<P> = Ring<Box<dyn Layout<P>>>;
+/// To this end, there are runtime checks on startup and initialization to ensure that
+/// these invariants are upheld at the start of runtime. However, these checks are not
+/// always carried out in normal operation, which means if they are violated in some way
+/// at this point, your code may panic!
+#[derive(Debug)]
+pub struct Layouts<P: Platform>(Ring<Box<dyn Layout<P>>>);
 
 impl<P: Platform> Layouts<P> {
+    /// Creates a new `Layouts` with the default implementation, which is just the floating
+    /// layout.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     /// Returns Self with the given layouts and
     /// the focused item set to the first item in the Ring.
-    ///
-    /// Use this over `Ring::new` as it ensures that
-    /// the invariants on Layouts are upheld.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if any of the invariants are not upheld.
     pub fn with_layouts_validated<I>(layouts: I) -> Result<Self, P>
     where
         I: IntoIterator<Item = Box<dyn Layout<P>>>,
@@ -158,7 +155,7 @@ impl<P: Platform> Layouts<P> {
         let mut ret = Ring::new();
         layouts.into_iter().for_each(|l| ret.append(l));
         ret.set_focused(0);
-        ret
+        Self(ret)
     }
 
     /// Validates the namespace and ensures there are no name conflicts.
@@ -206,7 +203,7 @@ impl<P: Platform> Layouts<P> {
             .layout(LayoutCtxt {
                 workspace: ws,
                 config: cfg,
-                screen: scr,
+                working_area: scr.effective_geom(),
             })
     }
 
@@ -221,6 +218,20 @@ impl<P: Platform> Layouts<P> {
     }
 }
 
+impl<P: Platform> Deref for Layouts<P> {
+    type Target = Ring<Box<dyn Layout<P>>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<P: Platform> DerefMut for Layouts<P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl<P: Platform> Default for Layouts<P> {
     /// Returns a Layout instance containing a single
     /// [`Floating`] layout.
@@ -228,7 +239,7 @@ impl<P: Platform> Default for Layouts<P> {
         let mut ret = Ring::new();
         ret.append(Box::new(Floating {}) as Box<dyn Layout<P>>);
 
-        ret
+        Self(ret)
     }
 }
 

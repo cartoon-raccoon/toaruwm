@@ -65,7 +65,7 @@ impl<P: Platform> Layout<P> for DynamicTiled<P> {
 #[doc(hidden)]
 impl<P: Platform> DynamicTiled<P> {
     fn _layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
-        let geom = ctxt.screen.effective_geom();
+        let geom = ctxt.working_area;
         let ws = ctxt.workspace;
 
         /* we have a main window */
@@ -123,7 +123,7 @@ impl<P: Platform> DynamicTiled<P> {
             pick a new main */
             debug!("main is now off layout, choosing new main");
             let new_main = ws
-                .clients_in_layout()
+                .windows_in_layout()
                 .next()
                 .expect("should have at least 1 client under layout")
                 .id();
@@ -172,7 +172,7 @@ impl<P: Platform> DynamicTiled<P> {
             //todo: account for border width
             let sec_geoms = sec.split_horz_n(sec_count as i32);
 
-            ws.clients_in_layout()
+            ws.windows_in_layout()
                 .filter(|c| c.id() != current_main)
                 .enumerate()
                 .for_each(|(i, c)| {
