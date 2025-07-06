@@ -2,6 +2,7 @@
 members = [ 
     "toaru-macro",
     "toaruwm", 
-    "toaruwm-bin",
+    "toaruwm-bin", 
+    "x11-calloop",
 ]
 resolver = "3"
