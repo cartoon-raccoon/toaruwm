@@ -419,3 +419,8 @@ pub(crate) enum OutputPosition {
     /// Mirroring another Output.
     Mirroring(Weak<OutputEntry>)
 }
+
+#[cfg(test)]
+mod test {
+
+}

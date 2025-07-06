@@ -8,7 +8,7 @@ pub mod section;
 mod config;
 
 pub use output::{Output, OutputLayout, OutputMode, OutputScale, OutputInfo};
-pub use runtime::{RuntimeConfig};
+pub use runtime::{RuntimeConfig, ManagerConfig};
 pub use section::ConfigSection;
 
 #[doc(inline)]

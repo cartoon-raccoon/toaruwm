@@ -10,7 +10,7 @@ use crate::platform::{
     wayland::{WaylandConfig, ToaruWaylandConfig}, 
     x11::{X11Config, ToaruX11Config},
 };
-use crate::core::{WorkspaceMuxHandle};
+use crate::core::{Monitor};
 use crate::Platform;
 
 /// The an implementation of runtime configuration for 
@@ -86,8 +86,8 @@ where
 {
     /// The inner configuration of the WindowManager.
     pub config: &'t C,
-    /// The workspaces maintained by the window manager.
-    pub workspaces: &'t WorkspaceMuxHandle<P>,
+    /// The current monitor as selected by the caller to [`Toaru::state`](crate::Toaru::state).
+    pub monitor: &'t Monitor<P>,
     /// The selected window, if any.
     pub selected: Option<&'t P::WindowId>,
 }

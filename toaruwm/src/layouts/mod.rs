@@ -8,7 +8,7 @@ use std::ops::{Deref, DerefMut};
 
 use tracing::debug;
 
-use crate::core::{Ring, Monitor, Workspace};
+use crate::core::{Ring, Workspace};
 use crate::config::RuntimeConfig;
 use crate::types::{Rectangle, Logical};
 use crate::platform::{Platform};
@@ -193,7 +193,6 @@ impl<P: Platform> Layouts<P> {
     pub fn gen_layout<'t>(
         &'t self,
         ws: &Workspace<P>,
-        scr: &Monitor<P>,
         cfg: &dyn RuntimeConfig,
     ) -> Vec<LayoutAction<P>> {
         debug!("self.focused is {:?}", self.focused);
@@ -203,7 +202,7 @@ impl<P: Platform> Layouts<P> {
             .layout(LayoutCtxt {
                 workspace: ws,
                 config: cfg,
-                working_area: scr.effective_geom(),
+                working_area: ws.output.as_ref().map(|o| o.effective_geom()).unwrap(),
             })
     }
 

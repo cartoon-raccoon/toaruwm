@@ -60,12 +60,6 @@ which should only be be used if testing locally */
 #[cfg(all(test, protocol))]
 mod tests;
 
-/* since the dummy connection is used for testing
-higher-level code and does not actually interact with
-an actual X server, keep this enabled for standard testing */
-#[cfg(test)]
-pub(crate) mod dummy;
-
 pub mod status {
     //! Types for representing connection status.
     //!

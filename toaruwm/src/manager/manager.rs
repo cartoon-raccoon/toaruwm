@@ -1,5 +1,6 @@
 use std::fmt;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 //use std::marker::PhantomData;
 
@@ -9,12 +10,12 @@ use tracing::instrument;
 use tracing::{warn};
 
 use crate::core::{
-    Monitor, WorkspaceSpec, Window, Workspace, WorkspaceMux, WorkspaceMuxHandle
+    Monitor, WorkspaceSpec, Window, Workspace, WorkspaceMux
 };
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::types::{Cardinal, Direction, Point, Logical};
 use crate::platform::{Platform};
-use crate::config::{Config, RuntimeConfig};
+use crate::config::{Config, RuntimeConfig, ManagerConfig};
 
 use crate::{Result, ToaruError};
 use super::ToaruState;
@@ -36,7 +37,7 @@ macro_rules! _rm_if_under_layout {
 }
 
 
-/// The main object that defines client management functionality.
+/// The main object that defines window management functionality.
 /// 
 /// `Toaru` abstracts over shared commonality between the Wayland and X11 
 /// protocols, presenting a unified interface that you can use to manage windows 
@@ -89,7 +90,7 @@ where
     C: RuntimeConfig,
 {
     /// The internal config of the WindowManager.
-    config: C,
+    config: ManagerConfig,
     /// The workspaces.
     workspaces: WorkspaceMux<P>,
     /// All screens connected to the computer.
@@ -97,6 +98,8 @@ where
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
     selected: Option<P::WindowId>,
+
+    _cfg_phantom: PhantomData<C>,
 }
 
 /// General `WindowManager`-level commands.
@@ -134,31 +137,39 @@ where
 
         let mut wksps = Vec::new();
 
+        let config = config.into_runtime_config().into_managerconfig();
+
         for spec in specs.into_iter().rev() {
-            wksps.push(Workspace::from_spec(spec, &layouts, None)?);
+            wksps.push(Workspace::from_spec(spec, &layouts, None, config.clone())?);
         }
 
-        let workspaces = WorkspaceMux::new(wksps)?;
+        let workspaces = WorkspaceMux::new(wksps, config.clone())?;
 
         Ok(Self {
-            config: config.into_runtime_config(),
+            config,
             workspaces,
             monitors: HashMap::new(),
             selected: None,
+            _cfg_phantom: PhantomData,
         })
     }
 
     /// Returns a reference to the internal runtime configuration of Toaru.
-    pub fn config(&self) -> &dyn RuntimeConfig {
-        &self.config
+    pub fn config(&self) -> &C {
+        &self.config.downcast()
+    }
+
+    /// Returns a new `ManagerConfig` that points to its internal runtime configuration.
+    pub fn get_managerconfig(&self) -> ManagerConfig {
+        self.config.clone()
     }
 
     /// Provides a ToaruState for introspection.
     pub fn state(&self, monitor: &P::Output) -> ToaruState<'_, P, C> {
         let mon = self.monitors.get(monitor).expect("output should already be present");
         ToaruState {
-            config: &self.config,
-            workspaces: &mon.workspace_handle,
+            config: &self.config.downcast(),
+            monitor: mon,
             selected: self.selected.as_ref(),
         }
     }
@@ -187,7 +198,7 @@ where
     pub fn add_output(&mut self, output: P::Output) {
         let idx = self.monitors.len();
 
-        let monitor = Monitor::new(output.clone(), self.workspaces.handle(&output), idx as i32);
+        let monitor = Monitor::new(output.clone(), &self.workspaces, idx as i32);
 
         // todo: reconfigure workspaces to account for the new output
 
@@ -265,89 +276,30 @@ where
     /// layout and the entire workspace is then re-laid out.
     //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn move_window_ptr(&mut self, pt: Point<i32, Logical>) {
-        // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
-        // if let Some(win) = self.selected {
-        //     _rm_if_under_layout!(self, win);
-
-        //     let current = self.desktop.current_mut();
-        //     if let Some(win) = current.windows.lookup_mut(win) {
-        //         win.do_move(&self.platform, dx, dy);
-        //     } else {
-        //         error!("Tried to move untracked window {}", win)
-        //     }
-        // } else {
-        //     warn!("no selected window to move");
-        // }
-
-        // self.last_mouse_pos = pt;
     }
 
     /// Grabs the pointer and resizes the window the pointer is on.
     ///
     /// If the selected window is under layout, it is removed from
     /// layout and the entire workspace is then re-laid out.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
     pub fn resize_window_ptr(&mut self, pt: Point<i32, Logical>) {
-        // let (dx, dy) = self.last_mouse_pos.calculate_offset(pt);
 
-        // if let Some(win) = self.selected {
-        //     _rm_if_under_layout!(self, win);
-
-        //     let current = self.desktop.current_mut();
-        //     if let Some(win) = current.windows.lookup_mut(win) {
-        //         win.do_resize(&self.platform, dx, dy);
-        //     } else {
-        //         error!("Tried to move untracked window {}", win)
-        //     }
-        // } else {
-        //     warn!("no selected window to resize");
-        // }
-
-        // self.last_mouse_pos = pt;
     }
 
     /// Moves the window `delta` pixels in direction `dir`.
     pub fn move_window(&mut self, delta: i32, dir: Cardinal) {
-        // if let Some(id) = self.focused_client_id() {
-        //     _rm_if_under_layout!(self, id);
-        // }
-
-        // let current = self.desktop.current_mut();
-        // if let Some(win) = current.focused_client_mut() {
-        //     match dir {
-        //         Cardinal::Up => win.do_move(&self.platform, 0, -delta),
-        //         Cardinal::Down => win.do_move(&self.platform, 0, delta),
-        //         Cardinal::Left => win.do_move(&self.platform, -delta, 0),
-        //         Cardinal::Right => win.do_move(&self.platform, delta, 0),
-        //     }
-        // }
+        
     }
 
     /// Resizes the window `delta` pixels in direction `dir`.
     pub fn resize_window(&mut self, delta: i32, dir: Cardinal) {
-        // if let Some(id) = self.focused_client_id() {
-        //     _rm_if_under_layout!(self, id);
-        // }
-
-        // let current = self.desktop.current_mut();
-        // if let Some(win) = current.focused_client_mut() {
-        //     match dir {
-        //         Cardinal::Up => win.do_resize(&self.platform, 0, -delta),
-        //         Cardinal::Down => win.do_resize(&self.platform, 0, delta),
-        //         Cardinal::Left => win.do_resize(&self.platform, -delta, 0),
-        //         Cardinal::Right => win.do_resize(&self.platform, delta, 0),
-        //     }
-        // }
+        
     }
 
     /// Closes the focused window.
     pub fn close_focused_window(&mut self) {
-        // if let Some(window) = self.desktop.current_mut().windows.focused() {
-        //     handle_err!(self.platform.destroy_window(window.id()), self);
-        // } else {
-        //     warn!("Could not find focused window to destroy");
-        // }
+        
     }
 }
 

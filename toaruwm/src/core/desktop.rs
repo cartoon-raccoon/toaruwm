@@ -22,12 +22,12 @@ use std::ops::{Deref, DerefMut};
 use tracing::trace;
 
 use crate::core::Workspace;
-use crate::config::RuntimeConfig;
 use crate::ToaruError;
 use crate::platform::{Platform, PlatformOutput};
 use crate::types::{
     Cardinal, Direction, Rectangle, Logical
 };
+use crate::config::ManagerConfig;
 use crate::Result;
 
 /// A physical monitor that can display a workspace.
@@ -39,33 +39,152 @@ use crate::Result;
 /// workspaces will be automatically created to maintain this invariant.
 /// 
 /// At any point, if this invariant is violated, a panic will be triggered.
-#[derive(Debug, Clone)]
+/// 
+/// ## Effective Geometry and True Geometry
+/// 
+/// A monitor tracks two different types of geometries: true geometry and effective geometry.
+/// 
+/// True geometry is the actual geometry of the `Monitor`, as reported by the underlying Platform.
+/// It encompasses the entire geometry of the physical screen, with scale and mode accounted for.
+/// 
+/// Effective geometry, on the other hand, is the geometry left when reserved space (e.g. for bars)
+/// has been accounted for. This is the actual space the monitor has to lay out windows.
+/// 
+/// ## Handles
+/// 
+/// `Monitor`s can also give out handles that other types can own to get convenient access to
+/// the monitor's internal information.
+/// 
+#[derive(Debug)]
 pub struct Monitor<P: Platform> {
+    inner: Rc<RefCell<MonitorInner<P>>>
+}
+
+impl<P: Platform> Monitor<P> {
+    /// Creates a new monitor from a given `output`.
+    pub fn new(output: P::Output, wmux: &WorkspaceMux<P>, screen_idx: i32) -> Self {
+        let handle = wmux.handle();
+        let inner = MonitorInner::new(output, handle.clone(), screen_idx);
+
+        let ret = Self {
+            inner: Rc::new(RefCell::new(inner))
+        };
+
+        // todo: handle.with_current(|ws| ws.activate(ret.handle()));
+
+        ret
+    }
+
+    /// Create a handle to the Monitor.
+    pub fn handle(&self) -> MonitorHandle<P> {
+        MonitorHandle {
+            inner: Rc::downgrade(&self.inner)
+        }
+    }
+
+    /// Retrieve the Monitor's name.
+    pub fn name(&self) -> String {
+        let name = self.inner.borrow().output.name();
+        self.inner.borrow_mut().name = name.clone();
+        name
+    }
+
+    /// Retrieve the Monitor's index.
+    pub fn idx(&self) -> i32 {
+        self.inner.borrow().idx()
+    }
+
+    /// Update the `Monitor`'s effective geometry.
+    pub fn update_effective(&mut self, dir: Cardinal, trim: i32) {
+        self.inner.borrow_mut().update_effective(dir, trim);
+    }
+
+    /// Set the effective geometry of the `Monitor`.
+    pub fn set_effective(&mut self, geom: Rectangle<i32, Logical>) {
+        self.inner.borrow_mut().set_effective(geom);
+    }
+
+    /// Get the true geometry of the `Monitor`.
+    pub fn true_geom(&self) -> Rectangle<i32, Logical> {
+        self.inner.borrow().true_geom()
+    }
+
+    /// Get the effective geometry of the `Monitor`.
+    pub fn effective_geom(&self) -> Rectangle<i32, Logical> {
+        self.inner.borrow().effective_geom()
+    }
+
+    /// Run a closure with the [`WorkspaceMuxHandle`] owned by this Monitor.
+    pub fn with_wmux_handle<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&WorkspaceMuxHandle<P>) -> T 
+    {
+        f(&self.inner.borrow().handle())
+    }
+}
+
+/// A read-only handle to a monitor.
+#[derive(Debug)]
+pub struct MonitorHandle<P: Platform> {
+    inner: Weak<RefCell<MonitorInner<P>>>
+}
+
+impl<P: Platform> MonitorHandle<P> {
+    /// Get the name of the output.
+    pub fn name(&self) -> String {
+        self.inner.upgrade()
+            .expect("underlying monitor should not be dropped before a handle")
+            .borrow()
+            .output.name()
+    }
+
+    /// Get the index of the output.
+    pub fn idx(&self) -> i32 {
+        self.inner.upgrade()
+            .expect("underlying monitor should not be dropped before a handle")
+            .borrow()
+            .idx()
+    }
+
+    /// Get the true geometry of the output.
+    pub fn true_geom(&self) -> Rectangle<i32, Logical> {
+        self.inner.upgrade()
+            .expect("underlying monitor should not be dropped before a handle")
+            .borrow()
+            .true_geom()
+    }
+
+    /// Get the effective geometry of the output.
+    pub fn effective_geom(&self) -> Rectangle<i32, Logical> {
+        self.inner.upgrade()
+            .expect("underlying monitor should not be dropped before a handle")
+            .borrow()
+            .effective_geom()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MonitorInner<P: Platform> {
     pub(crate) name: String,
     pub(crate) output: P::Output,
-    pub(crate) workspace_handle: WorkspaceMuxHandle<P>,
+    pub(crate) wmux_handle: WorkspaceMuxHandle<P>,
     /// The usable geometry of the Screen.
     pub(crate) effective_geom: Rectangle<i32, Logical>,
     /// The index of the Screen.
     pub(crate) idx: i32,
 }
 
-impl<P: Platform> Monitor<P> {
+impl<P: Platform> MonitorInner<P> {
     /// Creates a new Monitor with the provided output and workspace handle.
-    pub fn new(output: P::Output, workspace_handle: WorkspaceMuxHandle<P>, screen_idx: i32) -> Self {
+    pub fn new(output: P::Output, wmux_handle: WorkspaceMuxHandle<P>, screen_idx: i32) -> Self {
         let effective_geom = output.geometry().unwrap_or_else(|| Rectangle::zeroed());
         Self {
             name: output.name(),
             output,
-            workspace_handle,
+            wmux_handle,
             effective_geom,
             idx: screen_idx,
         }
-    }
-
-    /// Returns the name of the Monitor.
-    pub fn name(&self) -> &str {
-        &self.name
     }
 
     /// Returns the index of the Monitor.
@@ -96,7 +215,7 @@ impl<P: Platform> Monitor<P> {
 
     /// Returns a reference to the [`WorkspaceMuxHandle`] owned by the Monitor.
     pub fn handle(&self) -> &WorkspaceMuxHandle<P> {
-        &self.workspace_handle
+        &self.wmux_handle
     }
 }
 
@@ -112,12 +231,13 @@ impl<P: Platform> Monitor<P> {
 #[derive(Debug)]
 pub struct Workspaces<P: Platform> {
     wksps: Vec<Workspace<P>>,
-    names: HashSet<String>
+    names: HashSet<String>,
+    config: ManagerConfig
 }
 
 impl<P: Platform> Workspaces<P> {
     /// Creates a new `Workspace` namespace.
-    pub fn new<I>(workspaces: I) -> Result<Self>
+    pub fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
     where
         I: IntoIterator<Item = Workspace<P>>
     {
@@ -136,7 +256,7 @@ impl<P: Platform> Workspaces<P> {
 
             Err(ToaruError::NamespaceConflict(ret.join(", ")))
         } else {
-            Ok(Self { wksps, names })
+            Ok(Self { wksps, names, config })
         }
     }
 
@@ -144,13 +264,9 @@ impl<P: Platform> Workspaces<P> {
     /// 
     /// If the workspace was successfully added, `None` is returned, otherwise the created workspace
     /// is added.
-    pub fn add_workspace<S: Into<String>>(&mut self, name: S, output: Option<P::Output>) -> Option<Workspace<P>> {
+    pub fn add_workspace<S: Into<String>>(&mut self, name: S) -> Option<Workspace<P>> {
         let name: String = name.into();
-        let new: Workspace<P> = if let Some(output) = output {
-            Workspace::new_with_output(&name, output)
-        } else {
-            Workspace::new(&name)
-        };
+        let new = Workspace::new(&name, self.config.clone());
 
         if self.contains_name(&name) {
             Some(new)
@@ -229,12 +345,12 @@ pub struct WorkspaceMux<P: Platform> {
 
 impl<P: Platform> WorkspaceMux<P> {
     /// Creates a new `WorkspaceMux`.
-    pub fn new<I>(workspaces: I) -> Result<Self>
+    pub fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
     where
         I: IntoIterator<Item = Workspace<P>>
     {
         Ok(Self {
-            inner: Rc::new(WorkspaceMuxInner::new(workspaces)?)
+            inner: Rc::new(WorkspaceMuxInner::new(workspaces, config)?)
         })
     }
 
@@ -245,8 +361,8 @@ impl<P: Platform> WorkspaceMux<P> {
     /// This function will panic if creating this handle would cause an overflow
     /// (see above) and attempting to fix the overflow by creating a new workspace
     /// fails.
-    pub fn handle(&self, output: &P::Output) -> WorkspaceMuxHandle<P> {
-        let token = self.inner.add_token(output);
+    pub fn handle(&self) -> WorkspaceMuxHandle<P> {
+        let token = self.inner.add_token();
 
         WorkspaceMuxHandle {
             token,
@@ -386,7 +502,7 @@ impl<P: Platform> WorkspaceMuxHandle<P> {
     /// 
     /// Returns None if the `Handle` is not currently assigned to a workspace,
     /// or if the underlying `WorkspaceMux` was dropped.
-    pub fn with_current<F, T>(&mut self, f: F) -> Option<T>
+    pub fn with_current<F, T>(&self, f: F) -> Option<T>
     where
         F: FnOnce(&mut Workspace<P>) -> T
     {
@@ -403,17 +519,21 @@ impl<P: Platform> PartialEq for WorkspaceMuxHandle<P> {
 
 impl<P: Platform> Drop for WorkspaceMuxHandle<P> {
     fn drop(&mut self) {
-        self.handle.upgrade()
-            .inspect(|h| h.remove_token(self.token));
+        if self.handle.weak_count() == 0 {
+            trace!("WorkspaceMuxHandle weak count is zero, removing from idxmap");
+            self.handle.upgrade()
+                .inspect(|h| h.remove_token(self.token));
+        }
     }
 }
 
 impl<P: Platform> Clone for WorkspaceMuxHandle<P> {
     fn clone(&self) -> Self {
-        let handle = match &self.handle.upgrade() {
-            Some(h) => Rc::downgrade(h),
-            None => Weak::new()
-        };
+
+        let handle = Weak::clone(&self.handle);
+
+        trace!("cloned WorkspaceMuxHandle with token {}, current weak count is {}", 
+            self.token, handle.weak_count());
 
         Self {
             token: self.token,
@@ -433,8 +553,11 @@ struct WorkspaceMuxInner<P: Platform> {
 }
 
 impl<P: Platform> WorkspaceMuxInner<P> {
-    pub(crate) fn new<I: IntoIterator<Item = Workspace<P>>>(workspaces: I) -> Result<Self> {
-        let workspaces = Workspaces::new(workspaces)?;
+    pub(crate) fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
+    where
+        I: IntoIterator<Item = Workspace<P>>
+    {
+        let workspaces = Workspaces::new(workspaces, config)?;
 
         Ok(Self {
             workspaces: RefCell::new(workspaces),
@@ -444,15 +567,17 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     /// Creates a new token and registers it with a new view into the Workspaces.
-    pub(crate) fn add_token(&self, output: &P::Output) -> u64 {
+    pub(crate) fn add_token(&self) -> u64 {
+        trace!("WorkspaceMux: adding new token");
         if let Some(next_idx) = self.next_avail_idx() {
             self.add_token_unchecked(next_idx)
         } else {
+            trace!("no new available indexes for token, creating new workspace");
             // if no index is available, we've hit an overflow
             // create a new workspace and then add it to the inner workspaces.
             let new_ws_name = self.idxmap.borrow().len().to_string();
-            trace!("Creating new workspace with name {new_ws_name}");
-            let res = self.workspaces.borrow_mut().add_workspace(&new_ws_name, Some(output.clone()));
+            trace!("creating new workspace with name {new_ws_name}");
+            let res = self.workspaces.borrow_mut().add_workspace(&new_ws_name);
 
             // This will trigger a panic on a namespace conflict, which we want.
             assert!(res.is_none());
@@ -480,6 +605,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     pub(crate) fn remove_token(&self, token: u64) {
+        trace!("Removing token {token} from idxmap");
         self.idxmap.borrow_mut().remove(&token);
     }
 
@@ -488,7 +614,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     pub(crate) fn register(&self, token: u64) -> Option<usize> {
-        if self.registered(token) {
+        if self.registered(token) { // FIXME
             None
         } else if let Some(idx) = self.next_avail_idx() {
             self.idxmap.borrow_mut().insert(token, idx);
@@ -518,6 +644,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     pub(crate) fn goto_workspace_idx(&self, idx: usize, token: u64, swap: bool) -> Option<usize> {
+        trace!("goto_workspace_idx: idx={idx}, token={token}, swap={swap}");
         if let Some((occ_tok, _)) = self.idx_is_occupied(idx) {
             // the target workspace is currently occupied
             if !swap {
@@ -528,12 +655,10 @@ impl<P: Platform> WorkspaceMuxInner<P> {
             if !self.swap(token, occ_tok) {
                 return None
             }
-        } else {
+        } else if !self.switch(token, idx) {
             // the target workspace is currently unoccupied, switch directly
-            *(self.idxmap.borrow_mut().get_mut(&token).unwrap()) = idx;
+            return None
         }
-
-        //todo: reconfigure the workspace if active
 
         Some(idx)
     }
@@ -617,7 +742,28 @@ impl<P: Platform> WorkspaceMuxInner<P> {
 
         *(self.idxmap.borrow_mut().get_mut(&tok1).unwrap()) = idx2;
         *(self.idxmap.borrow_mut().get_mut(&tok2).unwrap()) = idx1;
+
+        assert!(self.with_current(tok1, |ws| ws.relayout()).is_some());
+        assert!(self.with_current(tok2, |ws| ws.relayout()).is_some());
         
+        true
+    }
+
+    /// Switches the workspace assigned to `token` to the index `idx`.
+    fn switch(&self, token: u64, idx: usize) -> bool {
+        trace!("switching workspace with token {token} to index {idx}");
+        // deactivate the current workspace and take its monitor
+        let Some(mon) = self.with_current(token, |ws| ws.deactivate()) else {
+            trace!("unable to get workspace for token {token}");
+            return false
+        };
+
+        // make the switch
+        *(self.idxmap.borrow_mut().get_mut(&token).unwrap()) = idx;
+
+        // activate the new monitor
+        assert!(self.with_current(token, move |ws| ws.activate(mon)).is_some());
+
         true
     }
 }
