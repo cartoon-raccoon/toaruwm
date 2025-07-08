@@ -1,9 +1,10 @@
 use smithay::reexports::{
     wayland_server::protocol::wl_output::WlOutput
 };
+use smithay::desktop::layer_map_for_output;
 use smithay::wayland::{
     shell::{
-        wlr_layer::{WlrLayerShellHandler, WlrLayerShellState, Layer, LayerSurface}
+        wlr_layer::{WlrLayerShellHandler, WlrLayerShellState, Layer, LayerSurface as WlrLayerSurface}
     }
 };
 use smithay::delegate_layer_shell;
@@ -16,7 +17,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> WlrLayerShellHandler for Wayland<C, B>
     }
 
     fn new_layer_surface(&mut self, 
-        surface: LayerSurface, 
+        surface: WlrLayerSurface, 
         output: Option<WlOutput>,
         layer: Layer,
         namespace: String,

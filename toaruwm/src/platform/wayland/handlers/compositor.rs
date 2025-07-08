@@ -54,25 +54,34 @@ where
             root = parent;
         }
 
-        self.wl_impl.root_surfaces.insert(surface.clone(), root.clone());
+        self.wl.root_surfaces.insert(surface.clone(), root.clone());
 
         // this is a root surface commit that might have mapped a previously-unmapped toplevel.
         if surface == &root {
             // the toplevel is currently unmapped in our state.
-            if let Entry::Occupied(entry) = self.wl_impl.unmapped.entry(surface.clone()) {
+            if let Entry::Occupied(entry) = self.wl.unmapped.entry(surface.clone()) {
                 if is_mapped(surface) {
                     // the toplevel got mapped.
+
+                    // convert unmapped to mapped
                 } else {
                     // the toplevel remains unmapped.
                 }
             } else /* find window and corresponding output */ {
-            // this is a commit of a previously unmapped root or a non-toplevel root.
+            // this is a commit of a previously mapped root or a non-toplevel root.
 
             }
-        } else { // this is a commit of a non-root or non-toplevel root.
+
+            return
         }
-        // todo
-        // get all outputs the surface appears on, and regen elements, then call render
+
+        // this is a commit of a non-root or non-toplevel root.
+        
+
+    }
+
+    fn destroyed(&mut self, _surface: &WlSurface) {
+        todo!()
     }
 }
 
