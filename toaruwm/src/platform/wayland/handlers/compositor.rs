@@ -17,13 +17,14 @@ use smithay::wayland::{
 use smithay::backend::{
     renderer::utils::on_commit_buffer_handler,
 };
+use smithay::output::Output;
 
 use smithay::delegate_compositor;
 
 use crate::platform::wayland::{
     prelude::*,
-    state::ClientState,
-    window::is_mapped,
+    handlers::ClientState,
+    window::{WaylandWindow, is_mapped},
 };
 
 impl<C, B> CompositorHandler for Wayland<C, B>
@@ -67,8 +68,11 @@ where
                 } else {
                     // the toplevel remains unmapped.
                 }
-            } else /* find window and corresponding output */ {
-            // this is a commit of a previously mapped root or a non-toplevel root.
+            } else if let Some((win, output)) = self.find_window_and_output(surface) {
+                // this is a commit of a previously mapped root or a non-toplevel root.
+                if let Some(mapped) = win.as_mapped() {
+
+                }
 
             }
 
@@ -86,3 +90,9 @@ where
 }
 
 delegate_compositor!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+
+impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+    pub fn find_window_and_output(&self, surface: &WlSurface) -> Option<(&WaylandWindow, Option<&Output>)> {
+        todo!()
+    }
+}

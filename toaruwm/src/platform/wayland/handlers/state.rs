@@ -51,7 +51,7 @@ use crate::platform::wayland::{
 /// `WlState` stores all Smithay-related `-State` types.
 #[derive(Debug)]
 #[allow(missing_docs)]
-pub struct WlState<C, B>
+pub struct WaylandState<C, B>
 where
     C: RuntimeConfig + 'static,
     B: WaylandBackend + 'static,
@@ -76,7 +76,7 @@ where
     pub seat_state: SeatState<Wayland<C, B>>,
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> WlState<C, B> {
+impl<C: RuntimeConfig, B: WaylandBackend> WaylandState<C, B> {
     pub fn new(display_handle: DisplayHandle) -> Self
     where
         C: RuntimeConfig,
