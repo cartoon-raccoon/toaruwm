@@ -1,10 +1,10 @@
 # toaruwm
 
-### A certain X window manager
+## A certain desktop
 
 ---
 
-A tiling X11 window manager library written in Rust. Some of its features include:
+A desktop creation library written in Rust. Some of its features include:
 
 - Can be downloaded as a binary or used as a crate.
 - Supports multiple X backends, including user-implemented ones.
@@ -24,11 +24,7 @@ Non-reparenting (for now, but based on the design goals, it may become a reality
 I do not plan to fully implement ICCCM or EWMH compliance.
 See [this](http://www.call-with-current-continuation.org/rants/icccm.txt) for why.
 
-Current SLOC count: `6599`
-
 This crate is NOT production ready; far from it. However, it is under active development and will be ready soon.
-
-Heavily inspired by [penrose](https://docs.rs/penrose/0.2.0/penrose/index.html) by sminez, approximately 60% of this codebase is based off his code, so a million thanks, and I am forever grateful.
 
 ## Design Goals
 
@@ -47,3 +43,11 @@ Heavily inspired by [penrose](https://docs.rs/penrose/0.2.0/penrose/index.html) 
 ## Testing
 
 See the [testing](TESTING.md) readme for details.
+
+## Acknowledgements
+
+Special thanks to:
+
+- [penrose](https://docs.rs/penrose/0.2.0/penrose/index.html) by Sminez, for inspiring this crate.
+- [smithay](https://github.com/Smithay/smithay) and [x11rb](https://github.com/psychon/x11rb), for powering this crate.
+- [niri](https://github.com/YaLTeR/niri), for showing how to do certain things.
