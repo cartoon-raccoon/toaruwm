@@ -27,7 +27,7 @@ use crate::platform::{Platform, PlatformOutput};
 use crate::types::{
     Cardinal, Direction, Rectangle, Logical
 };
-use crate::config::ManagerConfig;
+use crate::config::MgrConfig;
 use crate::Result;
 
 /// A physical monitor that can display a workspace.
@@ -232,12 +232,12 @@ impl<P: Platform> MonitorInner<P> {
 pub struct Workspaces<P: Platform> {
     wksps: Vec<Workspace<P>>,
     names: HashSet<String>,
-    config: ManagerConfig
+    config: MgrConfig
 }
 
 impl<P: Platform> Workspaces<P> {
     /// Creates a new `Workspace` namespace.
-    pub fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
+    pub fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
         I: IntoIterator<Item = Workspace<P>>
     {
@@ -367,7 +367,7 @@ pub struct WorkspaceMux<P: Platform> {
 
 impl<P: Platform> WorkspaceMux<P> {
     /// Creates a new `WorkspaceMux`.
-    pub fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
+    pub fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
         I: IntoIterator<Item = Workspace<P>>
     {
@@ -590,7 +590,7 @@ struct WorkspaceMuxInner<P: Platform> {
 }
 
 impl<P: Platform> WorkspaceMuxInner<P> {
-    pub(crate) fn new<I>(workspaces: I, config: ManagerConfig) -> Result<Self>
+    pub(crate) fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
         I: IntoIterator<Item = Workspace<P>>
     {

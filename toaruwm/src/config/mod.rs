@@ -8,7 +8,7 @@ pub mod section;
 mod config;
 
 pub use output::{Output, OutputLayout, OutputMode, OutputScale, OutputInfo};
-pub use runtime::{RuntimeConfig, ManagerConfig};
+pub use runtime::{RuntimeConfig, MgrConfig};
 pub use section::ConfigSection;
 
 #[doc(inline)]
@@ -17,9 +17,9 @@ pub use config::*;
 use crate::core::WorkspaceSpec;
 use crate::layouts::Layout;
 
-/// A trait defining a `WindowManager` configuration.
+/// A trait defining a `Manager` configuration.
 ///
-/// On initialization, the `WindowManager` queries a config
+/// On initialization, the `Manager` queries a config
 /// for various fields to move elsewhere, before at the end converting
 /// the config into a runtime configuration.
 ///
@@ -68,7 +68,7 @@ use crate::layouts::Layout;
 /// should not violated, A type `Config` also has one invariant of its own,
 /// that its Layouts and Workspaces must contain at least one member,
 /// i.e. they cannot be empty.
-pub trait Config<P> {
+pub trait ManagerConfig<P> {
     /// The type it will finally convert itself into.
     type Runtime: RuntimeConfig;
 

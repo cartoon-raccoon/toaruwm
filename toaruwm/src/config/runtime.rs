@@ -24,11 +24,11 @@ use crate::platform::{
 /// Internally, a `ManagerConfig` stores its wrapped value in an `Rc`, allowing you to
 /// shallow clone it and pass owned values around wherever you might need it.
 #[derive(Debug)]
-pub struct ManagerConfig {
+pub struct MgrConfig {
     inner: Rc<Box<dyn RuntimeConfig>>
 }
 
-impl ManagerConfig {
+impl MgrConfig {
     /// Wraps a RuntimeConfig type, returning a new ManagerConfig.
     pub fn new<C: RuntimeConfig + 'static>(config: C) -> Self {
         Self {
@@ -47,7 +47,7 @@ impl ManagerConfig {
     }
 }
 
-impl Clone for ManagerConfig {
+impl Clone for MgrConfig {
     fn clone(&self) -> Self {
         Self {
             inner: Rc::clone(&self.inner)
@@ -55,7 +55,7 @@ impl Clone for ManagerConfig {
     }
 }
 
-impl RuntimeConfig for ManagerConfig {
+impl RuntimeConfig for MgrConfig {
     fn float_classes(&self) -> &[String] {
         self.inner.float_classes()
     }
@@ -132,10 +132,10 @@ pub trait RuntimeConfig: Debug + Any {
     fn x11(&self) -> &dyn X11Config;
 
     /// Wraps the `RuntimeConfig` in a new `ManagerConfig`.
-    fn into_managerconfig(self) -> ManagerConfig
+    fn into_managerconfig(self) -> MgrConfig
     where
         Self: Sized
     {
-        ManagerConfig::new(self)
+        MgrConfig::new(self)
     }
 }

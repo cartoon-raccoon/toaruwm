@@ -8,7 +8,7 @@ use crate::core::{
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
 use crate::platform::{Platform};
-use crate::config::{Config, RuntimeConfig, ManagerConfig};
+use crate::config::{ManagerConfig, RuntimeConfig, MgrConfig};
 
 use crate::{Result, ToaruError};
 use super::ToaruState;
@@ -67,7 +67,7 @@ where
     C: RuntimeConfig,
 {
     /// The internal config of the WindowManager.
-    config: ManagerConfig,
+    config: MgrConfig,
     /// The workspaces.
     workspaces: WorkspaceMux<P>,
     /// All screens connected to the computer.
@@ -101,7 +101,7 @@ where
     /// See [`Config`] for more details.
     pub fn new<E, W, L>(mut config: E) -> Result<Toaru<P, C>>
     where
-        E: Config<P, Runtime = C, Workspaces = W, Layouts = L>,
+        E: ManagerConfig<P, Runtime = C, Workspaces = W, Layouts = L>,
         W: IntoIterator<Item = WorkspaceSpec>,
         L: IntoIterator<Item = Box<dyn Layout<P>>>,
     {
@@ -137,7 +137,7 @@ where
     }
 
     /// Returns a new `ManagerConfig` that points to its internal runtime configuration.
-    pub fn get_managerconfig(&self) -> ManagerConfig {
+    pub fn get_managerconfig(&self) -> MgrConfig {
         self.config.clone()
     }
 

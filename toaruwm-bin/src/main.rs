@@ -15,7 +15,7 @@ use toaruwm::reexports::{
 };
 
 use toaruwm::platform::wayland::backend::DrmBackend;
-use toaruwm::ToaruConfig;
+use toaruwm::ToaruManagerConfig;
 use toaruwm::platform::wayland::Wayland;
 use toaruwm::Toaru;
 // use flexi_logger::{
@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .try_init().expect("could not create logger");
 
     // create config
-    let config = ToaruConfig::builder().finish(|_| Ok(()))?;
+    let config = ToaruManagerConfig::builder().finish(|_| Ok(()))?;
 
     // create the event loop
     let event_loop = EventLoop::try_new()?;

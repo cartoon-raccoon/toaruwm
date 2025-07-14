@@ -15,7 +15,7 @@ use crate::core::{
     desktop::MonitorHandle, window::{Window, WindowRing, FocusStack},
 };
 use crate::layouts::{update::IntoUpdate, LayoutAction, LayoutType, Layouts};
-use crate::config::ManagerConfig;
+use crate::config::MgrConfig;
 use crate::types::Direction;
 use crate::platform::{Platform};
 
@@ -131,7 +131,7 @@ where
     pub(crate) layouts: Layouts<P>,
     /// The current output this workspace is being displayed on, if any.
     pub(crate) output: Option<MonitorHandle<P>>,
-    pub(crate) config: ManagerConfig,
+    pub(crate) config: MgrConfig,
 }
 
 impl<P: Platform> fmt::Debug for Workspace<P> {
@@ -149,7 +149,7 @@ impl<P: Platform> Workspace<P> {
     // * PUBLIC METHODS * //
 
     /// Creates a new workspace.
-    pub fn new<S: Into<String>>(name: S, config: ManagerConfig) -> Self {
+    pub fn new<S: Into<String>>(name: S, config: MgrConfig) -> Self {
         Self {
             name: name.into(),
             windows: WindowRing::new(),
@@ -161,7 +161,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Creates a new workspace with the provided `output`.
-    pub fn new_with_output<S>(name: S, output: MonitorHandle<P>, config: ManagerConfig) -> Self
+    pub fn new_with_output<S>(name: S, output: MonitorHandle<P>, config: MgrConfig) -> Self
     where
         S: Into<String>
     {
@@ -175,7 +175,7 @@ impl<P: Platform> Workspace<P> {
         spec: WorkspaceSpec, 
         available_layouts: &Layouts<P>, 
         output: Option<MonitorHandle<P>>,
-        config: ManagerConfig,
+        config: MgrConfig,
     ) -> Result<Self> {
         let mut layouts = Vec::new();
         for name in spec.layouts {

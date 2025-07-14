@@ -122,7 +122,7 @@ pub use crate::core::types;
 #[doc(inline)]
 pub use crate::manager::{Toaru, Manager};
 #[doc(inline)]
-pub use crate::config::{Config, ToaruConfig};
+pub use crate::config::{ManagerConfig, ToaruManagerConfig};
 #[doc(inline)]
 pub use crate::platform::{Platform, Wayland};
 
