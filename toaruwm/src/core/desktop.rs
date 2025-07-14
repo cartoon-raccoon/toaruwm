@@ -272,13 +272,35 @@ impl<P: Platform> Workspaces<P> {
             Some(new)
         } else {
             self.wksps.push(new);
+            self.names.insert(name);
             None
         }
     }
 
+    /// Attempts to insert the provided workspace. If the new workspace does not violate the invariants
+    /// of the namespace, it is inserted and `None` is returned, otherwise the workspace is returned.
+    pub fn insert_workspace(&mut self, wksp: Workspace<P>, idx: Option<usize>) -> Option<Workspace<P>> {
+        if self.names.contains(wksp.name()) {
+            return Some(wksp)
+        }
+        let name = wksp.name().to_owned();
+        self.names.insert(name);
+        if let Some(idx) = idx {
+            self.wksps.insert(idx, wksp);
+        } else {
+            self.wksps.push(wksp);
+        }
+        None
+    }
+
     /// Removes the workspace with the given name, returning it if it exists.
     pub fn del_workspace<S: AsRef<str>>(&mut self, name: S) -> Option<Workspace<P>> {
-        todo!()
+        let idx = self.wksps.iter()
+            .enumerate()
+            .find(|(_, ws)| ws.name() == name.as_ref())
+            .map(|(idx, _)| idx)?;
+
+        Some(self.wksps.remove(idx))
     }
 
     /// Checks whether the name provided already exists in the namespace defined by this `Workspaces`.
@@ -378,6 +400,21 @@ impl<P: Platform> WorkspaceMux<P> {
         let mut workspaces = self.inner.workspaces.borrow_mut();
 
         f(&mut workspaces)
+    }
+
+    /// Runs a closure for each workspace in the `WorkspaceMux`.
+    /// 
+    /// If `active_only` is true, the closure will be run only for active workspaces
+    /// in the `WorkspaceMux`.
+    pub fn foreach_wksp<F>(&self, active_only: bool, f: F) 
+    where
+        F: FnMut(&mut Workspace<P>)
+    {
+        let mut workspaces = self.inner.workspaces.borrow_mut();
+
+        workspaces.iter_mut()
+            .filter(|ws| if active_only {ws.is_active()} else {true})
+            .for_each(f)
     }
 
     /// Checks if the provided `token` is currently registered with the `WorkspaceMux`.
@@ -507,7 +544,7 @@ impl<P: Platform> WorkspaceMuxHandle<P> {
         F: FnOnce(&mut Workspace<P>) -> T
     {
         self.handle.upgrade()
-            .and_then(|h| h.with_current(self.token, f))
+            .and_then(|h| h.with_token(self.token, f))
     }
 }
 
@@ -692,7 +729,13 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     pub(crate) fn send_focused_to_name(&self, name: &str, token: u64) -> bool {
-        todo!()
+        let Some(target_idx) = self.workspaces.borrow()
+            .iter()
+            .enumerate()
+            .find(|(_, ws)| ws.name() == name)
+            .map(|(idx, _)| idx) else {return false};
+
+        self.send_focused_to_idx(target_idx, token)
     }
 
     pub(crate) fn send_focused_to_idx(&self, idx: usize, token: u64) -> bool {
@@ -700,7 +743,13 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     }
 
     pub(crate) fn send_window_to_name(&self, id: P::WindowId, name: &str, token: u64) -> bool {
-        todo!()
+        let Some(target_idx) = self.workspaces.borrow()
+            .iter()
+            .enumerate()
+            .find(|(_, ws)| ws.name() == name)
+            .map(|(idx, _)| idx) else {return false};
+
+        self.send_window_to_idx(id, target_idx, token)
     }
 
     pub(crate) fn send_window_to_idx(&self, id: P::WindowId, idx: usize, token: u64) -> bool {
@@ -711,7 +760,9 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         self.idxmap.borrow().get(&token).map(|i| *i)
     }
 
-    pub(crate) fn with_current<F, T>(&self, token: u64, f: F) -> Option<T>
+    /// Runs a closure on the workspace assigned to the current token,
+    /// if one is assigned.
+    pub(crate) fn with_token<F, T>(&self, token: u64, f: F) -> Option<T>
     where
         F: FnOnce(&mut Workspace<P>) -> T
     {
@@ -720,7 +771,18 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         };
 
         Some(f(&mut self.workspaces.borrow_mut()[idx]))
-        
+    }
+
+    /// Runs a closure on the workspace at the current index.
+    /// 
+    /// ## Panics
+    /// 
+    /// This method panics if the provided index is out of bounds.
+    pub(crate) fn with_idx<F, T>(&self, idx: usize, f: F) -> T
+    where
+        F: FnOnce(&mut Workspace<P>) -> T
+    {
+        f(&mut self.workspaces.borrow_mut()[idx])
     }
 
     /// Checks if the workspace at the current index is occupied, and if so, by which handle.
@@ -732,6 +794,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
 
     /// Swaps the assigned indexes of two tokens.
     fn swap(&self, tok1: u64, tok2: u64) -> bool {
+        trace!("swapping workspaces with tokens {tok1} and {tok2}");
 
         let Some(idx1) = self.idxmap.borrow().get(&tok1).map(|idx| *idx) else {
             return false
@@ -740,11 +803,18 @@ impl<P: Platform> WorkspaceMuxInner<P> {
             return false
         };
 
+        // do the monitor swap
+
+        // take the output of the workspace with tok1
+        let mon1to2 = self.with_idx(idx1, |ws| ws.take_output()).unwrap();
+        // insert it to workspace with tok2, retrieving the old monitor
+        let mon2to1 = self.with_idx(idx2, |ws| ws.activate(mon1to2)).unwrap();
+        // insert it into the workspace with tok1
+        assert!(self.with_idx(idx1, |ws| ws.activate(mon2to1)).is_none());
+
+        // do the token-index swap
         *(self.idxmap.borrow_mut().get_mut(&tok1).unwrap()) = idx2;
         *(self.idxmap.borrow_mut().get_mut(&tok2).unwrap()) = idx1;
-
-        assert!(self.with_current(tok1, |ws| ws.relayout()).is_some());
-        assert!(self.with_current(tok2, |ws| ws.relayout()).is_some());
         
         true
     }
@@ -753,7 +823,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     fn switch(&self, token: u64, idx: usize) -> bool {
         trace!("switching workspace with token {token} to index {idx}");
         // deactivate the current workspace and take its monitor
-        let Some(mon) = self.with_current(token, |ws| ws.deactivate()) else {
+        let Some(mon) = self.with_token(token, |ws| ws.deactivate()) else {
             trace!("unable to get workspace for token {token}");
             return false
         };
@@ -762,7 +832,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         *(self.idxmap.borrow_mut().get_mut(&token).unwrap()) = idx;
 
         // activate the new monitor
-        assert!(self.with_current(token, move |ws| ws.activate(mon)).is_some());
+        assert!(self.with_token(token, move |ws| ws.activate(mon)).is_some());
 
         true
     }

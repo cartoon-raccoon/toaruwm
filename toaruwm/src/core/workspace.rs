@@ -206,6 +206,11 @@ impl<P: Platform> Workspace<P> {
         self.output.replace(output)
     }
 
+    /// Returns a reference to the current output the Workspace is shown on, if any.
+    pub fn output(&self) -> Option<&MonitorHandle<P>> {
+        self.output.as_ref()
+    }
+
     /// Sets the layout to use and applies it to all currently mapped windows.
     ///
     /// Is a no-op if no such layout exists.
@@ -364,7 +369,6 @@ impl<P: Platform> Workspace<P> {
         }
 
         ret
-
     }
 
     /// Unmaps all the windows in the workspace and sets the workspace to inactive,
@@ -373,6 +377,11 @@ impl<P: Platform> Workspace<P> {
         self.windows.iter_mut().for_each(|w| w.unmap());
 
         self.output.take().expect("Cannot deactivate an output with no active output")
+    }
+
+    /// Take the current output of the workspace without deactivating it.
+    pub fn take_output(&mut self) -> Option<MonitorHandle<P>> {
+        self.output.take()
     }
 
     /// Calls the layout function and applies it to the workspace.
@@ -396,17 +405,35 @@ impl<P: Platform> Workspace<P> {
 
     /// Deletes the window from the workspaces and returns it.
     pub fn del_window(&mut self,id: P::WindowId) -> Option<Window<P>> {
-        if let Some(win) = self.windows.lookup(id) {
-            if win.is_off_layout() {
-                Some(self._del_window(id, false))
-            } else {
-                Some(self._del_window(id, true))
-            }
+        let Some(win) = self.windows.lookup(id) else {
+            warn!("No window with id {id:?} found");
+            return None
+        };
+
+        if win.is_off_layout() {
+            Some(self._del_window(id, false))
         } else {
-            // fail silently (this accounts for spurious unmap events)
-            debug!("could not find window to delete, failing silently");
-            None
+            Some(self._del_window(id, true))
         }
+    }
+
+    /// Deletes the focused window in the workspace and returns it.
+    pub fn del_focused_window(&mut self) -> Option<Window<P>> {
+        self.windows.focused()
+            .map(|win| win.id())
+            .and_then(|id| self.del_window(id))
+    }
+
+    /// Takes a window directly without calling the layout.
+    pub fn take_window(&mut self, window: P::WindowId) -> Option<Window<P>> {
+        self.windows.remove_by_id(window)
+    }
+
+    /// Takes the focused window directly without calling the layout.
+    pub fn take_focused_window(&mut self) -> Option<Window<P>> {
+        self.windows.focused()
+            .map(|win| win.id())
+            .and_then(|id| self.take_window(id))
     }
 
     /// Sets the focused window to the given ID.
@@ -418,11 +445,7 @@ impl<P: Platform> Workspace<P> {
             return
         };
 
-        debug!("found window {:?}", window);
-        if let Some(focused) = self.windows.focused_mut() {
-            let id = focused.id();
-            //self.unfocus_window(id, pf, cfg);
-        }
+        self.windows.set_focused_by_winid(window);
     }
 
     /// Cycles the focus to the next window in the workspace.
@@ -434,16 +457,6 @@ impl<P: Platform> Workspace<P> {
         };
 
         self.windows.cycle_focus(dir);
-    }
-
-    /// Deletes the focused window in the workspace and returns it.
-    pub fn take_focused_window(&mut self,) -> Option<Window<P>> {
-        if let Some(window) = self.windows.focused() {
-            let id = window.id();
-            self.del_window(id)
-        } else {
-            None
-        }
     }
 
     /// Toggles fullscreen on the currently focused window.
@@ -556,12 +569,6 @@ impl<P: Platform> Workspace<P> {
         let id = window.id();
         self.windows.push(window);
         self.focuses.add_by_layout_status(id, &self.windows);
-    }
-
-    /// Takes a window directly without calling the layout.
-    pub(crate) fn take_window(&mut self, window: P::WindowId) -> Option<Window<P>> {
-        let window = self.windows.remove_by_id(window)?;
-        Some(window)
     }
 
     /// Updates the focus to the window under the pointer.

@@ -2,39 +2,16 @@ use std::fmt;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-//use std::marker::PhantomData;
-
-//use std::sync::OnceLock;
-
-use tracing::instrument;
-use tracing::{warn};
-
 use crate::core::{
     Monitor, WorkspaceSpec, Window, Workspace, WorkspaceMux
 };
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
-use crate::types::{Cardinal, Direction, Point, Logical};
+use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
 use crate::platform::{Platform};
 use crate::config::{Config, RuntimeConfig, ManagerConfig};
 
 use crate::{Result, ToaruError};
 use super::ToaruState;
-
-/// Removes the focused window if under layout.
-macro_rules! _rm_if_under_layout {
-    ($_self:expr, $id:expr) => {
-        let is_under_layout = $_self.desktop.current().has_window_in_layout($id);
-
-        if is_under_layout {
-            $_self.desktop.current_mut().remove_from_layout(
-                &$_self.platform.handle(),
-                $id,
-                $_self.screens.focused().unwrap(),
-                &$_self.config,
-            );
-        }
-    };
-}
 
 
 /// The main object that defines window management functionality.
@@ -175,12 +152,17 @@ where
     }
 
     /// Creates a new window and inserts it into the currently focused workspace.
-    pub fn insert_window(&mut self, id: P::WindowId) {
+    pub fn insert_window(&mut self, id: P::WindowId, output: Option<P::Output>) {
         todo!()
     }
 
     /// Removes the window identified by `id`.
     pub fn delete_window(&mut self, id: P::WindowId) -> Window<P> {
+        todo!()
+    }
+
+    /// Configures a window with a given `id`.
+    pub fn configure_window(&mut self, id: P::WindowId, geom: Rectangle<i32, Logical>) {
         todo!()
     }
 
@@ -200,14 +182,35 @@ where
 
         let monitor = Monitor::new(output.clone(), &self.workspaces, idx as i32);
 
-        // todo: reconfigure workspaces to account for the new output
-
         self.monitors.insert(output, monitor);
+    }
+
+    /// Gets the monitor with the provided `PlatformOutput`.
+    pub fn get_output(&mut self, output: &P::Output) -> Option<&mut Monitor<P>> {
+        self.monitors.get_mut(output)
     }
 
     /// Remove an output from Toaru.
     pub fn remove_output(&mut self, output: &P::Output) -> Option<Monitor<P>> {
         todo!()
+    }
+
+    /// Runs a closure on all workspaces managed within Toaru.
+    pub fn with_workspaces<F, T>(&mut self, f: F) -> T 
+    where
+        F: FnOnce(&mut [Workspace<P>]) -> T
+    {
+        self.workspaces.with_workspaces(f)
+    }
+
+    /// Run a closure on for each workspace managed within Toaru.
+    /// 
+    /// If `active_only` is true, the closure is run only for active workspaces.
+    pub fn foreach_workspace<F>(&mut self, active_only: bool, f: F)
+    where
+        F: FnMut(&mut Workspace<P>)
+    {
+        self.workspaces.foreach_wksp(active_only, f);
     }
 }
 
