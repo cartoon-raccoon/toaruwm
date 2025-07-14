@@ -4,6 +4,7 @@
 
 use std::path::Path;
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use thiserror::Error;
 use tracing::{debug, warn, info, error};
@@ -36,6 +37,7 @@ use smithay::backend::{
     },
     udev::{self, UdevBackend, UdevEvent},
     drm::{
+        exporter::gbm::GbmFramebufferExporter,
         compositor::DrmCompositor,
         output::DrmOutputManager,
         DrmNode, DrmDevice, DrmDeviceFd,
@@ -66,7 +68,7 @@ use crate::platform::wayland::{
 };
 use crate::platform::wayland::prelude::*;
 use crate::types::Dict;
-use super::{WaylandBackend, WaylandBackendInit, OutputId, OutputName, super::state::WlState};
+use super::{WaylandBackend, OutputId, OutputName};
 
 /*
 THINGS THAT A DRM-BACKED WAYLAND COMPOSITOR NEEDS TO INITIALIZE
@@ -141,11 +143,11 @@ pub type DrmRenderer<'render> = MultiRenderer<
     GbmGlesBackend<GlesRenderer, DrmDeviceFd>,
     GbmGlesBackend<GlesRenderer, DrmDeviceFd>>;
 
-pub(crate) type GbmDrmCompositor = DrmCompositor<
+type GbmDrmCompositor = DrmCompositor<
     GbmAllocator<DrmDeviceFd>,
-    GbmDevice<DrmDeviceFd>,
-    Option<OutputPresentationFeedback>,
-    DrmDeviceFd
+    GbmFramebufferExporter<DrmDeviceFd>,
+    (OutputPresentationFeedback, Duration),
+    DrmDeviceFd,
 >;
 
 impl<C: RuntimeConfig> DrmBackend<C> {
@@ -162,7 +164,9 @@ impl<C: RuntimeConfig> DrmBackend<C> {
             .map_err(|e| WaylandError::UdevErr(e.to_string()))?;
 
         let udev_dispatcher = Dispatcher::new(udev_backend, move |event, _, wayland: &mut Wayland<C, DrmBackend<C>>| {
-            wayland.backend.on_udev_event(event, &mut wayland.wl_impl);
+            if let Err(e) = wayland.backend.on_udev_event(event, &mut wayland.wl) {
+                warn!("Error while handling udev event: {e}");
+            }
         });
         handle.register_dispatcher(udev_dispatcher.clone()).expect("could not register udev dispatcher");
 
@@ -230,7 +234,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         })
     }
 
-    fn device_added(&mut self, node: DrmNode, path: &Path, wl: &mut WaylandImpl<C, Self>) -> Result<(), DrmBackendError> {
+    fn device_added(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode, path: &Path) -> Result<(), DrmBackendError> {
         // open a new DRM device with our session handle
         let flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOCTTY | OFlags:: NONBLOCK;
         let fd = self.session.open(path, flags)?;
@@ -247,6 +251,8 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         let egldev = EGLDevice::device_for_display(&egldisplay)?;
 
         let render_node = egldev.try_get_render_node()?;
+
+        self.gpu_manager.as_mut().add_node(render_node.unwrap() /* fixme */, gbm.clone())?;
 
         let allocator = if let Some(rnode) = render_node {
             self.gpu_manager
@@ -266,7 +272,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
                 .ok_or(DrmBackendError::DrmDeviceError("could not find primary GPU".into()))?
         };
 
-        self.loophandle.insert_source(drm_notifier, move |event, meta, wayland| {
+        let token = self.loophandle.insert_source(drm_notifier, move |event, meta, wayland| {
             match event {
                 DrmEvent::VBlank(crtc) => {
                     let meta = meta.expect("VBlank events must have metadata");
@@ -278,27 +284,42 @@ impl<C: RuntimeConfig> DrmBackend<C> {
             }
         }).expect("could not add vblank handler");
 
-        //todo: insert new OutputDevice into devices
+        self.devices.insert(node, DrmOutputDevice { 
+            token, 
+            render_node: node, 
+            scanner: DrmScanner::new(), 
+            surfaces: HashMap::new(), 
+            crtcs: HashMap::new(), 
+            drm, 
+            gbm,
+            non_desktop_connectors: HashSet::new() 
+        });
 
-        self.device_changed(node);
-
+        self.device_changed(wl, node)?;
         Ok(())
     }
 
-        fn device_changed(&mut self, node: DrmNode) {
-        self.connector_connected();
+    fn device_changed(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode) -> Result<(), DrmBackendError> {
+        debug!("device changed: {node:?}");
+
+        let Some(device) = self.devices.get_mut(&node) else {
+            return Err(DrmBackendError::DrmDeviceError(format!("could not find device {node:?}")))
+        };
+
+
+        self.connector_connected(wl);
+        Ok(())
+    }
+
+    fn device_removed(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode) {
+        self.connector_disconnected(wl);
+    }
+
+    fn connector_connected(&mut self, wl: &mut WaylandImpl<C, Self>) {
 
     }
 
-    fn device_removed(&mut self, node: DrmNode) {
-        self.connector_disconnected();
-    }
-
-    fn connector_connected(&mut self) {
-
-    }
-
-    fn connector_disconnected(&mut self) {
+    fn connector_disconnected(&mut self, wl: &mut WaylandImpl<C, Self>) {
 
     }
 
@@ -306,13 +327,13 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         
     }
     
-    fn on_udev_event(&mut self, event: UdevEvent, wl: &mut WaylandImpl<C, Self>) {
+    fn on_udev_event(&mut self, event: UdevEvent, wl: &mut WaylandImpl<C, Self>) -> Result<(), DrmBackendError> {
         match event {
             UdevEvent::Added { device_id, path } => {
                 match DrmNode::from_dev_id(device_id) {
                     Ok(node) => {
                         // fixme: awful error handling
-                        self.device_added(node, &path, wl).unwrap_or_else(|e| {
+                        self.device_added(wl, node, &path).unwrap_or_else(|e| {
                             error!("error while adding device {path:?}: {e}");
                             ()
                         })
@@ -324,7 +345,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
             }
             UdevEvent::Changed { device_id } => {
                 match DrmNode::from_dev_id(device_id) {
-                    Ok(node) => self.device_changed(node),
+                    Ok(node) => self.device_changed(wl, node)?,
                     Err(e) => {
 
                     }
@@ -333,20 +354,27 @@ impl<C: RuntimeConfig> DrmBackend<C> {
             }
             UdevEvent::Removed { device_id } => {
                 match DrmNode::from_dev_id(device_id) {
-                    Ok(node) => self.device_removed(node),
+                    Ok(node) => self.device_removed(wl, node),
                     Err(e) => {}
                 }
             }
         }
+        Ok(())
     }
 
     fn on_session_event(&mut self, event: SessionEvent) {
         match event {
             SessionEvent::PauseSession => {
+                info!("Pausing session");
 
+                self.libinput.suspend();
             }
             SessionEvent::ActivateSession => {
+                info!("Resuming session");
 
+                if let Err(e) = self.libinput.resume() {
+                    warn!("error while resuming libinput");
+                }
             }
         }
     }
@@ -357,15 +385,25 @@ impl<C: RuntimeConfig> DrmBackend<C> {
 }
 
 impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
+
+    type Config = C;
+
     fn name(&self) -> &str {
         "drm"
+    }
+
+    fn nested(&self) -> bool {
+        false
     }
 
     fn seat_name(&self) -> &str {
         &self.seat_name
     }
 
-    fn render(&mut self) {
+    fn render(&mut self, wl: &mut WaylandImpl<C, Self>)
+    where
+        Self: Sized
+    {
         
     }
 
@@ -395,9 +433,7 @@ impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
             }
         }
     }
-}
 
-impl<C: RuntimeConfig> WaylandBackendInit<C> for DrmBackend<C> {
     fn init(
         &mut self,
         display: DisplayHandle,
@@ -419,7 +455,7 @@ impl<C: RuntimeConfig> WaylandBackendInit<C> for DrmBackend<C> {
         for (device_id, path) in self.udev_dispatcher.clone().as_source_ref().device_list() {
             let node = DrmNode::from_dev_id(device_id)
                 .expect("could not create DRM node");
-            if let Err(e) = self.device_added(node, path, wl_impl) {
+            if let Err(e) = self.device_added(wl_impl, node, path) {
                 warn!("error while adding device: {e:?}");
             }
         }
@@ -468,7 +504,7 @@ pub struct DrmOutputDevice {
     pub(self) token: RegistrationToken,
     pub(self) render_node: DrmNode,
     pub(self) scanner: DrmScanner,
-    ///
+    /// A mapping of our crtcs to a corresponding surface.
     pub(crate) surfaces: HashMap<crtc::Handle, Surface>,
     pub(crate) crtcs: HashMap<crtc::Handle, CrtcInfo>,
 
@@ -488,9 +524,10 @@ pub struct CrtcInfo {
     name: OutputName,
 }
 
+/// A DRM Surface that corresponds to a connector.
 #[derive(Debug)]
 pub struct Surface {
-    display: DisplayHandle,
-    device_id: DrmNode,
-    render_node: Option<DrmNode>,
+    name: OutputName,
+    compositor: GbmDrmCompositor,
+    connector: connector::Handle,
 }

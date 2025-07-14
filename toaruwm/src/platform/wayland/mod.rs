@@ -1,6 +1,5 @@
 #![allow(missing_docs)] // fixme: remove when we get a working prototype
 
-pub mod state;
 pub mod backend;
 pub mod util;
 pub mod render;
@@ -17,21 +16,24 @@ mod wayland;
 // Public re-exports.
 #[doc(inline)]
 pub use wayland::*;
-pub use state::WlState;
+#[doc(inline)]
+pub use handlers::WaylandState;
 pub use config::{WaylandConfig, ToaruWaylandConfig};
 
 pub(self) mod prelude {
     //! Convenient all-import for all traits that Wayland has requirements for.
-    
+    //pub use super::WaylandImpl;
     pub use super::Wayland;
     pub use crate::config::RuntimeConfig;
     pub use super::backend::WaylandBackend;
 }
 
 use crate::types::{Point, Logical, Transform};
-use crate::config::{OutputScale, OutputMode};
+use crate::config::{OutputScale, OutputMode, OutputInfo};
 use crate::platform::PlatformOutput;
 use super::{ClientData, Platform, PlatformType};
+
+use smithay::output::PhysicalProperties;
 
 /// An Output as used by the Wayland platform.
 pub type WaylandOutput = smithay::output::Output;
@@ -39,6 +41,14 @@ pub type WaylandOutput = smithay::output::Output;
 impl PlatformOutput for WaylandOutput {
     fn name(&self) -> String {
         self.name()
+    }
+
+    fn info(&self) -> OutputInfo {
+        let PhysicalProperties { make, model, .. } = self.physical_properties();
+        OutputInfo {
+            make: Some(make),
+            model: Some(model)
+        }
     }
 
     fn location(&self) -> Point<i32, Logical> {

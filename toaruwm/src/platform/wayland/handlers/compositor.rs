@@ -62,17 +62,26 @@ where
             // the toplevel is currently unmapped in our state.
             if let Entry::Occupied(entry) = self.wl.unmapped.entry(surface.clone()) {
                 if is_mapped(surface) {
-                    // the toplevel got mapped.
+                    // the toplevel just got mapped.
+
+                    
 
                     // convert unmapped to mapped
                 } else {
                     // the toplevel remains unmapped.
+                    let unmapped = entry.get();
+                    if unmapped.needs_initial_configure() {
+                        if let Some(toplevel) = unmapped.window.toplevel() {
+                            let toplevel = toplevel.clone();
+                            self.queue_initial_configure(toplevel);
+                        } else {
+                            // this is an xwayland surface.
+                        }
+                    }
                 }
             } else if let Some((win, output)) = self.find_window_and_output(surface) {
                 // this is a commit of a previously mapped root or a non-toplevel root.
-                if let Some(mapped) = win.as_mapped() {
-
-                }
+                
 
             }
 

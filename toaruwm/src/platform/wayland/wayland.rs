@@ -1,41 +1,44 @@
 use std::ffi::OsString;
 use std::sync::Arc;
 use std::os::unix::net::UnixStream;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use thiserror::Error;
 use tracing::warn;
 
-use smithay::{output::Output, reexports::{
+use smithay::{
+    output::Output, reexports::{
     calloop::{
-        generic::Generic, Error as CalloopError, EventLoop, Interest, LoopHandle, LoopSignal, Mode, PostAction
+        generic::Generic, Error as CalloopError, EventLoop, Interest, LoopHandle, 
+        LoopSignal, Mode, PostAction
     }, 
     wayland_server::{
+        backend::GlobalId,
         protocol::wl_surface::WlSurface, BindError, Display, DisplayHandle
     }
 }};
 use smithay::backend::{
-    input::{InputEvent, InputBackend},
     session::{
         libseat::Error as SeatError,
     }
 };
-use smithay::input::Seat;
+use smithay::input::{Seat, keyboard::XkbConfig, pointer::PointerHandle};
 use smithay::wayland::{
     socket::ListeningSocketSource,
 };
-use smithay::desktop::{Space, Window};
+use smithay::desktop::{Space, Window, PopupManager};
 
-use super::state::{ClientState, WlState};
-use super::window::{Unmapped};
+use super::handlers::{ClientState, WaylandState};
+use super::window::{WaylandWindow, Unmapped};
 use super::backend::{
-    WaylandBackend, WaylandBackendInit, WaylandBackendError,
+    WaylandBackend, WaylandBackendError,
 };
+use super::render::RedrawState;
 
 use super::{ClientData, Platform, PlatformType};
 
-use crate::platform::{PlatformWindowId, wayland::WaylandOutput};
+use crate::platform::{PlatformWindowId, PlatformError, wayland::WaylandOutput};
 use crate::config::RuntimeConfig;
 use crate::types::{Dict, Rectangle, Logical};
 
@@ -45,9 +48,9 @@ use crate::Toaru;
 /// 
 /// This is the `Client` associated type for [`Wayland`]'s implementation
 /// of [`Platform`].
-pub type WaylandClientId = u64;
+pub type WaylandWindowId = u64;
 
-impl PlatformWindowId for WaylandClientId {}
+impl PlatformWindowId for WaylandWindowId {}
 
 /// An implementation of the Wayland platform.
 /// 
@@ -65,10 +68,10 @@ where
     /// Our event loop handle.
     pub(super) event_loop: LoopHandle<'static, Self>,
     /// Everything else.
-    pub(super) wl_impl: WaylandImpl<C, B>
+    pub(super) wl: WaylandImpl<C, B>
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+impl<C: RuntimeConfig, B: WaylandBackend<Config = C>> Wayland<C, B> {
     /// Creates a new Wayland compositor, and runs [`init`][1] on the given `backend`.
     /// On success, returns a (Self, Display) tuple, and the
     /// display should be ultimately passed into the run() method.
@@ -89,14 +92,12 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         loophandle: LoopHandle<'static, Self>,
         loopsignal: LoopSignal,
     ) -> Result<(Self, Display<Self>), WaylandError>
-    where
-        B: WaylandBackendInit<C>
     {
 
         let display = Display::new().expect("error initializing Wayland display");
 
         // create new compositor state and initialize all handlers
-        let mut state = WlState::new(display.handle());
+        let mut state = WaylandState::new(display.handle());
 
         let socket = ListeningSocketSource::new_auto()?;
         let socketname = socket.socket_name().to_os_string();
@@ -111,19 +112,24 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
         let mut seat = state.seat_state.new_wl_seat(&display.handle(), backend.seat_name());
 
-        // todo: add keyboard
-
-        seat.add_pointer();
+        
+        let pointer = seat.add_pointer();
+        // todo: get keyboard from config
+        seat.add_keyboard(XkbConfig::default(), 200, 25).expect("Could not create default keyboard");
 
         let mut wl_impl = WaylandImpl {
             toaru,
+            pointer,
             unmapped: HashMap::new(),
             root_surfaces: HashMap::new(),
+            outputs: HashMap::new(),
             global_space: Space::default(),
+            popups: PopupManager::default(),
             state,
             seat,
             socketname,
             event_loop: loophandle.clone(),
+            display: display.handle(),
             stop_signal: loopsignal
         };
 
@@ -132,24 +138,29 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         Ok((Self {
             backend,
             event_loop: loophandle,
-            wl_impl
+            wl: wl_impl
         }, display))
     }
+}
 
+impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+
+    /// Returns a reference to the backend used by `Wayland`.
     pub fn backend(&self) -> &B {
         &self.backend
     }
 
+    /// Returns a mutable reference to the backend used by `Wayland`.
     pub fn backend_mut(&mut self) -> &mut B {
         &mut self.backend
     }
 
-    pub fn state(&self) -> &WlState<C, B> {
-        &self.wl_impl.state
+    pub fn state(&self) -> &WaylandState<C, B> {
+        &self.wl.state
     }
 
-    pub fn state_mut(&mut self) -> &mut WlState<C, B> {
-        &mut self.wl_impl.state
+    pub fn state_mut(&mut self) -> &mut WaylandState<C, B> {
+        &mut self.wl.state
     }
 
     pub fn get_loop_handle(&self) -> &LoopHandle<'static, Self> {
@@ -205,10 +216,6 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
     }
 
-    pub(crate) fn handle_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
-
-    }
-
     /// General client insertion.
     /// 
     /// Clients only get added to Toaru when they are XDG.
@@ -254,10 +261,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 /// and so when inserting your callback, it looks like this:
 /// 
 /// ```no_run
-/// loop_handle.insert_source(eventsource, |state: &mut State| state.backend.method_call(state));
+/// loop_handle.insert_source(eventsource,
+///     |state: &mut State| state.backend.method_call(state));
 /// ```
-/// Oh no! We now have two mutable borrows on `state`, `state.backend` and passing in `state` to the
-/// backend method call! The compiler statically checks this will not work, and rightfully blows up
+/// We now have two mutable borrows on `state`, `state.backend` and passing in `state` to the
+/// backend method call. The compiler statically checks this isn't allowed, and rightfully blows up
 /// in our face.
 /// 
 /// Now imagine your state was laid out like this:
@@ -280,13 +288,14 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 /// And when we insert our callback, we can do this:
 /// 
 /// ```no_run
-/// loop_handle.insert_source(eventsource, |state: &mut State| state.backend.method_call(&mut state.state_impl));
+/// loop_handle.insert_source(eventsource,
+///     |state: &mut State| state.backend.method_call(&mut state.state_impl));
 /// ```
 /// 
 /// Now, we're borrowing from two different fields, and so the compiler allows us to borrow mutably multiple times,
 /// since the borrows are on disjoint fields.
 /// 
-/// ---
+/// ## Usage
 /// 
 /// You do not need to construct this struct explicitly, it is constructed in [`Wayland::new`],
 /// and owned by the `Wayland` struct.
@@ -298,33 +307,85 @@ where
 {
     /// The core Toaru struct handling functionality.
     pub(super) toaru: Toaru<Wayland<C, B>, C>,
+    pub(super) pointer: PointerHandle<Wayland<C, B>>,
     /// Unmapped windows.
     pub(super) unmapped: HashMap<WlSurface, Unmapped>,
     /// Cached root surface for every surface, so that we can access it in destroyed()
     /// where the normal get_parent is cleared out.
     pub(super) root_surfaces: HashMap<WlSurface, WlSurface>,
+    /// output state.
+    pub(super) outputs: HashMap<Output, OutputState>,
     /// The global space that all windows are mapped onto.
     pub(super) global_space: Space<Window>,
+    pub(super) popups: PopupManager,
     /// Our smithay state.
-    pub(super) state: WlState<C, B>,
+    pub(super) state: WaylandState<C, B>,
     pub(super) seat: Seat<Wayland<C, B>>,
     pub(super) socketname: OsString,
     pub(super) event_loop: LoopHandle<'static, Wayland<C, B>>,
+    pub(super) display: DisplayHandle,
     pub(super) stop_signal: LoopSignal,
 }
 
 impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> WaylandImpl<C, B> {
+    /// Returns a reference to the internal `Toaru`.
+    pub fn toaru(&self) -> &Toaru<Wayland<C, B>, C> {
+        &self.toaru
+    }
 
+    /// Returns a mutable reference to the internal `Toaru`.
+    pub fn toaru_mut(&mut self) -> &mut Toaru<Wayland<C, B>, C> {
+        &mut self.toaru
+    }
+
+    /// Creates a new loop handle.
     pub fn loop_handle_new(&self) -> LoopHandle<'static, Wayland<C, B>> {
         self.event_loop.clone()
     }
 
-    pub fn add_output(&mut self, output: Output, refresh_interval: Duration, vrr: bool) {
+    /// Adds a new output.
+    pub fn add_output(&mut self, output: Output, refresh_interval: Option<Duration>, vrr: bool) {
+        // create the global object.
+        let global = output.create_global::<Wayland<C, B>>(&self.display);
+
+        // create our output state.
+        let outputstate = OutputState {
+            global, redraw_state: Default::default(),
+        };
+
+        // todo: check against output listed in config, and reconfigure accordingly
+
+        // insert it into our local tracking.
+        self.outputs.insert(output.clone(), outputstate);
+        // map the output onto our global space.
+        let loc = output.current_location();
+        self.global_space.map_output(&output, loc);
+        // add it to our platform-agnostic state.
+        self.toaru.add_output(output);
         todo!()
     }
 
+    /// Removes an output from `Wayland`.
     pub fn remove_output(&mut self, output: &Output) {
         todo!()
+    }
+
+    /// Repositions all outputs, optionally adding one.
+    pub fn reposition_outputs(&mut self, output: Option<&Output>) {
+
+    }
+
+    /// Queue a redraw on all outputs.
+    pub fn queue_redraw_all(&mut self) {
+        
+    }
+
+    /// Queue a redraw on the provided `output`.
+    /// 
+    /// This is usually called when something in our internal state changes
+    /// and needs to be redrawn.
+    pub fn queue_redraw(&mut self, output: &Output) {
+
     }
 }
 
@@ -349,8 +410,11 @@ impl<E: WaylandBackendError + 'static> From<E> for WaylandError {
     }
 }
 
+impl PlatformError for WaylandError {}
+
 impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
     type WindowId = u64;
+    type Window = WaylandWindow;
     type Output = WaylandOutput;
     type Error = WaylandError;
 
@@ -363,7 +427,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
     }
 
     fn nested(&self) -> bool {
-        self.backend.name() == "winit"
+        self.backend.nested()
     }
 
     fn all_outputs(&self) -> Result<&[Self::Output], WaylandError> {
@@ -381,4 +445,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
     fn query_window_data(&self, clid: u64) -> Result<ClientData, WaylandError> {
         todo!()
     }
+}
+
+/// Output-local state.
+#[derive(Debug, Clone)]
+pub(crate) struct OutputState {
+    pub(crate) global: GlobalId,
+    pub(crate) redraw_state: RedrawState
 }

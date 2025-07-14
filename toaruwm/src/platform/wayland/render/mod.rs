@@ -2,7 +2,7 @@
 
 mod macros;
 
-
+use smithay::reexports::{calloop::RegistrationToken};
 use smithay::backend::allocator::dmabuf::Dmabuf;
 use smithay::backend::renderer::gles::{GlesFrame, GlesRenderer, GlesTexture, GlesError};
 use smithay::backend::renderer::{
@@ -77,5 +77,39 @@ pub enum RenderResult {
     NoDamage,
     /// The frame was not rendered and submitted.
     Skipped
+}
+
+/// The state of an Output.
+#[derive(Debug, Default, Copy, Clone)]
+pub enum RedrawState {
+    /// This output is idle.
+    #[default]
+    Idle,
+    /// A redraw has been queued.
+    Queued,
+    /// A frame has been submitted and we are waiting for it to be presented.
+    WaitingForVBlank {redraw_needed: bool},
+    /// Nothing was submitted and we made a timer to fire at the estimated VBlank.
+    WaitingForEstimatedVBlank(RegistrationToken),
+    /// A redraw is queued on top of the above.
+    WaitingForEstimatedVBlankAndQueued(RegistrationToken),
+}
+
+impl RedrawState {
+    /// Step to the next state in the state machine for each variant.
+    pub fn queue_redraw(self) -> Self {
+        match self {
+            RedrawState::Idle => RedrawState::Queued,
+            RedrawState::WaitingForEstimatedVBlank(token) => {
+                RedrawState::WaitingForEstimatedVBlankAndQueued(token)
+            }
+            // redraw already queued, return self
+            value @ (RedrawState::Queued | RedrawState::WaitingForEstimatedVBlankAndQueued(_)) => {
+                value
+            }
+            RedrawState::WaitingForVBlank { .. } => 
+                RedrawState::WaitingForVBlank { redraw_needed: true }
+        }
+    }
 }
 

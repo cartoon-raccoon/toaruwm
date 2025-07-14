@@ -23,7 +23,7 @@ use crate::types::Dict;
 
 static OUTPUT_ID_COUNTER: IdCounter = IdCounter::new();
 
-/// A unique ID a
+/// A unique ID associated with an output.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct OutputId(u64);
 
@@ -37,6 +37,7 @@ impl OutputId {
     }
 }
 
+/// A fully-qualified output name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OutputName {
     pub connector: String,
@@ -48,7 +49,7 @@ pub struct OutputName {
 /// Returns whether a windowed backend or a TTY-based backend should be used,
 /// depending on the state of the system.
 pub fn should_run_nested() -> bool {
-    true
+    todo!()
 }
 
 /// A backend that manages input/output devices, rendering, and DRM access.
@@ -58,14 +59,22 @@ pub fn should_run_nested() -> bool {
 /// There are two implementors of `WaylandBackend` provided by this crate:
 /// [`WinitBackend`] and [`DrmBackend`].
 pub trait WaylandBackend: Debug {
+    /// The configuration type associated with the `Wayland` running this backend.
+    type Config: RuntimeConfig;
+
     /// The name of the backend.
     fn name(&self) -> &str;
+
+    /// Whether the backend is running on a TTY, or as a nested window.
+    fn nested(&self) -> bool;
 
     /// The seat name used by the backend.
     fn seat_name(&self) -> &str;
 
     /// Render a frame and submit it for viewing.
-    fn render(&mut self);
+    fn render(&mut self, wl: &mut WaylandImpl<Self::Config, Self>)
+    where
+        Self: Sized;
 
     /// Import a DMA-BUF handle into the renderer.
     /// 
@@ -83,35 +92,28 @@ pub trait WaylandBackend: Debug {
     /// [2]: smithay::backend::renderer::multigpu::GpuManager::early_import
     #[allow(unused_variables)]
     fn early_import(&mut self, surface: &WlSurface) {}
-}
 
-/// Initialize state that needs access to the internal fields of the `Wayland` struct.
-/// 
-/// Since all `WaylandBackend`s are created before the actual Wayland struct (`Wayland`
-/// requires a `backend` parameter to be created), there might be some state that you need
-/// to initialize that cannot be done without access to the objects owned by the `Wayland`
-/// struct, such as the display handle or compositor state. If that is the case, re-implement
-/// this method to do so.
-/// 
-/// This method is called when you call `Wayland::new()`, to initialize any state in your
-/// backend that requires access to a `Wayland` instance.
-/// 
-/// You need to implement this trait if for every `WaylandBackend` you implement, as it is
-/// a trait bound on [`Wayland::new`][1].
-/// 
-/// [1]: crate::platform::wayland::Wayland::new
-pub trait WaylandBackendInit<C: RuntimeConfig>: WaylandBackend {
-    /// Initialize Wayland State
+    /// Initialize state that needs access to the internal fields of the `Wayland` struct.
+    /// 
+    /// Since all `WaylandBackend`s are created before the actual Wayland struct (`Wayland`
+    /// requires a `backend` parameter to be created), there might be some state that you need
+    /// to initialize that cannot be done without access to the objects owned by the `Wayland`
+    /// struct, such as the display handle or compositor state. If that is the case, re-implement
+    /// this method to do so.
+    /// 
+    /// This method is called when you call `Wayland::new()`, to initialize any state in your
+    /// backend that requires access to a `Wayland` instance.
     #[allow(unused_variables)]
     fn init(
         &mut self,
         display: DisplayHandle,
-        wl_impl: &mut WaylandImpl<C, Self>,
-        args: Dict)-> Result<(), WaylandError>
+        wl_impl: &mut WaylandImpl<Self::Config, Self>,
+        args: Dict) -> Result<(), WaylandError>
     where
         Self: Sized,
-        C: RuntimeConfig,
-    { Ok(()) }
+    {
+        Ok(())
+    }
 }
 
 /// An error type provided by a wayland backend.

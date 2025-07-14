@@ -1,19 +1,47 @@
-//! Traits and structs for the backing platform of a [`Toaru`][1] instance.
+//! Traits and structs for the backing platform of a [`Manager`][1] instance.
 //! 
-//! There are two possible platforms: X11 and Wayland. For more details
+//! There are two possible platforms: [X11][2] and [Wayland][3]. For more details
 //! on how to use either platform, consult the module-level documentation.
 //! 
-//! [1]: crate::Toaru
+//! This module provides the base traits that a platform should implement, as well
+//! as implementations of each platform.
+//! 
+//! ## The `Platform` trait
+//! 
+//! The core item in this module is the [`Platform`] trait. This defines a platform that
+//! defines windows, manages outputs, and can implement the window management functionality
+//! provided by a `Manager`.
+//! 
+//! ### Associated Types
+//! 
+//! Each `Platform` implementation has associated types that must implement certain other
+//! traits that are also defined in this module. These include:
+//! 
+//! - `WindowId`: a [`Copy`]-able identifier that can uniquely identify a window. It must
+//! implement the [`PlatformWindowId`] trait.
+//! - `Window`: a type that represents a top-level window. It must implement the [`PlatformWindow`]
+//! trait.
+//! - `Output`: a type that represents a physical monitor connected to the machine. It must implement
+//! the [`PlatformOutput`] trait.
+//! 
+//! For more details on these traits, consult their documentation.
+//! 
+//! [1]: crate::manager::Manager
+//! [2]: crate::platform::x11
+//! [3]: crate::platform::wayland
+//! [4]: std::sync::Arc
+//! [5]: smithay::desktop::Window
+//! [6]: smithay::output::Output
 
+use std::any::Any;
 use std::hash::Hash;
 use std::fmt::Debug;
-use std::io::Error as IoError;
 use std::error::Error;
 
 use crate::core::types::{
     ClientData, Rectangle, Point, Logical, Transform, Size
 };
-use crate::config::output::{OutputMode, OutputScale};
+use crate::config::output::{OutputMode, OutputScale, OutputInfo};
 
 /// Backends for the X11 server.
 pub mod x11;
@@ -21,22 +49,82 @@ pub mod x11;
 pub mod wayland;
 
 use crate::types::Scale;
-use crate::util::spawn;
 
 #[doc(inline)]
 pub use wayland::Wayland;
 
-/// A type that can uniquely identify any window connected to a
-/// running Toaru instance.
+/// A type that can uniquely identify a window connected to a [`Platform`].
 /// 
-/// It is backend-agnostic, and each backend provides their own
-/// type that implements this trait.
-pub trait PlatformWindowId: Debug + Copy + Eq + Hash {}
+/// It is associated with a type that implements [`PlatformWindow`].
+/// 
+/// A [`PlatformWindowId`] is meant to be easily passed around as a token that
+/// can be later used to retrieve its corresponding `PlatformWindow`, and so
+/// must implement [`Copy`] so that it can be efficiently passed around without
+/// potentially expensive cloning operations.
+pub trait PlatformWindowId: Debug + Copy + PartialEq + Eq + Hash {}
 
-/// A type that abstracts over an output, as used by a Platform.
-pub trait PlatformOutput {
+/// A type that represents a top-level window.
+/// 
+/// A `PlatformWindow` represents a window, as managed by the Platform it is
+/// associated with. Each window should have an associated window ID that can be
+/// used to easily identify it.
+/// 
+/// ## Window Configuration, Mapping, and Visibility
+/// 
+/// A `PlatformWindow` implementation must track three different states:
+/// configuration, visibility, and map state. While these three states may appear
+/// similar, they have some subtle differences.
+/// 
+/// ### Mapped and Unmapped windows
+/// 
+/// A mapped window is one that has been mapped onto the global coordinate space
+/// as tracked internally by its associated [`Platform`]. It is always configured,
+/// but may or may not be visible (e.g. it may be offscreen).
+/// 
+/// ### Configuration
+/// 
+/// A configured window is one that has been sent its initial geometry. It may be
+/// unmapped.
+/// 
+/// ### Visibility
+/// 
+/// A visible window is one that is currently being displayed onscreen. It is always
+/// mapped and configured, but a mapped and configured window may not be visible
+/// (e.g. it may be offscreen).
+pub trait PlatformWindow: Debug + Clone {
+    /// The identifier used to refer to the window.
+    type Id: PlatformWindowId;
+
+    /// Returns the window's associated ID.
+    fn id(&self) -> Self::Id;
+
+    /// Whether the window has been configured.
+    fn configured(&self) -> bool;
+
+    /// Return the window's underlying geometry, if configured.
+    /// 
+    /// This should return the window's _committed_ geometry,
+    /// not the pending geometry.
+    fn geom(&self) -> Option<Rectangle<i32, Logical>>;
+
+    /// Set the window's pending configuration.
+    fn configure(&mut self, 
+        pos: Option<Point<i32, Logical>>, 
+        size: Option<Size<i32, Logical>>,
+    );
+}
+
+/// A type that abstracts over an output, as used by a [`Platform`].
+/// 
+/// A `PlatformOutput` represents a physical monitor connected to the machine.
+/// It provides information such as its location in the global coordinate space,
+/// its name, etc.
+pub trait PlatformOutput: Debug + Clone + Eq + Hash {
     /// The name of the Output.
     fn name(&self) -> String;
+
+    /// Output information.
+    fn info(&self) -> OutputInfo;
 
     /// The location of the Output in the 2D coordinate space.
     fn location(&self) -> Point<i32, Logical>;
@@ -76,6 +164,12 @@ pub trait PlatformOutput {
     }
 }
 
+/// A platform Error type.
+/// 
+/// The type needs to implement [`Any`] so receivers of the error can attempt to downcast
+/// it to its concrete type, if they need more info.
+pub trait PlatformError: Error + Any {}
+
 /// An object that can serve as the backing platform of a [`Toaru`][1] instance.
 /// 
 /// A `Platform` implementation usually provides the link to the underlying graphics
@@ -91,11 +185,13 @@ pub trait PlatformOutput {
 /// [1]: crate::Toaru
 pub trait Platform: Debug {
     /// The client type that the platform uses to identify windows.
-    type WindowId: PlatformWindowId + Debug;
+    type WindowId: PlatformWindowId;
+    /// The type that the platform uses to represent top-level windows.
+    type Window: PlatformWindow<Id = Self::WindowId>;
     /// The type used to represent an output (i.e. a physical monitor).
-    type Output: PlatformOutput + Debug;
+    type Output: PlatformOutput;
     /// The error type returned by the platform.
-    type Error: Error;
+    type Error: PlatformError;
 
     /// The name of the platform. Returns the name of the platform's backend: for example,
     /// an X11 platform backed by xcb will return "xcb", while a Wayland platform
@@ -127,11 +223,6 @@ pub trait Platform: Debug {
 
     /// Query the client data.
     fn query_window_data(&self, clid: Self::WindowId) -> Result<ClientData, Self::Error>;
-
-    /// Spawn an external command that runs independently of the Platform instance.
-    fn spawn_external(&self, command: &str, args: &[&str]) -> Result<(), IoError> {
-        Ok(())
-    }
 }
 
 

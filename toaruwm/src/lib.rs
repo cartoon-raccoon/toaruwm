@@ -124,7 +124,7 @@ pub use crate::manager::{Toaru, Manager};
 #[doc(inline)]
 pub use crate::config::{Config, ToaruConfig};
 #[doc(inline)]
-pub use crate::platform::Platform;
+pub use crate::platform::{Platform, Wayland};
 
 use crate::platform::PlatformError;
 

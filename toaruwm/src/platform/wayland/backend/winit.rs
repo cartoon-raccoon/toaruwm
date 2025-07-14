@@ -1,9 +1,10 @@
 use tracing::warn;
 
+use std::marker::PhantomData;
+
 use smithay::backend::renderer::{ImportDma, ImportEgl};
 use smithay::reexports::{
     wayland_server::DisplayHandle,
-    calloop::LoopHandle,
 };
 use smithay::backend::{
     renderer::{
@@ -28,7 +29,7 @@ use tracing::{error};
 
 use thiserror::Error;
 
-use super::{WaylandBackendError, WaylandBackendInit, super::state::WlState};
+use super::{WaylandBackendError};
 use crate::platform::wayland::{prelude::*, WaylandImpl, WaylandError};
 use crate::types::Dict;
 use crate::dict;
@@ -36,13 +37,15 @@ use crate::dict;
 const OUTPUT_NAME: &str = "winit";
 
 #[derive(Debug)]
-pub struct WinitBackend {
+pub struct WinitBackend<C: RuntimeConfig> {
     pub(crate) winit: WinitGraphicsBackend<GlesRenderer>,
     pub(crate) dmg_tracker: OutputDamageTracker,
     pub(crate) output: Output,
+
+    _phantom: PhantomData<C>,
 }
 
-impl WinitBackend {
+impl<C: RuntimeConfig> WinitBackend<C> {
     /// Creates a new Winit backend, returning additional args inside a `Dict`
     /// that must be passed into its `init` method.
     pub fn new() -> Result<(Self, Dict), WaylandError> {
@@ -78,20 +81,28 @@ impl WinitBackend {
             winit,
             dmg_tracker,
             output,
+            _phantom: PhantomData,
         }, args))
     }
 }
 
-impl WaylandBackend for WinitBackend {
+impl<C: RuntimeConfig> WaylandBackend for WinitBackend<C> {
+    type Config = C;
     fn name(&self) -> &str {
         "winit"
+    }
+    fn nested(&self) -> bool {
+        true
     }
 
     fn seat_name(&self) -> &str {
         "winit"
     }
 
-    fn render(&mut self) {
+    fn render(&mut self, wl: &mut WaylandImpl<C, Self>)
+    where
+        Self: Sized
+    {
 
     }
 
@@ -104,9 +115,7 @@ impl WaylandBackend for WinitBackend {
             }
         }
     }
-}
 
-impl<C: RuntimeConfig> WaylandBackendInit<C> for WinitBackend {
     fn init(
         &mut self, 
         display: DisplayHandle,
@@ -133,7 +142,7 @@ impl<C: RuntimeConfig> WaylandBackendInit<C> for WinitBackend {
                 WinitEvent::Focus(_) => {}
                 WinitEvent::Input(ievent) => wayland.handle_input_event(ievent),
                 WinitEvent::Redraw => { /* todo */}
-                WinitEvent::CloseRequested => wayland.wl_impl.stop_signal.stop(),
+                WinitEvent::CloseRequested => wayland.wl.stop_signal.stop(),
             }
         }).map_err(|e| e.error)?;
 

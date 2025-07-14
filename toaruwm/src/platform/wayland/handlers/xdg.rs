@@ -2,7 +2,7 @@
 
 #![allow(unused_variables)] // fixme
 
-use tracing::warn;
+use tracing::{warn, error};
 
 use smithay::reexports::{
     wayland_server::protocol::{wl_seat::WlSeat, wl_output::WlOutput},
@@ -147,6 +147,10 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
     /// When a top-level is about to be mapped, this is called to 
     /// send the initial configure event.
     pub fn send_initial_configure(&mut self, toplevel: &ToplevelSurface) {
+        let Some(unmapped) = self.wl.unmapped.get_mut(toplevel.wl_surface()) else {
+            error!("window must not be already configured in send_initial_configure");
+            return;
+        };
 
         // todo
 
@@ -155,7 +159,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 
     /// Queues the initial configure to be sent when the event loop is idle,
     /// to make sure the client has sent all the info it wants to send.
-    pub fn queue_initial_configure(&mut self, toplevel: ToplevelSurface) {
+    pub fn queue_initial_configure(&self, toplevel: ToplevelSurface) {
         self.wl.event_loop.insert_idle(move |wayland| {
             if !toplevel.alive() {
                 return
