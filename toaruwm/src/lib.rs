@@ -110,6 +110,7 @@ pub mod layouts;
 pub mod manager;
 pub mod toarulib;
 pub mod platform;
+pub mod wayland;
 pub mod util;
 
 /// Modules that Toaru is tightly integrated with, re-exported for convenience.
@@ -126,7 +127,7 @@ pub use crate::manager::{Toaru, Manager};
 #[doc(inline)]
 pub use crate::config::{ManagerConfig, ToaruManagerConfig};
 #[doc(inline)]
-pub use crate::platform::{Platform, Wayland};
+pub use crate::wayland::Wayland;
 
 use crate::platform::PlatformError;
 

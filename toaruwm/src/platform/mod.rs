@@ -45,13 +45,9 @@ use crate::config::output::{OutputMode, OutputScale, OutputInfo};
 
 /// Backends for the X11 server.
 pub mod x11;
-/// Backends for Wayland.
-pub mod wayland;
+
 
 use crate::types::Scale;
-
-#[doc(inline)]
-pub use wayland::Wayland;
 
 /// A type that can uniquely identify a window connected to a [`Platform`].
 /// 
