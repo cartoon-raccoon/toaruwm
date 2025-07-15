@@ -116,6 +116,8 @@ pub mod util;
 pub mod reexports {
     pub use smithay;
     pub use smithay::reexports::calloop;
+    pub use smithay::reexports::wayland_server;
+    pub use smithay::reexports::wayland_protocols;
 }
 
 pub use crate::core::types;

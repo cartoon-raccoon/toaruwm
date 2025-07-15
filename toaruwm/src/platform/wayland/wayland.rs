@@ -41,7 +41,7 @@ use super::{ClientData, Platform, PlatformType};
 use crate::platform::{PlatformWindowId, PlatformError, wayland::WaylandOutput};
 use crate::config::RuntimeConfig;
 use crate::types::{Dict, Rectangle, Logical};
-
+use crate::manager::{Manager, ManagerPlatformInterface};
 use crate::Toaru;
 
 /// An identifier corresponding to a Wayland client.
@@ -57,10 +57,10 @@ impl PlatformWindowId for WaylandWindowId {}
 /// This crate's Wayland functionality is tightly integrated with the `smithay` crate.
 /// As such, you will see Smithay types pop up regularly in this module.
 #[derive(Debug)]
-pub struct Wayland<C, B>
+pub struct Wayland<M, B>
 where
-    C: RuntimeConfig + 'static,
-    B: WaylandBackend + 'static
+    M: Manager<Self> + 'static,
+    B: WaylandBackend<M> + 'static
 {
     
     /// Our backend.
@@ -68,10 +68,10 @@ where
     /// Our event loop handle.
     pub(super) event_loop: LoopHandle<'static, Self>,
     /// Everything else.
-    pub(super) wl: WaylandImpl<C, B>
+    pub(super) wl: WaylandImpl<M, B>
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend<Config = C>> Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
     /// Creates a new Wayland compositor, and runs [`init`][1] on the given `backend`.
     /// On success, returns a (Self, Display) tuple, and the
     /// display should be ultimately passed into the run() method.
@@ -88,7 +88,7 @@ impl<C: RuntimeConfig, B: WaylandBackend<Config = C>> Wayland<C, B> {
     pub fn new(
         mut backend: B,
         backend_args: Option<Dict>,
-        toaru: Toaru<Self, C>, 
+        manager: M, 
         loophandle: LoopHandle<'static, Self>,
         loopsignal: LoopSignal,
     ) -> Result<(Self, Display<Self>), WaylandError>
@@ -118,7 +118,7 @@ impl<C: RuntimeConfig, B: WaylandBackend<Config = C>> Wayland<C, B> {
         seat.add_keyboard(XkbConfig::default(), 200, 25).expect("Could not create default keyboard");
 
         let mut wl_impl = WaylandImpl {
-            toaru,
+            manager,
             pointer,
             unmapped: HashMap::new(),
             root_surfaces: HashMap::new(),
@@ -143,7 +143,7 @@ impl<C: RuntimeConfig, B: WaylandBackend<Config = C>> Wayland<C, B> {
     }
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
 
     /// Returns a reference to the backend used by `Wayland`.
     pub fn backend(&self) -> &B {
@@ -155,11 +155,11 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
         &mut self.backend
     }
 
-    pub fn state(&self) -> &WaylandState<C, B> {
+    pub fn state(&self) -> &WaylandState<M, B> {
         &self.wl.state
     }
 
-    pub fn state_mut(&mut self) -> &mut WaylandState<C, B> {
+    pub fn state_mut(&mut self) -> &mut WaylandState<M, B> {
         &mut self.wl.state
     }
 
@@ -300,14 +300,14 @@ impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
 /// You do not need to construct this struct explicitly, it is constructed in [`Wayland::new`],
 /// and owned by the `Wayland` struct.
 #[derive(Debug)]
-pub struct WaylandImpl<C, B>
+pub struct WaylandImpl<M, B>
 where
-    C: RuntimeConfig + 'static,
-    B: WaylandBackend + 'static 
+    M: Manager<Wayland<M, B>> + 'static,
+    B: WaylandBackend<M> + 'static 
 {
     /// The core Toaru struct handling functionality.
-    pub(super) toaru: Toaru<Wayland<C, B>, C>,
-    pub(super) pointer: PointerHandle<Wayland<C, B>>,
+    pub(super) manager: M,
+    pub(super) pointer: PointerHandle<Wayland<M, B>>,
     /// Unmapped windows.
     pub(super) unmapped: HashMap<WlSurface, Unmapped>,
     /// Cached root surface for every surface, so that we can access it in destroyed()
@@ -319,34 +319,34 @@ where
     pub(super) global_space: Space<Window>,
     pub(super) popups: PopupManager,
     /// Our smithay state.
-    pub(super) state: WaylandState<C, B>,
-    pub(super) seat: Seat<Wayland<C, B>>,
+    pub(super) state: WaylandState<M, B>,
+    pub(super) seat: Seat<Wayland<M, B>>,
     pub(super) socketname: OsString,
-    pub(super) event_loop: LoopHandle<'static, Wayland<C, B>>,
+    pub(super) event_loop: LoopHandle<'static, Wayland<M, B>>,
     pub(super) display: DisplayHandle,
     pub(super) stop_signal: LoopSignal,
 }
 
-impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> WaylandImpl<C, B> {
+impl<M: Manager<Wayland<M, B>> + 'static, B: WaylandBackend<M> + 'static> WaylandImpl<M, B> {
     /// Returns a reference to the internal `Toaru`.
-    pub fn toaru(&self) -> &Toaru<Wayland<C, B>, C> {
-        &self.toaru
+    pub fn manager(&self) -> &M {
+        &self.manager
     }
 
     /// Returns a mutable reference to the internal `Toaru`.
-    pub fn toaru_mut(&mut self) -> &mut Toaru<Wayland<C, B>, C> {
-        &mut self.toaru
+    pub fn toaru_mut(&mut self) -> &mut M {
+        &mut self.manager
     }
 
     /// Creates a new loop handle.
-    pub fn loop_handle_new(&self) -> LoopHandle<'static, Wayland<C, B>> {
+    pub fn loop_handle_new(&self) -> LoopHandle<'static, Wayland<M, B>> {
         self.event_loop.clone()
     }
 
     /// Adds a new output.
     pub fn add_output(&mut self, output: Output, refresh_interval: Option<Duration>, vrr: bool) {
         // create the global object.
-        let global = output.create_global::<Wayland<C, B>>(&self.display);
+        let global = output.create_global::<Wayland<M, B>>(&self.display);
 
         // create our output state.
         let outputstate = OutputState {
@@ -361,7 +361,7 @@ impl<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> WaylandImpl<C, B> 
         let loc = output.current_location();
         self.global_space.map_output(&output, loc);
         // add it to our platform-agnostic state.
-        self.toaru.add_output(output);
+        self.manager.add_output(output);
         todo!()
     }
 
@@ -412,7 +412,7 @@ impl<E: WaylandBackendError + 'static> From<E> for WaylandError {
 
 impl PlatformError for WaylandError {}
 
-impl<C: RuntimeConfig, B: WaylandBackend> Platform for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> Platform for Wayland<M, B> {
     type WindowId = u64;
     type Window = WaylandWindow;
     type Output = WaylandOutput;

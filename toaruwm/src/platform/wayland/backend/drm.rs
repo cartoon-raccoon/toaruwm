@@ -119,7 +119,7 @@ const SUPPORTED_FORMATS: &[Fourcc] = &[
 ];
 
 #[derive(Debug)]
-pub struct DrmBackend<C: RuntimeConfig + 'static> {
+pub struct DrmBackend<M: Manager<Wayland<M, Self>> + 'static> {
     /// The seat name.
     pub(crate) seat_name: String,
     /// A handle to the underlying session.
@@ -127,14 +127,14 @@ pub struct DrmBackend<C: RuntimeConfig + 'static> {
     /// A libinput context.
     pub(crate) libinput: Libinput,
     /// Udev dispatcher.
-    pub(crate) udev_dispatcher: Dispatcher<'static, UdevBackend, Wayland<C, DrmBackend<C>>>,
+    pub(crate) udev_dispatcher: Dispatcher<'static, UdevBackend, Wayland<M, DrmBackend<M>>>,
     /// The primary node on which all is displayed.
     pub(crate) primary_node: DrmNode,
     /// The primary node on which stuff is rendered.
     pub(crate) primary_render: DrmNode,
     pub(crate) gpu_manager: GpuManager<GbmGlesBackend<GlesRenderer, DrmDeviceFd>>,
     pub(crate) devices: HashMap<DrmNode, DrmOutputDevice>,
-    pub(crate) loophandle: LoopHandle<'static, Wayland<C, DrmBackend<C>>>
+    pub(crate) loophandle: LoopHandle<'static, Wayland<M, DrmBackend<M>>>
 }
 
 pub type DrmRenderer<'render> = MultiRenderer<
@@ -150,9 +150,9 @@ type GbmDrmCompositor = DrmCompositor<
     DrmDeviceFd,
 >;
 
-impl<C: RuntimeConfig> DrmBackend<C> {
+impl<M: Manager<Wayland<M, Self>>> DrmBackend<M> {
     /// Creates a new DrmBackend.
-    pub fn new(handle: LoopHandle<'static, Wayland<C, Self>>) -> Result<Self, WaylandError> {
+    pub fn new(handle: LoopHandle<'static, Wayland<M, Self>>) -> Result<Self, WaylandError> {
 
         // create our libseat session and acquire seat.
         let (libseat, seatnotifier) = LibSeatSession::new()?;
@@ -163,7 +163,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         let udev_backend = UdevBackend::new(&seat_name)
             .map_err(|e| WaylandError::UdevErr(e.to_string()))?;
 
-        let udev_dispatcher = Dispatcher::new(udev_backend, move |event, _, wayland: &mut Wayland<C, DrmBackend<C>>| {
+        let udev_dispatcher = Dispatcher::new(udev_backend, move |event, _, wayland: &mut Wayland<M, DrmBackend<M>>| {
             if let Err(e) = wayland.backend.on_udev_event(event, &mut wayland.wl) {
                 warn!("Error while handling udev event: {e}");
             }
@@ -234,7 +234,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         })
     }
 
-    fn device_added(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode, path: &Path) -> Result<(), DrmBackendError> {
+    fn device_added(&mut self, wl: &mut WaylandImpl<M, Self>, node: DrmNode, path: &Path) -> Result<(), DrmBackendError> {
         // open a new DRM device with our session handle
         let flags = OFlags::RDWR | OFlags::CLOEXEC | OFlags::NOCTTY | OFlags:: NONBLOCK;
         let fd = self.session.open(path, flags)?;
@@ -299,7 +299,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         Ok(())
     }
 
-    fn device_changed(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode) -> Result<(), DrmBackendError> {
+    fn device_changed(&mut self, wl: &mut WaylandImpl<M, Self>, node: DrmNode) -> Result<(), DrmBackendError> {
         debug!("device changed: {node:?}");
 
         let Some(device) = self.devices.get_mut(&node) else {
@@ -311,15 +311,15 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         Ok(())
     }
 
-    fn device_removed(&mut self, wl: &mut WaylandImpl<C, Self>, node: DrmNode) {
+    fn device_removed(&mut self, wl: &mut WaylandImpl<M, Self>, node: DrmNode) {
         self.connector_disconnected(wl);
     }
 
-    fn connector_connected(&mut self, wl: &mut WaylandImpl<C, Self>) {
+    fn connector_connected(&mut self, wl: &mut WaylandImpl<M, Self>) {
 
     }
 
-    fn connector_disconnected(&mut self, wl: &mut WaylandImpl<C, Self>) {
+    fn connector_disconnected(&mut self, wl: &mut WaylandImpl<M, Self>) {
 
     }
 
@@ -327,7 +327,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
         
     }
     
-    fn on_udev_event(&mut self, event: UdevEvent, wl: &mut WaylandImpl<C, Self>) -> Result<(), DrmBackendError> {
+    fn on_udev_event(&mut self, event: UdevEvent, wl: &mut WaylandImpl<M, Self>) -> Result<(), DrmBackendError> {
         match event {
             UdevEvent::Added { device_id, path } => {
                 match DrmNode::from_dev_id(device_id) {
@@ -384,9 +384,7 @@ impl<C: RuntimeConfig> DrmBackend<C> {
     }
 }
 
-impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
-
-    type Config = C;
+impl<M: Manager<Wayland<M, Self>>> WaylandBackend<M> for DrmBackend<M> {
 
     fn name(&self) -> &str {
         "drm"
@@ -400,7 +398,7 @@ impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
         &self.seat_name
     }
 
-    fn render(&mut self, wl: &mut WaylandImpl<C, Self>)
+    fn render(&mut self, wl: &mut WaylandImpl<M, Self>)
     where
         Self: Sized
     {
@@ -437,7 +435,7 @@ impl<C: RuntimeConfig> WaylandBackend for DrmBackend<C> {
     fn init(
         &mut self,
         display: DisplayHandle,
-        wl_impl: &mut WaylandImpl<C, Self>,
+        wl_impl: &mut WaylandImpl<M, Self>,
         _args: Dict)-> Result<(), WaylandError>
     where
         Self: Sized,

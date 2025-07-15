@@ -8,7 +8,7 @@ use crate::platform::wayland::prelude::*;
 use super::PointerFocusTarget;
 
 #[doc(hidden)]
-impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
     pub(crate) fn handle_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
         match event {
             InputEvent::DeviceAdded { device } => {}

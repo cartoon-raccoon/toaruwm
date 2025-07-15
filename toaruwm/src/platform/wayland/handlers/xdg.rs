@@ -21,14 +21,15 @@ use smithay::wayland::{
 };
 use smithay::desktop::{Window, PopupKind};
 use smithay::utils::Serial;
-use smithay::{delegate_xdg_decoration, delegate_xdg_shell, delegate_xdg_dialog, delegate_xdg_foreign};
+
+use crate::{delegate_xdg_shell, delegate_xdg_decoration, delegate_xdg_dialog, delegate_xdg_foreign};
 
 use crate::platform::wayland::{
     prelude::*,
     window::Unmapped,
 };
 
-impl<C: RuntimeConfig, B: WaylandBackend> XdgShellHandler for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> XdgShellHandler for Wayland<M, B> {
     fn xdg_shell_state(&mut self) -> &mut XdgShellState { // done
         &mut self.state_mut().xdg_shell
     }
@@ -108,9 +109,9 @@ impl<C: RuntimeConfig, B: WaylandBackend> XdgShellHandler for Wayland<C, B> {
     }
 }
 
-delegate_xdg_shell!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+delegate_xdg_shell!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<C: RuntimeConfig, B: WaylandBackend> XdgDecorationHandler for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> XdgDecorationHandler for Wayland<M, B> {
     fn new_decoration(&mut self, toplevel: ToplevelSurface) {
         todo!()
     }
@@ -124,26 +125,26 @@ impl<C: RuntimeConfig, B: WaylandBackend> XdgDecorationHandler for Wayland<C, B>
     }
 }
 
-delegate_xdg_decoration!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+delegate_xdg_decoration!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<C: RuntimeConfig, B: WaylandBackend> XdgDialogHandler for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> XdgDialogHandler for Wayland<M, B> {
     fn modal_changed(&mut self, toplevel: ToplevelSurface, is_modal: bool) {
         todo!()
     }
 }
 
-delegate_xdg_dialog!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+delegate_xdg_dialog!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<C: RuntimeConfig, B: WaylandBackend> XdgForeignHandler for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> XdgForeignHandler for Wayland<M, B> {
     fn xdg_foreign_state(&mut self) -> &mut XdgForeignState {
         &mut self.wl.state.xdg_foreign
     }
 }
 
-delegate_xdg_foreign!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+delegate_xdg_foreign!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
 #[doc(hidden)]
-impl<C: RuntimeConfig, B: WaylandBackend> Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
     /// When a top-level is about to be mapped, this is called to 
     /// send the initial configure event.
     pub fn send_initial_configure(&mut self, toplevel: &ToplevelSurface) {

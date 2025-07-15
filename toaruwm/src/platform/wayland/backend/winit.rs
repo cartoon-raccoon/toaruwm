@@ -37,15 +37,15 @@ use crate::dict;
 const OUTPUT_NAME: &str = "winit";
 
 #[derive(Debug)]
-pub struct WinitBackend<C: RuntimeConfig> {
+pub struct WinitBackend<M: Manager<Wayland<M, Self>> + 'static> {
     pub(crate) winit: WinitGraphicsBackend<GlesRenderer>,
     pub(crate) dmg_tracker: OutputDamageTracker,
     pub(crate) output: Output,
 
-    _phantom: PhantomData<C>,
+    _phantom: PhantomData<M>,
 }
 
-impl<C: RuntimeConfig> WinitBackend<C> {
+impl<M: Manager<Wayland<M, Self>> + 'static> WinitBackend<M> {
     /// Creates a new Winit backend, returning additional args inside a `Dict`
     /// that must be passed into its `init` method.
     pub fn new() -> Result<(Self, Dict), WaylandError> {
@@ -86,8 +86,8 @@ impl<C: RuntimeConfig> WinitBackend<C> {
     }
 }
 
-impl<C: RuntimeConfig> WaylandBackend for WinitBackend<C> {
-    type Config = C;
+impl<M: Manager<Wayland<M, Self>> + 'static> WaylandBackend<M> for WinitBackend<M> {
+    
     fn name(&self) -> &str {
         "winit"
     }
@@ -99,7 +99,7 @@ impl<C: RuntimeConfig> WaylandBackend for WinitBackend<C> {
         "winit"
     }
 
-    fn render(&mut self, wl: &mut WaylandImpl<C, Self>)
+    fn render(&mut self, wl: &mut WaylandImpl<M, Self>)
     where
         Self: Sized
     {
@@ -119,12 +119,8 @@ impl<C: RuntimeConfig> WaylandBackend for WinitBackend<C> {
     fn init(
         &mut self, 
         display: DisplayHandle,
-        wl_impl: &mut WaylandImpl<C, Self>,
-        mut args: Dict)-> Result<(), WaylandError>
-    where
-        Self: Sized,
-        C: RuntimeConfig
-    {
+        wl_impl: &mut WaylandImpl<M, Self>,
+        mut args: Dict)-> Result<(), WaylandError> {
         let winitev = args.remove("winitev")
             .and_then(|wev| wev.downcast::<WinitEventLoop>().ok())
             .expect("error in initializing WinitBackend: no Winit Event Loop was provided");

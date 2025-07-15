@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = DrmBackend::new(event_loop.handle())?;
     
     // create the overall Toaru struct
-    let toaru = Toaru::new(config)?;
+    let toaru: Toaru<Wayland<_, DrmBackend<_>>, _> = Toaru::new(config)?;
 
     // create the platform driven by the backend we made earlier
     let (mut platform, display) = Wayland::new(

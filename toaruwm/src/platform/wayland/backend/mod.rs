@@ -16,9 +16,9 @@ pub use drm::{DrmBackend, DrmBackendError};
 pub use winit::WinitBackend;
 
 use super::util::IdCounter;
-use super::{WaylandImpl, WaylandError};
+use super::{Wayland, WaylandImpl, WaylandError};
 
-use crate::config::RuntimeConfig;
+use crate::{Platform, Manager};
 use crate::types::Dict;
 
 static OUTPUT_ID_COUNTER: IdCounter = IdCounter::new();
@@ -58,9 +58,10 @@ pub fn should_run_nested() -> bool {
 /// 
 /// There are two implementors of `WaylandBackend` provided by this crate:
 /// [`WinitBackend`] and [`DrmBackend`].
-pub trait WaylandBackend: Debug {
-    /// The configuration type associated with the `Wayland` running this backend.
-    type Config: RuntimeConfig;
+pub trait WaylandBackend<M: Manager<Wayland<M, Self>> + 'static>: Debug
+where
+    Self: Sized + 'static
+{
 
     /// The name of the backend.
     fn name(&self) -> &str;
@@ -72,7 +73,7 @@ pub trait WaylandBackend: Debug {
     fn seat_name(&self) -> &str;
 
     /// Render a frame and submit it for viewing.
-    fn render(&mut self, wl: &mut WaylandImpl<Self::Config, Self>)
+    fn render(&mut self, wl: &mut WaylandImpl<M, Self>)
     where
         Self: Sized;
 
@@ -107,7 +108,7 @@ pub trait WaylandBackend: Debug {
     fn init(
         &mut self,
         display: DisplayHandle,
-        wl_impl: &mut WaylandImpl<Self::Config, Self>,
+        wl_impl: &mut WaylandImpl<M, Self>,
         args: Dict) -> Result<(), WaylandError>
     where
         Self: Sized,

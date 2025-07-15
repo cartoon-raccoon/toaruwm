@@ -85,8 +85,8 @@ impl From<PointerFocusTarget> for WlSurface {
     }
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> KeyboardTarget<Wayland<C, B>> for KeyboardFocusTarget {
-    fn enter(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, keys: Vec<KeysymHandle<'_>>, serial: Serial) {
+impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> KeyboardTarget<Wayland<M, B>> for KeyboardFocusTarget {
+    fn enter(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, keys: Vec<KeysymHandle<'_>>, serial: Serial) {
         match self {
             KeyboardFocusTarget::Window(w) => match w.underlying_surface() {
                 WindowSurface::Wayland(wl) => KeyboardTarget::enter(wl.wl_surface(), seat, data, keys, serial),
@@ -98,7 +98,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> KeyboardTarget<Wayland<C, B>> for Keyb
         }
     }
 
-    fn leave(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, serial: Serial) {
+    fn leave(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, serial: Serial) {
         match self {
             KeyboardFocusTarget::Window(w) => match w.underlying_surface() {
                 WindowSurface::Wayland(wl) => KeyboardTarget::leave(wl.wl_surface(), seat, data, serial),
@@ -112,8 +112,8 @@ impl<C: RuntimeConfig, B: WaylandBackend> KeyboardTarget<Wayland<C, B>> for Keyb
 
     fn key(
             &self,
-            seat: &Seat<Wayland<C, B>>,
-            data: &mut Wayland<C, B>,
+            seat: &Seat<Wayland<M, B>>,
+            data: &mut Wayland<M, B>,
             key: KeysymHandle<'_>,
             state: KeyState,
             serial: Serial,
@@ -130,7 +130,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> KeyboardTarget<Wayland<C, B>> for Keyb
         }
     }
     
-    fn modifiers(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, modifiers: ModifiersState, serial: Serial) {
+    fn modifiers(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, modifiers: ModifiersState, serial: Serial) {
         match self {
             KeyboardFocusTarget::Window(w) => match w.underlying_surface() {
                 WindowSurface::Wayland(wl) => KeyboardTarget::modifiers(wl.wl_surface(), seat, data, modifiers, serial),
@@ -143,8 +143,8 @@ impl<C: RuntimeConfig, B: WaylandBackend> KeyboardTarget<Wayland<C, B>> for Keyb
     }
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for PointerFocusTarget {
-    fn enter(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &MotionEvent) {
+impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> PointerTarget<Wayland<M, B>> for PointerFocusTarget {
+    fn enter(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &MotionEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::enter(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -152,7 +152,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn motion(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &MotionEvent) {
+    fn motion(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &MotionEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::motion(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -160,7 +160,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn relative_motion(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &RelativeMotionEvent) {
+    fn relative_motion(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &RelativeMotionEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::relative_motion(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -168,7 +168,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn button(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &ButtonEvent) {
+    fn button(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &ButtonEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::button(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -176,7 +176,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn axis(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, frame: AxisFrame) {
+    fn axis(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, frame: AxisFrame) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::axis(wl, seat, data, frame),
             #[cfg(feature = "xwayland")]
@@ -184,7 +184,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn frame(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>) {
+    fn frame(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::frame(wl, seat, data),
             #[cfg(feature = "xwayland")]
@@ -192,7 +192,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_swipe_begin(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GestureSwipeBeginEvent) {
+    fn gesture_swipe_begin(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GestureSwipeBeginEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_swipe_begin(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -200,7 +200,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_swipe_update(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GestureSwipeUpdateEvent) {
+    fn gesture_swipe_update(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GestureSwipeUpdateEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_swipe_update(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -208,7 +208,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_swipe_end(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GestureSwipeEndEvent) {
+    fn gesture_swipe_end(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GestureSwipeEndEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_swipe_end(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -216,7 +216,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_pinch_begin(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GesturePinchBeginEvent) {
+    fn gesture_pinch_begin(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GesturePinchBeginEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_pinch_begin(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -224,7 +224,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_pinch_update(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GesturePinchUpdateEvent) {
+    fn gesture_pinch_update(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GesturePinchUpdateEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_pinch_update(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -232,7 +232,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_pinch_end(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GesturePinchEndEvent) {
+    fn gesture_pinch_end(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GesturePinchEndEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_pinch_end(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -240,7 +240,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_hold_begin(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GestureHoldBeginEvent) {
+    fn gesture_hold_begin(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GestureHoldBeginEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_hold_begin(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -248,7 +248,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn gesture_hold_end(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &GestureHoldEndEvent) {
+    fn gesture_hold_end(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &GestureHoldEndEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::gesture_hold_end(wl, seat, data, event),
             #[cfg(feature = "xwayland")]
@@ -256,7 +256,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
         }
     }
 
-    fn leave(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, serial: Serial, time: u32) {
+    fn leave(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, serial: Serial, time: u32) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::leave(wl, seat, data, serial, time),
             #[cfg(feature = "xwayland")]
@@ -265,8 +265,8 @@ impl<C: RuntimeConfig, B: WaylandBackend> PointerTarget<Wayland<C, B>> for Point
     }
 }
 
-impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for PointerFocusTarget {
-    fn down(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &TouchDownEvent, seq: Serial) {
+impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> TouchTarget<Wayland<M, B>> for PointerFocusTarget {
+    fn down(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &TouchDownEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::down(wl, seat, data, event, seq),
             #[cfg(feature = "xwayland")]
@@ -274,7 +274,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn up(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &TouchUpEvent, seq: Serial) {
+    fn up(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &TouchUpEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::up(wl, seat, data, event, seq),
             #[cfg(feature = "xwayland")]
@@ -282,7 +282,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn motion(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &TouchMotionEvent, seq: Serial) {
+    fn motion(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &TouchMotionEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::motion(wl, seat, data, event, seq),
             #[cfg(feature = "xwayland")]
@@ -290,7 +290,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn frame(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, seq: Serial) {
+    fn frame(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::frame(wl, seat, data, seq),
             #[cfg(feature = "xwayland")]
@@ -298,7 +298,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn cancel(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, seq: Serial) {
+    fn cancel(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::cancel(wl, seat, data, seq),
             #[cfg(feature = "xwayland")]
@@ -306,7 +306,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn shape(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &ShapeEvent, seq: Serial) {
+    fn shape(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &ShapeEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::shape(wl, seat, data, event, seq),
             #[cfg(feature = "xwayland")]
@@ -314,7 +314,7 @@ impl<C: RuntimeConfig, B: WaylandBackend> TouchTarget<Wayland<C, B>> for Pointer
         }
     }
 
-    fn orientation(&self, seat: &Seat<Wayland<C, B>>, data: &mut Wayland<C, B>, event: &OrientationEvent, seq: Serial) {
+    fn orientation(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &OrientationEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::orientation(wl, seat, data, event, seq),
             #[cfg(feature = "xwayland")]

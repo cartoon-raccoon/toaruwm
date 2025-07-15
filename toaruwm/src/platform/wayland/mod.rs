@@ -11,6 +11,8 @@ pub(crate) mod handlers;
 
 pub(self) mod convert;
 
+pub(crate) mod macros;
+
 mod wayland;
 
 // Public re-exports.
@@ -25,6 +27,7 @@ pub(self) mod prelude {
     //pub use super::WaylandImpl;
     pub use super::Wayland;
     pub use crate::config::RuntimeConfig;
+    pub use crate::Manager;
     pub use super::backend::WaylandBackend;
 }
 

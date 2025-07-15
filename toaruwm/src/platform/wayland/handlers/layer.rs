@@ -7,11 +7,11 @@ use smithay::wayland::{
         wlr_layer::{WlrLayerShellHandler, WlrLayerShellState, Layer, LayerSurface as WlrLayerSurface}
     }
 };
-use smithay::delegate_layer_shell;
+use crate::delegate_layer_shell;
 
 use crate::platform::wayland::prelude::*;
 
-impl<C: RuntimeConfig, B: WaylandBackend> WlrLayerShellHandler for Wayland<C, B> {
+impl<M: Manager<Self>, B: WaylandBackend<M>> WlrLayerShellHandler for Wayland<M, B> {
     fn shell_state(&mut self) -> &mut WlrLayerShellState {
         &mut self.state_mut().layer_shell
     }
@@ -26,4 +26,4 @@ impl<C: RuntimeConfig, B: WaylandBackend> WlrLayerShellHandler for Wayland<C, B>
     }
 }
 
-delegate_layer_shell!(@<C: RuntimeConfig + 'static, B: WaylandBackend + 'static> Wayland<C, B>);
+delegate_layer_shell!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);

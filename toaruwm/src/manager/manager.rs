@@ -11,7 +11,7 @@ use crate::platform::{Platform};
 use crate::config::{ManagerConfig, RuntimeConfig, MgrConfig};
 
 use crate::{Result, ToaruError};
-use super::ToaruState;
+use super::{ToaruState, Manager, ManagerCommandHandler, ManagerPlatformInterface};
 
 
 /// The main object that defines window management functionality.
@@ -131,11 +131,6 @@ where
         })
     }
 
-    /// Returns a reference to the internal runtime configuration of Toaru.
-    pub fn config(&self) -> &C {
-        &self.config.downcast()
-    }
-
     /// Returns a new `ManagerConfig` that points to its internal runtime configuration.
     pub fn get_managerconfig(&self) -> MgrConfig {
         self.config.clone()
@@ -150,34 +145,19 @@ where
             selected: self.selected.as_ref(),
         }
     }
+}
 
-    /// Creates a new window and inserts it into the currently focused workspace.
-    pub fn insert_window(&mut self, id: P::WindowId, output: Option<P::Output>) {
-        todo!()
-    }
+impl<P: Platform, C: RuntimeConfig> Manager<P> for Toaru<P, C> {}
 
-    /// Removes the window identified by `id`.
-    pub fn delete_window(&mut self, id: P::WindowId) -> Window<P> {
-        todo!()
-    }
+impl<P: Platform, C: RuntimeConfig> ManagerPlatformInterface<P> for Toaru<P, C> {
+    type Config = C;
 
-    /// Configures a window with a given `id`.
-    pub fn configure_window(&mut self, id: P::WindowId, geom: Rectangle<i32, Logical>) {
-        todo!()
-    }
-
-    /// Maps the window, configuring it within its workspace.
-    pub fn map_window(&mut self, id: P::WindowId) {
-        todo!()
-    }
-
-    /// Unmaps the window.
-    pub fn unmap_window(&mut self, id: P::WindowId) {
-        todo!()
+    fn config(&self) -> &Self::Config {
+        &self.config.downcast()
     }
 
     /// Add a new output to Toaru.
-    pub fn add_output(&mut self, output: P::Output) {
+    fn add_output(&mut self, output: P::Output) {
         let idx = self.monitors.len();
 
         let monitor = Monitor::new(output.clone(), &self.workspaces, idx as i32);
@@ -186,17 +166,50 @@ where
     }
 
     /// Gets the monitor with the provided `PlatformOutput`.
-    pub fn get_output(&mut self, output: &P::Output) -> Option<&mut Monitor<P>> {
+    fn get_output(&mut self, output: &P::Output) -> Option<&mut Monitor<P>> {
         self.monitors.get_mut(output)
     }
 
     /// Remove an output from Toaru.
-    pub fn remove_output(&mut self, output: &P::Output) -> Option<Monitor<P>> {
+    fn remove_output(&mut self, output: &P::Output) -> Option<Monitor<P>> {
+        todo!()
+    }
+
+    /// Creates a new window and inserts it into the currently focused workspace.
+    fn insert_window(&mut self, id: P::WindowId, output: Option<&P::Output>) {
+        todo!()
+    }
+
+    /// Run a closure on the window with `id`.
+    fn with_window<F, T>(&mut self, id: P::WindowId, f: F) -> T
+    where
+        F: FnOnce(&mut Window<P>) -> T
+    {
+        todo!()
+    }
+
+    /// Removes the window identified by `id`.
+    fn remove_window(&mut self, id: P::WindowId) -> Option<Window<P>> {
+        todo!()
+    }
+
+    /// Configures a window with a given `id`.
+    fn configure_window(&mut self, id: P::WindowId, geom: Rectangle<i32, Logical>) {
+        todo!()
+    }
+
+    /// Maps the window, configuring it within its workspace.
+    fn map_window(&mut self, id: P::WindowId) {
+        todo!()
+    }
+
+    /// Unmaps the window.
+    fn unmap_window(&mut self, id: P::WindowId) {
         todo!()
     }
 
     /// Runs a closure on all workspaces managed within Toaru.
-    pub fn with_workspaces<F, T>(&mut self, f: F) -> T 
+    fn with_workspaces<F, T>(&mut self, f: F) -> T 
     where
         F: FnOnce(&mut [Workspace<P>]) -> T
     {
@@ -206,7 +219,7 @@ where
     /// Run a closure on for each workspace managed within Toaru.
     /// 
     /// If `active_only` is true, the closure is run only for active workspaces.
-    pub fn foreach_workspace<F>(&mut self, active_only: bool, f: F)
+    fn foreach_workspace<F>(&mut self, active_only: bool, f: F)
     where
         F: FnMut(&mut Workspace<P>)
     {
@@ -215,94 +228,87 @@ where
 }
 
 /// Desktop-level commands.
-impl<P, C> Toaru<P, C>
+impl<P, C> ManagerCommandHandler for Toaru<P, C>
 where
-    P: Platform<Error = ToaruError>,
+    P: Platform,
     C: RuntimeConfig,
 {   
     /// Goes to the specified workspace on the currently active monitor.
-    pub fn goto_workspace(&mut self, name: &str) {
+    fn goto_workspace(&mut self, name: &str) {
         todo!()
     }
 
     /// Cycles the focused workspace on the currently active monitor.
-    pub fn cycle_workspace(&mut self, direction: Direction) {
+    fn cycle_workspace(&mut self, direction: Direction) {
         todo!()
     }
 
     /// Sends the focused window to the specified workspace.
-    pub fn send_focused_to(&mut self, name: &str, switch: bool) {
+    fn send_focused_to(&mut self, name: &str, switch: bool) {
         todo!()
     }
-}
 
-/// Workspace-level commands.
-impl<P, C> Toaru<P, C>
-where
-    P: Platform,
-    C: RuntimeConfig,
-{
     /// Cycles the focused window.
-    pub fn cycle_focus(&mut self, direction: Direction) {
+    fn cycle_focus(&mut self, direction: Direction) {
         todo!()
     }
 
     /// Cycles in the given direction to the layout applied to the current workspace.
-    pub fn cycle_layout(&mut self, direction: Direction) {
+    fn cycle_layout(&mut self, direction: Direction) {
         todo!()
     }
 
     /// Toggles the state of the focused window to floating or vice versa.
-    pub fn toggle_focused_floating(&mut self) {
+    fn toggle_focused_floating(&mut self) {
         todo!()
     }
 
     /// Sends an [`Update`](crate::layouts::update::Update)
     /// to the current layout.
-    pub fn update_current_layout<U: IntoUpdate>(&mut self, update: U) {
+    fn update_current_layout<U: IntoUpdate>(&mut self, update: U) {
         todo!()
     }
 
     /// Switches to the given layout on the current workspace.
-    pub fn switch_layout<S: AsRef<str>>(&mut self, name: S) {
+    fn switch_layout(&mut self, name: &str) {
         todo!()
     }
 
     /// Toggles the focused window to fullscreen.
-    pub fn toggle_focused_fullscreen(&mut self) {
+    fn toggle_focused_fullscreen(&mut self) {
         todo!()
     }
 
-    /// Grabs the pointer and moves the window the pointer is on.
-    ///
-    /// If the selected window is under layout, it is removed from
-    /// layout and the entire workspace is then re-laid out.
-    //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
-    pub fn move_window_ptr(&mut self, pt: Point<i32, Logical>) {
+    // /// Grabs the pointer and moves the window the pointer is on.
+    // ///
+    // /// If the selected window is under layout, it is removed from
+    // /// layout and the entire workspace is then re-laid out.
+    // //#[cfg_attr(debug_assertions, instrument(level = "debug", skip(self)))]
+    // pub fn move_window_ptr(&mut self, pt: Point<i32, Logical>) {
 
-    }
+    // }
 
-    /// Grabs the pointer and resizes the window the pointer is on.
-    ///
-    /// If the selected window is under layout, it is removed from
-    /// layout and the entire workspace is then re-laid out.
-    pub fn resize_window_ptr(&mut self, pt: Point<i32, Logical>) {
+    // /// Grabs the pointer and resizes the window the pointer is on.
+    // ///
+    // /// If the selected window is under layout, it is removed from
+    // /// layout and the entire workspace is then re-laid out.
+    // pub fn resize_window_ptr(&mut self, pt: Point<i32, Logical>) {
 
-    }
+    // }
 
-    /// Moves the window `delta` pixels in direction `dir`.
-    pub fn move_window(&mut self, delta: i32, dir: Cardinal) {
+    // /// Moves the window `delta` pixels in direction `dir`.
+    // pub fn move_window(&mut self, delta: i32, dir: Cardinal) {
         
-    }
+    // }
 
     /// Resizes the window `delta` pixels in direction `dir`.
-    pub fn resize_window(&mut self, delta: i32, dir: Cardinal) {
-        
+    fn resize_window(&mut self, delta: i32, dir: Cardinal) {
+        todo!()
     }
 
     /// Closes the focused window.
-    pub fn close_focused_window(&mut self) {
-        
+    fn close_focused_window(&mut self) {
+        todo!()
     }
 }
 

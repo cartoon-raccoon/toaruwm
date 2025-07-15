@@ -18,8 +18,9 @@ pub use state::ToaruState;
 
 use crate::platform::Platform;
 use crate::config::RuntimeConfig;
-use crate::types::{Rectangle, Logical, Direction};
+use crate::types::{Rectangle, Logical, Direction, Cardinal};
 use crate::core::{Window, Monitor, Workspace};
+use crate::layouts::update::IntoUpdate;
 
 /// A type that implements window management functionality.
 /// 
@@ -27,7 +28,7 @@ use crate::core::{Window, Monitor, Workspace};
 /// which define the functionality a `Manager` must implement: Expose an interface that
 /// a platform can use to manipulate its inner state and get window data; and process
 /// commands from users to manipulate the windows in its current state.
-pub trait Manager<P: Platform>: ManagerCommandHandler + ManagerPlatformInterface<P> {}
+pub trait Manager<P: Platform>: ManagerCommandHandler + ManagerPlatformInterface<P> + std::fmt::Debug {}
 
 /// A type that can handle commands sent to a Manager.
 pub trait ManagerCommandHandler {
@@ -35,7 +36,7 @@ pub trait ManagerCommandHandler {
     fn goto_workspace(&mut self, name: &str);
 
     /// Cycles the focused workspace.
-    fn cycle_workspace(&mut self, name: &str);
+    fn cycle_workspace(&mut self, dir: Direction);
 
     /// Sends the focused window to the currently active monitor.
     fn send_focused_to(&mut self, name: &str, switch: bool);
@@ -51,7 +52,19 @@ pub trait ManagerCommandHandler {
 
     /// Sends an [`Update`](crate::layouts::update::Update)
     /// to the current layout.
-    fn update_current_layout(&mut self);
+    fn update_current_layout<U: IntoUpdate>(&mut self, update: U);
+
+    /// Switches to the given layout.
+    fn switch_layout(&mut self, name: &str);
+
+    /// Toggles the focused window to fullscreen.
+    fn toggle_focused_fullscreen(&mut self);
+
+    /// Resizes the window `delta` pixels in direction `dir`.
+    fn resize_window(&mut self, delta: i32, dir: Cardinal);
+
+    /// Closes the focused window.
+    fn close_focused_window(&mut self);
 }
 
 /// A type that implements an interface with a [`Platform`].
