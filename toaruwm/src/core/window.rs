@@ -13,7 +13,7 @@ use tracing::{debug, error, warn};
 use super::{ring::InsertPoint, Ring, Selector};
 
 use crate::core::types::{Logical, Rectangle,};
-use crate::platform::{Platform, PlatformWindow, PlatformWindowId};
+use crate::wayland::{WaylandWindow, WaylandWindowId};
 
 /// A ring of Windows.
 ///
@@ -28,43 +28,43 @@ use crate::platform::{Platform, PlatformWindow, PlatformWindowId};
 /// A `WindowRing` also plays an important role in enforcing window
 /// stacking, keeping all off-layout clients on top.
 #[derive(Debug, Clone)]
-pub struct WindowRing<P: Platform>(Ring<Window<P>>);
+pub struct WindowRing(Ring<Window>);
 /* we still need to change focus on this everytime so we know
 which window to cycle focus to */
 
-impl<P: Platform> Deref for WindowRing<P> {
-    type Target = Ring<Window<P>>;
+impl Deref for WindowRing {
+    type Target = Ring<Window>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<P: Platform> DerefMut for WindowRing<P> {
+impl DerefMut for WindowRing {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<P: Platform> Default for WindowRing<P> {
+impl Default for WindowRing {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<P: Platform> WindowRing<P> {
+impl WindowRing {
     /// Creates a new ClientRing.
     pub fn new() -> Self {
         Self(Ring::new())
     }
 
     /// Adds the Client at a given index.
-    pub fn add_at_index(&mut self, idx: usize, win: Window<P>) {
+    pub fn add_at_index(&mut self, idx: usize, win: Window) {
         self.insert(InsertPoint::Index(idx), win);
     }
 
     /// Wrapper around `Ring::remove` that takes a window ID instead of index.
-    pub fn remove_by_id(&mut self, id: P::WindowId) -> Option<Window<P>> {
+    pub fn remove_by_id(&mut self, id: WaylandWindowId) -> Option<Window> {
         let Some(i) = self.get_idx(id) else {
             return None
         };
@@ -73,12 +73,12 @@ impl<P: Platform> WindowRing<P> {
     }
 
     /// Wrapper around `Ring::index` that takes a window ID.
-    pub fn get_idx(&self, id: P::WindowId) -> Option<usize> {
+    pub fn get_idx(&self, id: WaylandWindowId) -> Option<usize> {
         self.index(Selector::Condition(&|win| win.id() == id))
     }
 
     /// Returns a reference to the client containing the given window ID.
-    pub fn lookup(&self, id: P::WindowId) -> Option<&Window<P>> {
+    pub fn lookup(&self, id: WaylandWindowId) -> Option<&Window> {
         if let Some(i) = self.get_idx(id) {
             self.get(i)
         } else {
@@ -87,17 +87,17 @@ impl<P: Platform> WindowRing<P> {
     }
 
     /// Returns a mutable reference to the client containing the given ID.
-    pub fn lookup_mut(&mut self, id: P::WindowId) -> Option<&mut Window<P>> {
+    pub fn lookup_mut(&mut self, id: WaylandWindowId) -> Option<&mut Window> {
         self.get_idx(id).and_then(|i| self.get_mut(i))
     }
 
     /// Tests whether the Ring contains a client with the given ID.
-    pub fn contains(&self, id: P::WindowId) -> bool {
+    pub fn contains(&self, id: WaylandWindowId) -> bool {
         matches!(self.element_by(|win| win.id() == id), Some(_))
     }
 
     /// Sets the focused element to the given client.
-    pub fn set_focused_by_winid(&mut self, id: P::WindowId) {
+    pub fn set_focused_by_winid(&mut self, id: WaylandWindowId) {
         if let Some(i) = self.get_idx(id) {
             self.focused = Some(i)
         } else {
@@ -111,7 +111,7 @@ impl<P: Platform> WindowRing<P> {
     }
 
     /// Tests whether the client with the given ID is in focus.
-    pub fn is_focused(&self, id: P::WindowId) -> bool {
+    pub fn is_focused(&self, id: WaylandWindowId) -> bool {
         if let Some(window) = self.focused() {
             window.id() == id
         } else {
@@ -122,8 +122,8 @@ impl<P: Platform> WindowRing<P> {
 
 /// Represents a Window managed by a Toaru instance.
 #[derive(Debug, Clone)]
-pub struct Window<P: Platform> {
-    pub(crate) window: P::Window,
+pub struct Window {
+    pub(crate) window: WaylandWindow,
     geom: Rectangle<i32, Logical>,
 
     initial_geom: Rectangle<i32, Logical>,
@@ -139,15 +139,15 @@ pub struct Window<P: Platform> {
     mapped: bool,
 }
 
-impl<P: Platform> PartialEq for Window<P> {
+impl PartialEq for Window {
     fn eq(&self, other: &Self) -> bool {
         self.id() == other.id()
     }
 }
 
-impl<P: Platform> Window<P> {
+impl Window {
     /// Creates a new Client from a given `id`.
-    pub fn new(window: P::Window, geom: Option<Rectangle<i32, Logical>>) -> Self {
+    pub fn new(window: WaylandWindow, geom: Option<Rectangle<i32, Logical>>) -> Self {
         let geom = geom.unwrap_or_else(|| Rectangle::zeroed());
         Self {
             window,
@@ -161,7 +161,7 @@ impl<P: Platform> Window<P> {
     }
 
     /// Returns a Client that should float.
-    pub fn outside_layout(from: P::Window, geom: Option<Rectangle<i32, Logical>>) -> Self {
+    pub fn outside_layout(from: WaylandWindow, geom: Option<Rectangle<i32, Logical>>) -> Self {
         let mut new = Self::new(from, geom);
         new.inside_layout = false;
 
@@ -170,7 +170,7 @@ impl<P: Platform> Window<P> {
 
     /// Returns the X ID of the client.
     #[inline(always)]
-    pub fn id(&self) -> P::WindowId {
+    pub fn id(&self) -> WaylandWindowId {
         self.window.id()
     }
 
@@ -286,30 +286,30 @@ impl<P: Platform> Window<P> {
 
 /// Maintains the focusing order of the windows of screen.
 #[derive(Debug, Clone)]
-pub(crate) struct FocusStack<C: PlatformWindowId>(Ring<C>);
+pub(crate) struct FocusStack(Ring<WaylandWindowId>);
 
-impl<C: PlatformWindowId> Deref for FocusStack<C> {
-    type Target = Ring<C>;
+impl Deref for FocusStack {
+    type Target = Ring<WaylandWindowId>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<C: PlatformWindowId> DerefMut for FocusStack<C> {
+impl DerefMut for FocusStack {
     fn deref_mut(&mut self) -> &mut <Self as Deref>::Target {
         &mut self.0
     }
 }
 
 #[allow(dead_code)]
-impl<C: PlatformWindowId> FocusStack<C> {
+impl FocusStack {
     /// Creates a new FocusStack.
     pub fn new() -> Self {
         Self(Ring::new())
     }
 
-    pub fn add_by_layout_status<P: Platform<WindowId = C>>(&mut self, id: C, windows: &WindowRing<P>) {
+    pub fn add_by_layout_status(&mut self, id: WaylandWindowId, windows: &WindowRing) {
         let Some(cl) = windows.lookup(id) else {
             warn!("could not find client with id {:?} in clientring", id);
             return
@@ -323,7 +323,7 @@ impl<C: PlatformWindowId> FocusStack<C> {
         }
     }
 
-    pub fn set_focused_by_winid(&mut self, id: C) {
+    pub fn set_focused_by_winid(&mut self, id: WaylandWindowId) {
         if let Some(idx) = self.get_idx(id) {
             self.set_focused(idx);
         } else {
@@ -331,12 +331,12 @@ impl<C: PlatformWindowId> FocusStack<C> {
         }
     }
 
-    pub fn remove_by_id(&mut self, id: C) -> Option<C> {
+    pub fn remove_by_id(&mut self, id: WaylandWindowId) -> Option<WaylandWindowId> {
         self.get_idx(id).and_then(|idx| self.remove(idx))
     }
 
-    pub fn on_layout<'ws, P: Platform<WindowId = C>>(&'ws self, cl: &'ws WindowRing<P>)
-    -> impl Iterator<Item = &'ws C>
+    pub fn on_layout<'ws>(&'ws self, cl: &'ws WindowRing)
+    -> impl Iterator<Item = &'ws WaylandWindowId>
     {
         self.iter().filter(|id| {
             !(cl.lookup(**id)
@@ -345,8 +345,8 @@ impl<C: PlatformWindowId> FocusStack<C> {
         })
     }
 
-    pub fn off_layout<'ws, P: Platform<WindowId = C>>(&'ws self, cl: &'ws WindowRing<P>)
-    -> impl Iterator<Item = &'ws C>
+    pub fn off_layout<'ws>(&'ws self, cl: &'ws WindowRing)
+    -> impl Iterator<Item = &'ws WaylandWindowId>
     {
         self.iter().filter(|id| {
             cl.lookup(**id)
@@ -361,7 +361,7 @@ impl<C: PlatformWindowId> FocusStack<C> {
     /// If the window is off layout, it is moved to the front of
     /// the queue; if it is on layout, it is moved to the first
     /// index of the stacked windows.
-    pub fn bubble_to_top<P: Platform<WindowId = C>>(&mut self, id: C, c: &WindowRing<P>) {
+    pub fn bubble_to_top(&mut self, id: WaylandWindowId, c: &WindowRing) {
         if self.is_empty() {
             return;
         }
@@ -384,7 +384,7 @@ impl<C: PlatformWindowId> FocusStack<C> {
     }
 
     /// Wrapper around `Ring::index` that takes a window ID.
-    pub fn get_idx(&self, id: C) -> Option<usize> {
+    pub fn get_idx(&self, id: WaylandWindowId) -> Option<usize> {
         self.0.index(Selector::Condition(&|win| *win == id))
     }
 
@@ -392,7 +392,7 @@ impl<C: PlatformWindowId> FocusStack<C> {
     ///
     /// Assumes the `ClientRing` is indeed partitioned.
     //* precondition: the ring is already partitioned correctly */
-    pub fn partition_idx<P: Platform<WindowId = C>>(&self, clients: &WindowRing<P>) -> usize {
+    pub fn partition_idx(&self, clients: &WindowRing) -> usize {
         self.0
             .items
             .partition_point(|c| clients.lookup(*c).expect("no client found").is_off_layout())

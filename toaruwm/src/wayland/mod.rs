@@ -19,6 +19,8 @@ mod wayland;
 #[doc(inline)]
 pub use wayland::*;
 #[doc(inline)]
+pub use window::WaylandWindow;
+#[doc(inline)]
 pub use handlers::WaylandState;
 pub use config::{WaylandConfig, ToaruWaylandConfig};
 
@@ -33,51 +35,70 @@ pub(self) mod prelude {
 
 use crate::types::{Point, Logical, Transform};
 use crate::config::{OutputScale, OutputMode, OutputInfo};
-use crate::platform::PlatformOutput;
-use super::{ClientData, Platform, PlatformType};
+use crate::types::{Rectangle, Size, Scale};
 
 use smithay::output::PhysicalProperties;
 
 /// An Output as used by the Wayland platform.
-pub type WaylandOutput = smithay::output::Output;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WaylandOutput(smithay::output::Output);
 
-impl PlatformOutput for WaylandOutput {
-    fn name(&self) -> String {
-        self.name()
+impl WaylandOutput {
+    pub fn name(&self) -> String {
+        self.0.name()
     }
 
-    fn info(&self) -> OutputInfo {
-        let PhysicalProperties { make, model, .. } = self.physical_properties();
+    pub fn info(&self) -> OutputInfo {
+        let PhysicalProperties { make, model, .. } = self.0.physical_properties();
         OutputInfo {
             make: Some(make),
             model: Some(model)
         }
     }
 
-    fn location(&self) -> Point<i32, Logical> {
-        self.current_location().into()
+    pub fn location(&self) -> Point<i32, Logical> {
+        self.0.current_location().into()
     }
     
-    fn transform(&self) -> Transform {
-        self.current_transform().into()
+    pub fn transform(&self) -> Transform {
+        self.0.current_transform().into()
     }
 
-    fn scale(&self) -> OutputScale {
-        self.current_scale().into()
+    pub fn scale(&self) -> OutputScale {
+        self.0.current_scale().into()
     }
 
-    fn current_mode(&self) -> Option<OutputMode> {
-        self.current_mode().map(|mode| mode.into())
+    pub fn current_mode(&self) -> Option<OutputMode> {
+        self.0.current_mode().map(|mode| mode.into())
     }
 
-    fn preferred_mode(&self) -> Option<OutputMode> {
-        self.preferred_mode().map(|mode| mode.into())
+    pub fn preferred_mode(&self) -> Option<OutputMode> {
+        self.0.preferred_mode().map(|mode| mode.into())
     }
 
-    fn modes(&self) -> Vec<OutputMode> {
-        self.modes()
+    pub fn modes(&self) -> Vec<OutputMode> {
+        self.0.modes()
             .into_iter()
             .map(|mode| mode.into())
             .collect()
+    }
+
+    /// Returns the Geometry of the Output, if its mode is set.
+    pub fn geometry(&self) -> Option<Rectangle<i32, Logical>> {
+        let Some(mode) = self.current_mode() else {
+            return None
+        };
+
+        let size = match self.scale() {
+            OutputScale::Fractional(f) | OutputScale::Split {fractional: f, ..} => {
+                let Size {width, height, .. } = mode.size.as_f64().as_logical(Scale::uniform(f));
+                Size::<i32, Logical>::new(width as i32, height as i32)
+            }
+            OutputScale::Integer(i) => {
+                mode.size.as_logical(Scale::uniform(i))
+            }
+        };
+
+        Some(Rectangle {point: self.location(), size})
     }
 }

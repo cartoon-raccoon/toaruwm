@@ -11,8 +11,8 @@ use tracing::debug;
 use crate::core::{Ring, Workspace};
 use crate::config::RuntimeConfig;
 use crate::types::{Rectangle, Logical};
-use crate::platform::{Platform};
 use crate::{Result, ToaruError};
+use crate::wayland::WaylandWindowId;
 /// A simple no-frills floating layout.
 pub mod floating;
 /// A simple manually-tiled layout.
@@ -63,8 +63,7 @@ use update::Update;
 /// Layouts will usually be used as a trait object by the window manager.
 /// Since trait objects cannot be based on `Clone`, `Layout` requires
 /// a `boxed` method that clones the object as needed.
-pub trait Layout<P: Platform>
-{
+pub trait Layout: std::fmt::Debug {
     /// The name of the Layout, used to display in some kind of status bar.
     fn name(&self) -> &str;
 
@@ -75,10 +74,10 @@ pub trait Layout<P: Platform>
     ///
     /// A `LayoutCtxt` is provided to give the layout any additional
     /// information it might need to enforce its policy.
-    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>>;
+    fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction>;
 
     /// Returns a boxed version of itself, so it can be used a trait object.
-    fn boxed(&self) -> Box<dyn Layout<P>>;
+    fn boxed(&self) -> Box<dyn Layout>;
 
     /// Receive an update to modify its current settings.
     /// This type does not need to respond to all possible updates,
@@ -91,13 +90,13 @@ use custom_debug_derive::Debug;
 /// to enforce its layout policy.
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct LayoutCtxt<'t, P: Platform> {
+pub struct LayoutCtxt<'t> {
     //fixme: custom debug is just a bodge rn
     /// The runtime configuration of the window manager.
     #[debug(skip)]
     pub config: &'t dyn RuntimeConfig,
     /// The workspace that called the Layout.
-    pub workspace: &'t Workspace<P>,
+    pub workspace: &'t Workspace,
     /// The working area that the Layout can tile windows in.
     pub working_area: Rectangle<i32, Logical>,
 }
@@ -120,9 +119,9 @@ pub struct LayoutCtxt<'t, P: Platform> {
 /// always carried out in normal operation, which means if they are violated in some way
 /// at this point, your code may panic!
 #[derive(Debug)]
-pub struct Layouts<P: Platform>(Ring<Box<dyn Layout<P>>>);
+pub struct Layouts(Ring<Box<dyn Layout>>);
 
-impl<P: Platform> Layouts<P> {
+impl Layouts {
     /// Creates a new `Layouts` with the default implementation, which is just the floating
     /// layout.
     pub fn new() -> Self {
@@ -133,7 +132,7 @@ impl<P: Platform> Layouts<P> {
     /// the focused item set to the first item in the Ring.
     pub fn with_layouts_validated<I>(layouts: I) -> Result<Self>
     where
-        I: IntoIterator<Item = Box<dyn Layout<P>>>,
+        I: IntoIterator<Item = Box<dyn Layout>>,
     {
         let ret = unsafe { Self::with_layouts_unchecked(layouts) };
 
@@ -150,7 +149,7 @@ impl<P: Platform> Layouts<P> {
     /// The caller must ensure that invariants 1 and 3 are upheld.
     pub unsafe fn with_layouts_unchecked<I>(layouts: I) -> Self
     where
-        I: IntoIterator<Item = Box<dyn Layout<P>>>,
+        I: IntoIterator<Item = Box<dyn Layout>>,
     {
         let mut ret = Ring::new();
         layouts.into_iter().for_each(|l| ret.append(l));
@@ -192,9 +191,9 @@ impl<P: Platform> Layouts<P> {
     /// Generates the layout for the currently focused layout.
     pub fn gen_layout<'t>(
         &'t self,
-        ws: &Workspace<P>,
+        ws: &Workspace,
         cfg: &dyn RuntimeConfig,
-    ) -> Vec<LayoutAction<P>> {
+    ) -> Vec<LayoutAction> {
         debug!("self.focused is {:?}", self.focused);
         debug_assert!(self.focused().is_some(), "no focused layout");
         self.focused()
@@ -217,26 +216,26 @@ impl<P: Platform> Layouts<P> {
     }
 }
 
-impl<P: Platform> Deref for Layouts<P> {
-    type Target = Ring<Box<dyn Layout<P>>>;
+impl Deref for Layouts {
+    type Target = Ring<Box<dyn Layout>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<P: Platform> DerefMut for Layouts<P> {
+impl DerefMut for Layouts {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<P: Platform> Default for Layouts<P> {
+impl Default for Layouts {
     /// Returns a Layout instance containing a single
     /// [`Floating`] layout.
     fn default() -> Self {
         let mut ret = Ring::new();
-        ret.append(Box::new(Floating {}) as Box<dyn Layout<P>>);
+        ret.append(Box::new(Floating {}) as Box<dyn Layout>);
 
         Self(ret)
     }
@@ -268,20 +267,20 @@ impl LayoutType {
 /// layout currently in effect.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LayoutAction<P: Platform> {
+pub enum LayoutAction {
     /// Resize a given client.
     Resize {
         /// The Client to apply the geometry to.
-        id: P::WindowId,
+        id: WaylandWindowId,
         /// The geometry to apply to the Client.
         geom: Rectangle<i32, Logical>,
     },
     /// Map the given window.
-    Map(P::WindowId),
+    Map(WaylandWindowId),
     /// Unmap the given window.
-    Unmap(P::WindowId),
+    Unmap(WaylandWindowId),
     /// Stack the given window on top.
-    StackOnTop(P::WindowId),
+    StackOnTop(WaylandWindowId),
     /// Remove the given window from the layout.
-    Remove(P::WindowId),
+    Remove(WaylandWindowId),
 }

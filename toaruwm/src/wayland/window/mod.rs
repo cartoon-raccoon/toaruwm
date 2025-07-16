@@ -13,7 +13,7 @@ use smithay::backend::renderer::{
 };
 use smithay::desktop::Window;
 
-use crate::platform::{PlatformWindow, wayland::WaylandWindowId};
+use crate::wayland::WaylandWindowId;
 use crate::types::{Rectangle, Point, Size, Logical};
 
 
@@ -39,18 +39,17 @@ pub struct WaylandWindow {
     inner: Window,
 }
 
-impl PlatformWindow for WaylandWindow {
-    type Id = WaylandWindowId;
+impl WaylandWindow {
 
-    fn id(&self) -> Self::Id {
+    pub fn id(&self) -> WaylandWindowId {
         self.identifier
     }
 
-    fn configured(&self) -> bool {
+    pub fn configured(&self) -> bool {
         self.inner.toplevel().map(|tl| tl.is_initial_configure_sent()).is_some_and(|b| b)
     }
 
-    fn geom(&self) -> Option<Rectangle<i32, Logical>> {
+    pub fn geom(&self) -> Option<Rectangle<i32, Logical>> {
         if self.configured() {
             Some(self.inner.geometry().into())
         } else {
@@ -58,7 +57,7 @@ impl PlatformWindow for WaylandWindow {
         }
     }
 
-    fn configure(&mut self, 
+    pub fn configure(&mut self, 
         _pos: Option<Point<i32, Logical>>, 
         size: Option<Size<i32, Logical>>
     ) {

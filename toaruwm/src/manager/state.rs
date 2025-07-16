@@ -6,12 +6,9 @@
 //! types.
 
 use crate::config::{OutputLayout, RuntimeConfig, ConfigSection};
-use crate::platform::{
-    wayland::{WaylandConfig, ToaruWaylandConfig}, 
-    x11::{X11Config, ToaruX11Config},
-};
 use crate::core::{Monitor};
-use crate::Platform;
+use crate::wayland::{WaylandWindowId, WaylandConfig, ToaruWaylandConfig};
+
 
 /// The an implementation of runtime configuration for 
 /// [`Toaru`](super::Toaru).
@@ -35,7 +32,6 @@ pub struct ToaruRuntimeConfig {
     pub(crate) focus_follows_ptr: bool,
     pub(crate) outputs: OutputLayout,
     pub(crate) waylandcfg: ToaruWaylandConfig,
-    pub(crate) x11cfg: ToaruX11Config,
 }
 
 impl RuntimeConfig for ToaruRuntimeConfig {
@@ -62,10 +58,6 @@ impl RuntimeConfig for ToaruRuntimeConfig {
     fn wayland(&self) -> &dyn WaylandConfig {
         &self.waylandcfg
     }
-
-    fn x11(&self) -> &dyn X11Config {
-        &self.x11cfg
-    }
 }
 
 /// The state that the current window manager is in.
@@ -79,26 +71,24 @@ pub enum State {}
 /// `Toaru` type.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
-pub struct ToaruState<'t, P, C>
+pub struct ToaruState<'t, C>
 where
-    P: Platform,
     C: RuntimeConfig
 {
     /// The inner configuration of the WindowManager.
     pub config: &'t C,
     /// The current monitor as selected by the caller to [`Toaru::state`](crate::Toaru::state).
-    pub monitor: &'t Monitor<P>,
+    pub monitor: &'t Monitor,
     /// The selected window, if any.
-    pub selected: Option<&'t P::WindowId>,
+    pub selected: Option<&'t WaylandWindowId>,
 }
 
-impl<'t, P, C> ToaruState<'t, P, C>
+impl<'t, C> ToaruState<'t, C>
 where
-    P: Platform,
     C: RuntimeConfig,
 {
     /// Checks whether the window `id` is currently managed.
-    pub fn is_managing(&self, id: P::WindowId) -> bool {
+    pub fn is_managing(&self, id: WaylandWindowId) -> bool {
         todo!()
     }
 }

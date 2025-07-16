@@ -109,8 +109,8 @@ pub mod core;
 pub mod layouts;
 pub mod manager;
 pub mod toarulib;
-pub mod platform;
 pub mod wayland;
+pub mod platform;
 pub mod util;
 
 /// Modules that Toaru is tightly integrated with, re-exported for convenience.
@@ -129,7 +129,7 @@ pub use crate::config::{ManagerConfig, ToaruManagerConfig};
 #[doc(inline)]
 pub use crate::wayland::Wayland;
 
-use crate::platform::PlatformError;
+use crate::wayland::WaylandError;
 
 use crate::bindings::BindingError;
 use crate::config::RuntimeConfig;
@@ -144,7 +144,7 @@ use thiserror::Error;
 pub enum ToaruError {
     /// An error with the underlying X connection.
     #[error("platform error: {0}")]
-    PlatformError(Box<dyn PlatformError>),
+    WaylandError(WaylandError),
 
     /// Unable to spawn process.
     #[error("Error while running program: {0}")]
@@ -243,11 +243,9 @@ use crate::manager::ToaruState;
 ///
 /// Typically this would be a standard logging function that writes
 /// to a file or stdout, but it can be anything.
-pub trait ErrorHandler<P, C>
-where
-    P: Platform,
+pub trait ErrorHandler<C> where
     C: RuntimeConfig,
 {
     /// Calls the error handler.
-    fn call(&self, state: ToaruState<'_, P, C>, err: ToaruError);
+    fn call(&self, state: ToaruState<'_, C>, err: ToaruError);
 }

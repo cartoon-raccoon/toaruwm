@@ -30,14 +30,14 @@ use tracing::{error};
 use thiserror::Error;
 
 use super::{WaylandBackendError};
-use crate::platform::wayland::{prelude::*, WaylandImpl, WaylandError};
+use crate::wayland::{prelude::*, WaylandImpl, WaylandError};
 use crate::types::Dict;
 use crate::dict;
 
 const OUTPUT_NAME: &str = "winit";
 
 #[derive(Debug)]
-pub struct WinitBackend<M: Manager<Wayland<M, Self>> + 'static> {
+pub struct WinitBackend<M: Manager + 'static> {
     pub(crate) winit: WinitGraphicsBackend<GlesRenderer>,
     pub(crate) dmg_tracker: OutputDamageTracker,
     pub(crate) output: Output,
@@ -45,7 +45,7 @@ pub struct WinitBackend<M: Manager<Wayland<M, Self>> + 'static> {
     _phantom: PhantomData<M>,
 }
 
-impl<M: Manager<Wayland<M, Self>> + 'static> WinitBackend<M> {
+impl<M: Manager + 'static> WinitBackend<M> {
     /// Creates a new Winit backend, returning additional args inside a `Dict`
     /// that must be passed into its `init` method.
     pub fn new() -> Result<(Self, Dict), WaylandError> {
@@ -86,7 +86,7 @@ impl<M: Manager<Wayland<M, Self>> + 'static> WinitBackend<M> {
     }
 }
 
-impl<M: Manager<Wayland<M, Self>> + 'static> WaylandBackend<M> for WinitBackend<M> {
+impl<M: Manager + 'static> WaylandBackend<M> for WinitBackend<M> {
     
     fn name(&self) -> &str {
         "winit"

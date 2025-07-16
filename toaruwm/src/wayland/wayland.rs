@@ -30,27 +30,22 @@ use smithay::wayland::{
 use smithay::desktop::{Space, Window, PopupManager};
 
 use super::handlers::{ClientState, WaylandState};
-use super::window::{WaylandWindow, Unmapped};
+use super::window::{Unmapped};
 use super::backend::{
     WaylandBackend, WaylandBackendError,
 };
 use super::render::RedrawState;
 
-use super::{ClientData, Platform, PlatformType};
-
-use crate::platform::{PlatformWindowId, PlatformError, wayland::WaylandOutput};
 use crate::config::RuntimeConfig;
-use crate::types::{Dict, Rectangle, Logical};
+use crate::types::Dict;
 use crate::manager::{Manager, ManagerPlatformInterface};
-use crate::Toaru;
+use super::WaylandOutput;
 
 /// An identifier corresponding to a Wayland client.
 /// 
 /// This is the `Client` associated type for [`Wayland`]'s implementation
 /// of [`Platform`].
 pub type WaylandWindowId = u64;
-
-impl PlatformWindowId for WaylandWindowId {}
 
 /// An implementation of the Wayland platform.
 /// 
@@ -59,7 +54,7 @@ impl PlatformWindowId for WaylandWindowId {}
 #[derive(Debug)]
 pub struct Wayland<M, B>
 where
-    M: Manager<Self> + 'static,
+    M: Manager + 'static,
     B: WaylandBackend<M> + 'static
 {
     
@@ -71,7 +66,7 @@ where
     pub(super) wl: WaylandImpl<M, B>
 }
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> Wayland<M, B> {
     /// Creates a new Wayland compositor, and runs [`init`][1] on the given `backend`.
     /// On success, returns a (Self, Display) tuple, and the
     /// display should be ultimately passed into the run() method.
@@ -143,7 +138,7 @@ impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
     }
 }
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> Wayland<M, B> {
 
     /// Returns a reference to the backend used by `Wayland`.
     pub fn backend(&self) -> &B {
@@ -302,7 +297,7 @@ impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
 #[derive(Debug)]
 pub struct WaylandImpl<M, B>
 where
-    M: Manager<Wayland<M, B>> + 'static,
+    M: Manager + 'static,
     B: WaylandBackend<M> + 'static 
 {
     /// The core Toaru struct handling functionality.
@@ -327,7 +322,7 @@ where
     pub(super) stop_signal: LoopSignal,
 }
 
-impl<M: Manager<Wayland<M, B>> + 'static, B: WaylandBackend<M> + 'static> WaylandImpl<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> WaylandImpl<M, B> {
     /// Returns a reference to the internal `Toaru`.
     pub fn manager(&self) -> &M {
         &self.manager
@@ -361,7 +356,7 @@ impl<M: Manager<Wayland<M, B>> + 'static, B: WaylandBackend<M> + 'static> Waylan
         let loc = output.current_location();
         self.global_space.map_output(&output, loc);
         // add it to our platform-agnostic state.
-        self.manager.add_output(output);
+        self.manager.add_output(WaylandOutput(output));
         todo!()
     }
 
@@ -407,43 +402,6 @@ pub enum WaylandError {
 impl<E: WaylandBackendError + 'static> From<E> for WaylandError {
     fn from(e: E) -> WaylandError {
         WaylandError::BackendError(Box::new(e))
-    }
-}
-
-impl PlatformError for WaylandError {}
-
-impl<M: Manager<Self>, B: WaylandBackend<M>> Platform for Wayland<M, B> {
-    type WindowId = u64;
-    type Window = WaylandWindow;
-    type Output = WaylandOutput;
-    type Error = WaylandError;
-
-    fn name(&self) -> &str {
-        self.backend.name()
-    }
-
-    fn platform_type(&self) -> PlatformType {
-        PlatformType::Wayland
-    }
-
-    fn nested(&self) -> bool {
-        self.backend.nested()
-    }
-
-    fn all_outputs(&self) -> Result<&[Self::Output], WaylandError> {
-        todo!()
-    }
-
-    fn query_tree(&self, client: u64) -> Result<Rectangle<i32, Logical>, WaylandError> {
-        todo!()
-    }
-
-    fn query_pointer(&self) {
-        todo!()
-    }
-
-    fn query_window_data(&self, clid: u64) -> Result<ClientData, WaylandError> {
-        todo!()
     }
 }
 

@@ -19,7 +19,7 @@ use smithay::backend::{
 };
 use smithay::output::Output;
 
-use crate::platform::wayland::{
+use crate::wayland::{
     prelude::*,
     handlers::ClientState,
     window::{WaylandWindow, is_mapped},
@@ -28,7 +28,7 @@ use crate::delegate_compositor;
 
 impl<M, B> CompositorHandler for Wayland<M, B>
 where
-    M: Manager<Self> + 'static,
+    M: Manager + 'static,
     B: WaylandBackend<M> + 'static
 {
     fn compositor_state(&mut self) -> &mut CompositorState {
@@ -97,9 +97,9 @@ where
     }
 }
 
-delegate_compositor!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_compositor!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> Wayland<M, B> {
     pub fn find_window_and_output(&self, surface: &WlSurface) -> Option<(&WaylandWindow, Option<&Output>)> {
         todo!()
     }

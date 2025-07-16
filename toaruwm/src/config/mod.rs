@@ -68,7 +68,7 @@ use crate::layouts::Layout;
 /// should not violated, A type `Config` also has one invariant of its own,
 /// that its Layouts and Workspaces must contain at least one member,
 /// i.e. they cannot be empty.
-pub trait ManagerConfig<P> {
+pub trait ManagerConfig {
     /// The type it will finally convert itself into.
     type Runtime: RuntimeConfig;
 
@@ -76,7 +76,7 @@ pub trait ManagerConfig<P> {
     type Workspaces: IntoIterator<Item = WorkspaceSpec>;
 
     /// The layout collection returned when queried.
-    type Layouts: IntoIterator<Item = Box<dyn Layout<P>>>;
+    type Layouts: IntoIterator<Item = Box<dyn Layout>>;
 
     /// Yield an iterator over the workspaces.
     fn take_workspaces(&mut self) -> Self::Workspaces;

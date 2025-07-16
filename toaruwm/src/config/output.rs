@@ -9,7 +9,7 @@ use std::cell::Cell;
 use strum::EnumIs;
 
 use crate::types::{Point, Size, Physical, Logical, Cardinal, Transform};
-use crate::platform::PlatformOutput;
+use crate::wayland::WaylandOutput;
 
 /// A set of outputs laid out on a 2D coordinate space, as defined by the user.
 /// You can insert and remove Outputs as needed.
@@ -186,7 +186,7 @@ impl OutputLayout {
     /// 
     /// Once an `Output` is matched, it will no longer match on subsequent
     /// calls to `match_with`, unless unmatched with [`OutputLayout::unmatch`].
-    pub fn match_with<P: PlatformOutput>(&self, output: &P) -> Option<&Output> {
+    pub fn match_with(&self, output: &WaylandOutput) -> Option<&Output> {
         self.match_with_entry(output).map(|entry| entry.inner())
     }
 
@@ -211,7 +211,7 @@ impl OutputLayout {
             .find(|entry| entry.name() == Some(name.as_ref()))
     }
 
-    pub(crate) fn match_with_entry<P: PlatformOutput>(&self, output: &P) -> Option<&Arc<OutputEntry>> {
+    pub(crate) fn match_with_entry(&self, output: &WaylandOutput) -> Option<&Arc<OutputEntry>> {
         // get matches for all output entries
         // return the strongest match
         self.outputs.iter()
@@ -295,7 +295,7 @@ impl OutputIdentifier {
     /// match, the stronger the match.
     /// 
     /// If there is no match, `None` is returned.
-    pub fn match_with<P: PlatformOutput>(&self, output: &P) -> Option<usize> {
+    pub fn match_with(&self, output: &WaylandOutput) -> Option<usize> {
         match self {
             OutputIdentifier::Name(name) => {
                 if name == &output.name() {

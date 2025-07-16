@@ -17,7 +17,6 @@ use super::{
     input::KeyButMask,
 };
 use crate::types::{Rectangle, Logical};
-use crate::platform::PlatformWindowId;
 
 #[doc(inline)]
 pub use super::traits::{XCore, XConn, RandR, Xkb};
@@ -86,8 +85,6 @@ impl DerefMut for Xid {
 
 /// An X server ID for a given window.
 pub type XWindowID = Xid;
-
-impl PlatformWindowId for XWindowID {}
 
 /// An X Atom.
 pub type XAtom = Xid;

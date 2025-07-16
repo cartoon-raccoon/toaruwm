@@ -7,8 +7,8 @@ use crate::core::{
 };
 use crate::layouts::{update::IntoUpdate, Layout, Layouts};
 use crate::types::{Cardinal, Direction, Rectangle, Point, Logical};
-use crate::platform::{Platform};
 use crate::config::{ManagerConfig, RuntimeConfig, MgrConfig};
+use crate::wayland::{WaylandOutput, WaylandWindowId};
 
 use crate::{Result, ToaruError};
 use super::{ToaruState, Manager, ManagerCommandHandler, ManagerPlatformInterface};
@@ -61,28 +61,26 @@ use super::{ToaruState, Manager, ManagerCommandHandler, ManagerPlatformInterface
 /// Resolving this conflict is transparent to `Toaru`, and is a `Platform`-level policy.
 ///
 /// [1]: crate::core::Workspace
-pub struct Toaru<P, C>
+pub struct Toaru<C>
 where
-    P: Platform,
     C: RuntimeConfig,
 {
     /// The internal config of the WindowManager.
     config: MgrConfig,
     /// The workspaces.
-    workspaces: WorkspaceMux<P>,
+    workspaces: WorkspaceMux,
     /// All screens connected to the computer.
-    monitors: HashMap<P::Output, Monitor<P>>,
+    monitors: HashMap<WaylandOutput, Monitor>,
     /// The window currently being manipulated
     /// if `self.mousemode` is not None.
-    selected: Option<P::WindowId>,
+    selected: Option<WaylandWindowId>,
 
     _cfg_phantom: PhantomData<C>,
 }
 
 /// General `WindowManager`-level commands.
-impl<P, C> Toaru<P, C>
+impl< C> Toaru<C>
 where
-    P: Platform,
     C: RuntimeConfig
 {
     /// Constructs a new Toaru object.
@@ -99,17 +97,17 @@ where
     /// all your invariants are upheld.
     ///
     /// See [`Config`] for more details.
-    pub fn new<E, W, L>(mut config: E) -> Result<Toaru<P, C>>
+    pub fn new<E, W, L>(mut config: E) -> Result<Toaru<C>>
     where
-        E: ManagerConfig<P, Runtime = C, Workspaces = W, Layouts = L>,
+        E: ManagerConfig<Runtime = C, Workspaces = W, Layouts = L>,
         W: IntoIterator<Item = WorkspaceSpec>,
-        L: IntoIterator<Item = Box<dyn Layout<P>>>,
+        L: IntoIterator<Item = Box<dyn Layout>>,
     {
         let specs: Vec<WorkspaceSpec> = config.take_workspaces().into_iter().collect();
         let layouts = Layouts::with_layouts_validated(
             config.take_layouts()
                 .into_iter()
-                .collect::<Vec<Box< dyn Layout<P>>>>()   
+                .collect::<Vec<Box< dyn Layout>>>()   
         )?;
 
         let mut wksps = Vec::new();
@@ -137,7 +135,7 @@ where
     }
 
     /// Provides a ToaruState for introspection.
-    pub fn state(&self, monitor: &P::Output) -> ToaruState<'_, P, C> {
+    pub fn state(&self, monitor: &WaylandOutput) -> ToaruState<'_, C> {
         let mon = self.monitors.get(monitor).expect("output should already be present");
         ToaruState {
             config: &self.config.downcast(),
@@ -147,9 +145,9 @@ where
     }
 }
 
-impl<P: Platform, C: RuntimeConfig> Manager<P> for Toaru<P, C> {}
+impl<C: RuntimeConfig> Manager for Toaru<C> {}
 
-impl<P: Platform, C: RuntimeConfig> ManagerPlatformInterface<P> for Toaru<P, C> {
+impl<C: RuntimeConfig> ManagerPlatformInterface for Toaru<C> {
     type Config = C;
 
     fn config(&self) -> &Self::Config {
@@ -157,7 +155,7 @@ impl<P: Platform, C: RuntimeConfig> ManagerPlatformInterface<P> for Toaru<P, C> 
     }
 
     /// Add a new output to Toaru.
-    fn add_output(&mut self, output: P::Output) {
+    fn add_output(&mut self, output: WaylandOutput) {
         let idx = self.monitors.len();
 
         let monitor = Monitor::new(output.clone(), &self.workspaces, idx as i32);
@@ -166,52 +164,52 @@ impl<P: Platform, C: RuntimeConfig> ManagerPlatformInterface<P> for Toaru<P, C> 
     }
 
     /// Gets the monitor with the provided `PlatformOutput`.
-    fn get_output(&mut self, output: &P::Output) -> Option<&mut Monitor<P>> {
+    fn get_output(&mut self, output: &WaylandOutput) -> Option<&mut Monitor> {
         self.monitors.get_mut(output)
     }
 
     /// Remove an output from Toaru.
-    fn remove_output(&mut self, output: &P::Output) -> Option<Monitor<P>> {
+    fn remove_output(&mut self, output: &WaylandOutput) -> Option<Monitor> {
         todo!()
     }
 
     /// Creates a new window and inserts it into the currently focused workspace.
-    fn insert_window(&mut self, id: P::WindowId, output: Option<&P::Output>) {
+    fn insert_window(&mut self, id: WaylandWindowId, output: Option<&WaylandOutput>) {
         todo!()
     }
 
     /// Run a closure on the window with `id`.
-    fn with_window<F, T>(&mut self, id: P::WindowId, f: F) -> T
+    fn with_window<F, T>(&mut self, id: WaylandWindowId, f: F) -> T
     where
-        F: FnOnce(&mut Window<P>) -> T
+        F: FnOnce(&mut Window) -> T
     {
         todo!()
     }
 
     /// Removes the window identified by `id`.
-    fn remove_window(&mut self, id: P::WindowId) -> Option<Window<P>> {
+    fn remove_window(&mut self, id: WaylandWindowId) -> Option<Window> {
         todo!()
     }
 
     /// Configures a window with a given `id`.
-    fn configure_window(&mut self, id: P::WindowId, geom: Rectangle<i32, Logical>) {
+    fn configure_window(&mut self, id: WaylandWindowId, geom: Rectangle<i32, Logical>) {
         todo!()
     }
 
     /// Maps the window, configuring it within its workspace.
-    fn map_window(&mut self, id: P::WindowId) {
+    fn map_window(&mut self, id: WaylandWindowId) {
         todo!()
     }
 
     /// Unmaps the window.
-    fn unmap_window(&mut self, id: P::WindowId) {
+    fn unmap_window(&mut self, id: WaylandWindowId) {
         todo!()
     }
 
     /// Runs a closure on all workspaces managed within Toaru.
     fn with_workspaces<F, T>(&mut self, f: F) -> T 
     where
-        F: FnOnce(&mut [Workspace<P>]) -> T
+        F: FnOnce(&mut [Workspace]) -> T
     {
         self.workspaces.with_workspaces(f)
     }
@@ -221,16 +219,15 @@ impl<P: Platform, C: RuntimeConfig> ManagerPlatformInterface<P> for Toaru<P, C> 
     /// If `active_only` is true, the closure is run only for active workspaces.
     fn foreach_workspace<F>(&mut self, active_only: bool, f: F)
     where
-        F: FnMut(&mut Workspace<P>)
+        F: FnMut(&mut Workspace)
     {
         self.workspaces.foreach_wksp(active_only, f);
     }
 }
 
 /// Desktop-level commands.
-impl<P, C> ManagerCommandHandler for Toaru<P, C>
+impl<C> ManagerCommandHandler for Toaru<C>
 where
-    P: Platform,
     C: RuntimeConfig,
 {   
     /// Goes to the specified workspace on the currently active monitor.
@@ -313,13 +310,12 @@ where
 }
 
 #[doc(hidden)]
-impl<P: Platform, C: RuntimeConfig> Toaru<P, C> {
+impl<C: RuntimeConfig> Toaru<C> {
 
 }
 
-impl<P, C> fmt::Debug for Toaru<P, C>
+impl<C> fmt::Debug for Toaru<C>
 where
-    P: Platform,
     C: RuntimeConfig + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

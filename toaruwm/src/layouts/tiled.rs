@@ -9,21 +9,21 @@ use super::{
 
 use crate::core::Workspace;
 use crate::types::{Cardinal, Rectangle, Logical};
-use crate::platform::{Platform};
+use crate::wayland::WaylandWindowId;
 
 /// A simple dynamic tiling layout, with a main window
 /// and a stack on the side.
 #[derive(Debug)]
-pub struct DynamicTiled<P: Platform> {
+pub struct DynamicTiled {
     // the proportion of space that the main window should take up
     ratio: Cell<f32>,
     // the border width set by the user.
     bwidth: Cell<u32>,
     // the ID of the main window, if set
-    main: Cell<Option<P::WindowId>>,
+    main: Cell<Option<WaylandWindowId>>,
 }
 
-impl<P: Platform> DynamicTiled<P> {
+impl DynamicTiled {
     /// Creates a new DynamicTiled layout, with the given ratio
     /// and border width setup.
     pub fn new(ratio: f32, bwidth: u32) -> Self {
@@ -35,16 +35,16 @@ impl<P: Platform> DynamicTiled<P> {
     }
 }
 
-impl<P: Platform> Layout<P> for DynamicTiled<P> {
+impl Layout for DynamicTiled {
     fn name(&self) -> &str {
         "DTiled"
     }
 
-    fn layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
+    fn layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction> {
         self._layout(ctxt)
     }
 
-    fn boxed(&self) -> Box<dyn Layout<P>> {
+    fn boxed(&self) -> Box<dyn Layout> {
         // Box::new(self.clone())
         todo!()
     }
@@ -63,8 +63,8 @@ impl<P: Platform> Layout<P> for DynamicTiled<P> {
 }
 
 #[doc(hidden)]
-impl<P: Platform> DynamicTiled<P> {
-    fn _layout(&self, ctxt: LayoutCtxt<'_, P>) -> Vec<LayoutAction<P>> {
+impl DynamicTiled {
+    fn _layout(&self, ctxt: LayoutCtxt<'_>) -> Vec<LayoutAction> {
         let geom = ctxt.working_area;
         let ws = ctxt.workspace;
 
@@ -93,10 +93,10 @@ impl<P: Platform> DynamicTiled<P> {
 
     fn _layout_with_main(
         &self,
-        main_id: P::WindowId,
+        main_id: WaylandWindowId,
         geom: Rectangle<i32, Logical>,
-        ws: &Workspace<P>,
-    ) -> Vec<LayoutAction<P>> {
+        ws: &Workspace,
+    ) -> Vec<LayoutAction> {
         use Cardinal::*;
 
         let bwidth = self.bwidth.get() as i32;

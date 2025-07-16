@@ -21,9 +21,9 @@ use std::ops::{Deref, DerefMut};
 
 use tracing::trace;
 
+use crate::wayland::{WaylandWindowId, WaylandOutput};
 use crate::core::Workspace;
 use crate::ToaruError;
-use crate::platform::{Platform, PlatformOutput};
 use crate::types::{
     Cardinal, Direction, Rectangle, Logical
 };
@@ -56,13 +56,13 @@ use crate::Result;
 /// the monitor's internal information.
 /// 
 #[derive(Debug)]
-pub struct Monitor<P: Platform> {
-    inner: Rc<RefCell<MonitorInner<P>>>
+pub struct Monitor {
+    inner: Rc<RefCell<MonitorInner>>
 }
 
-impl<P: Platform> Monitor<P> {
+impl Monitor {
     /// Creates a new monitor from a given `output`.
-    pub fn new(output: P::Output, wmux: &WorkspaceMux<P>, screen_idx: i32) -> Self {
+    pub fn new(output: WaylandOutput, wmux: &WorkspaceMux, screen_idx: i32) -> Self {
         let handle = wmux.handle();
         let inner = MonitorInner::new(output, handle.clone(), screen_idx);
 
@@ -76,7 +76,7 @@ impl<P: Platform> Monitor<P> {
     }
 
     /// Create a handle to the Monitor.
-    pub fn handle(&self) -> MonitorHandle<P> {
+    pub fn handle(&self) -> MonitorHandle {
         MonitorHandle {
             inner: Rc::downgrade(&self.inner)
         }
@@ -117,7 +117,7 @@ impl<P: Platform> Monitor<P> {
     /// Run a closure with the [`WorkspaceMuxHandle`] owned by this Monitor.
     pub fn with_wmux_handle<F, T>(&self, f: F) -> T
     where
-        F: FnOnce(&WorkspaceMuxHandle<P>) -> T 
+        F: FnOnce(&WorkspaceMuxHandle) -> T 
     {
         f(&self.inner.borrow().handle())
     }
@@ -125,11 +125,11 @@ impl<P: Platform> Monitor<P> {
 
 /// A read-only handle to a monitor.
 #[derive(Debug)]
-pub struct MonitorHandle<P: Platform> {
-    inner: Weak<RefCell<MonitorInner<P>>>
+pub struct MonitorHandle {
+    inner: Weak<RefCell<MonitorInner>>
 }
 
-impl<P: Platform> MonitorHandle<P> {
+impl MonitorHandle {
     /// Get the name of the output.
     pub fn name(&self) -> String {
         self.inner.upgrade()
@@ -164,19 +164,19 @@ impl<P: Platform> MonitorHandle<P> {
 }
 
 #[derive(Debug, Clone)]
-struct MonitorInner<P: Platform> {
+struct MonitorInner {
     pub(crate) name: String,
-    pub(crate) output: P::Output,
-    pub(crate) wmux_handle: WorkspaceMuxHandle<P>,
+    pub(crate) output: WaylandOutput,
+    pub(crate) wmux_handle: WorkspaceMuxHandle,
     /// The usable geometry of the Screen.
     pub(crate) effective_geom: Rectangle<i32, Logical>,
     /// The index of the Screen.
     pub(crate) idx: i32,
 }
 
-impl<P: Platform> MonitorInner<P> {
+impl MonitorInner {
     /// Creates a new Monitor with the provided output and workspace handle.
-    pub fn new(output: P::Output, wmux_handle: WorkspaceMuxHandle<P>, screen_idx: i32) -> Self {
+    pub fn new(output: WaylandOutput, wmux_handle: WorkspaceMuxHandle, screen_idx: i32) -> Self {
         let effective_geom = output.geometry().unwrap_or_else(|| Rectangle::zeroed());
         Self {
             name: output.name(),
@@ -214,7 +214,7 @@ impl<P: Platform> MonitorInner<P> {
     }
 
     /// Returns a reference to the [`WorkspaceMuxHandle`] owned by the Monitor.
-    pub fn handle(&self) -> &WorkspaceMuxHandle<P> {
+    pub fn handle(&self) -> &WorkspaceMuxHandle {
         &self.wmux_handle
     }
 }
@@ -229,17 +229,17 @@ impl<P: Platform> MonitorInner<P> {
 /// invariant.
 /// 
 #[derive(Debug)]
-pub struct Workspaces<P: Platform> {
-    wksps: Vec<Workspace<P>>,
+pub struct Workspaces {
+    wksps: Vec<Workspace>,
     names: HashSet<String>,
     config: MgrConfig
 }
 
-impl<P: Platform> Workspaces<P> {
+impl Workspaces {
     /// Creates a new `Workspace` namespace.
     pub fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
-        I: IntoIterator<Item = Workspace<P>>
+        I: IntoIterator<Item = Workspace>
     {
         let mut wksps = Vec::new();
         let mut names = HashSet::new();
@@ -264,7 +264,7 @@ impl<P: Platform> Workspaces<P> {
     /// 
     /// If the workspace was successfully added, `None` is returned, otherwise the created workspace
     /// is added.
-    pub fn add_workspace<S: Into<String>>(&mut self, name: S) -> Option<Workspace<P>> {
+    pub fn add_workspace<S: Into<String>>(&mut self, name: S) -> Option<Workspace> {
         let name: String = name.into();
         let new = Workspace::new(&name, self.config.clone());
 
@@ -279,7 +279,7 @@ impl<P: Platform> Workspaces<P> {
 
     /// Attempts to insert the provided workspace. If the new workspace does not violate the invariants
     /// of the namespace, it is inserted and `None` is returned, otherwise the workspace is returned.
-    pub fn insert_workspace(&mut self, wksp: Workspace<P>, idx: Option<usize>) -> Option<Workspace<P>> {
+    pub fn insert_workspace(&mut self, wksp: Workspace, idx: Option<usize>) -> Option<Workspace> {
         if self.names.contains(wksp.name()) {
             return Some(wksp)
         }
@@ -294,7 +294,7 @@ impl<P: Platform> Workspaces<P> {
     }
 
     /// Removes the workspace with the given name, returning it if it exists.
-    pub fn del_workspace<S: AsRef<str>>(&mut self, name: S) -> Option<Workspace<P>> {
+    pub fn del_workspace<S: AsRef<str>>(&mut self, name: S) -> Option<Workspace> {
         let idx = self.wksps.iter()
             .enumerate()
             .find(|(_, ws)| ws.name() == name.as_ref())
@@ -309,15 +309,15 @@ impl<P: Platform> Workspaces<P> {
     }
 }
 
-impl<P: Platform> Deref for Workspaces<P> {
-    type Target = [Workspace<P>];
+impl Deref for Workspaces {
+    type Target = [Workspace];
 
-    fn deref(&self) -> &[Workspace<P>] {
+    fn deref(&self) -> &[Workspace] {
         &self.wksps
     }
 }
 
-impl<P: Platform> DerefMut for Workspaces<P> {
+impl DerefMut for Workspaces {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.wksps
     }
@@ -361,15 +361,15 @@ pub enum WsSelector<'a> {
 /// will create a workspace with name "5"). If this too fails (e.g. because it would violate 
 /// the namespace invariants) it will then **panic**.
 #[derive(Debug)]
-pub struct WorkspaceMux<P: Platform> {
-    inner: Rc<WorkspaceMuxInner<P>>
+pub struct WorkspaceMux {
+    inner: Rc<WorkspaceMuxInner>
 }
 
-impl<P: Platform> WorkspaceMux<P> {
+impl WorkspaceMux {
     /// Creates a new `WorkspaceMux`.
     pub fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
-        I: IntoIterator<Item = Workspace<P>>
+        I: IntoIterator<Item = Workspace>
     {
         Ok(Self {
             inner: Rc::new(WorkspaceMuxInner::new(workspaces, config)?)
@@ -383,7 +383,7 @@ impl<P: Platform> WorkspaceMux<P> {
     /// This function will panic if creating this handle would cause an overflow
     /// (see above) and attempting to fix the overflow by creating a new workspace
     /// fails.
-    pub fn handle(&self) -> WorkspaceMuxHandle<P> {
+    pub fn handle(&self) -> WorkspaceMuxHandle {
         let token = self.inner.add_token();
 
         WorkspaceMuxHandle {
@@ -395,7 +395,7 @@ impl<P: Platform> WorkspaceMux<P> {
     /// Runs a closure on all the workspaces in the Multiplexer.
     pub fn with_workspaces<F, T>(&self, f: F) -> T
     where
-        F: FnOnce(&mut [Workspace<P>]) -> T
+        F: FnOnce(&mut [Workspace]) -> T
     {
         let mut workspaces = self.inner.workspaces.borrow_mut();
 
@@ -408,7 +408,7 @@ impl<P: Platform> WorkspaceMux<P> {
     /// in the `WorkspaceMux`.
     pub fn foreach_wksp<F>(&self, active_only: bool, f: F) 
     where
-        F: FnMut(&mut Workspace<P>)
+        F: FnMut(&mut Workspace)
     {
         let mut workspaces = self.inner.workspaces.borrow_mut();
 
@@ -423,7 +423,7 @@ impl<P: Platform> WorkspaceMux<P> {
     }
 
     /// Checks if the window with the given `id` is inside any workspace.
-    pub fn is_managing(&self, id: P::WindowId) -> bool {
+    pub fn is_managing(&self, id: WaylandWindowId) -> bool {
         self.inner.is_managing(id)
     }
 }
@@ -451,12 +451,12 @@ impl<P: Platform> WorkspaceMux<P> {
 /// you pass in `swap=true` in the methods where it is available. In that case, the `Handle`
 /// on the target workspace will swap places with your `Handle`.
 #[derive(Debug)]
-pub struct WorkspaceMuxHandle<P: Platform> {
+pub struct WorkspaceMuxHandle {
     token: u64,
-    handle: Weak<WorkspaceMuxInner<P>>
+    handle: Weak<WorkspaceMuxInner>
 }
 
-impl<P: Platform> WorkspaceMuxHandle<P> {
+impl WorkspaceMuxHandle {
     /// Whether this `Handle` is registered with an underlying `WorkspaceMux`.
     pub fn registered(&self) -> bool {
         self.handle.upgrade()
@@ -479,7 +479,7 @@ impl<P: Platform> WorkspaceMuxHandle<P> {
     }
 
     /// Checks if a window with a given `id` is being managed by any of the workspaces.
-    pub fn is_managing(&self, id: P::WindowId) -> bool {
+    pub fn is_managing(&self, id: WaylandWindowId) -> bool {
         self.handle.upgrade()
             .map(|h| h.is_managing(id))
             .is_some_and(|b| b)
@@ -515,7 +515,7 @@ impl<P: Platform> WorkspaceMuxHandle<P> {
     }
 
     /// Sends the window with the given `id` to the workspace, either by name or by index.
-    pub fn send_window_to(&self, id: P::WindowId, sel: WsSelector<'_>) -> bool {
+    pub fn send_window_to(&self, id: WaylandWindowId, sel: WsSelector<'_>) -> bool {
         let Some(handle) = self.handle.upgrade() else {
             return false;
         };
@@ -541,20 +541,20 @@ impl<P: Platform> WorkspaceMuxHandle<P> {
     /// or if the underlying `WorkspaceMux` was dropped.
     pub fn with_current<F, T>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(&mut Workspace<P>) -> T
+        F: FnOnce(&mut Workspace) -> T
     {
         self.handle.upgrade()
             .and_then(|h| h.with_token(self.token, f))
     }
 }
 
-impl<P: Platform> PartialEq for WorkspaceMuxHandle<P> {
-    fn eq(&self, other: &WorkspaceMuxHandle<P>) -> bool {
+impl PartialEq for WorkspaceMuxHandle {
+    fn eq(&self, other: &WorkspaceMuxHandle) -> bool {
         self.token == other.token
     }
 }
 
-impl<P: Platform> Drop for WorkspaceMuxHandle<P> {
+impl Drop for WorkspaceMuxHandle {
     fn drop(&mut self) {
         if self.handle.weak_count() == 0 {
             trace!("WorkspaceMuxHandle weak count is zero, removing from idxmap");
@@ -564,7 +564,7 @@ impl<P: Platform> Drop for WorkspaceMuxHandle<P> {
     }
 }
 
-impl<P: Platform> Clone for WorkspaceMuxHandle<P> {
+impl Clone for WorkspaceMuxHandle {
     fn clone(&self) -> Self {
 
         let handle = Weak::clone(&self.handle);
@@ -580,19 +580,19 @@ impl<P: Platform> Clone for WorkspaceMuxHandle<P> {
 }
 
 #[derive(Debug)]
-struct WorkspaceMuxInner<P: Platform> {
+struct WorkspaceMuxInner {
     /// The overall 
-    workspaces: RefCell<Workspaces<P>>,
+    workspaces: RefCell<Workspaces>,
     /// The mapping of tokens to their currently assigned workspace, by index.
     idxmap: RefCell<HashMap<u64, usize>>,
     /// The next token to give out.
     next_token: Cell<u64>, //? Is simply counting up a good way to give out tokens?
 }
 
-impl<P: Platform> WorkspaceMuxInner<P> {
+impl WorkspaceMuxInner {
     pub(crate) fn new<I>(workspaces: I, config: MgrConfig) -> Result<Self>
     where
-        I: IntoIterator<Item = Workspace<P>>
+        I: IntoIterator<Item = Workspace>
     {
         let workspaces = Workspaces::new(workspaces, config)?;
 
@@ -665,7 +665,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         self.remove_token(token);
     }
 
-    pub(crate) fn is_managing(&self, id: P::WindowId) -> bool {
+    pub(crate) fn is_managing(&self, id: WaylandWindowId) -> bool {
         self.workspaces.borrow().iter().any(|ws| ws.contains_window(id))
     }
 
@@ -742,7 +742,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         todo!()
     }
 
-    pub(crate) fn send_window_to_name(&self, id: P::WindowId, name: &str, token: u64) -> bool {
+    pub(crate) fn send_window_to_name(&self, id: WaylandWindowId, name: &str, token: u64) -> bool {
         let Some(target_idx) = self.workspaces.borrow()
             .iter()
             .enumerate()
@@ -752,7 +752,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
         self.send_window_to_idx(id, target_idx, token)
     }
 
-    pub(crate) fn send_window_to_idx(&self, id: P::WindowId, idx: usize, token: u64) -> bool {
+    pub(crate) fn send_window_to_idx(&self, id: WaylandWindowId, idx: usize, token: u64) -> bool {
         todo!()
     }
 
@@ -764,7 +764,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     /// if one is assigned.
     pub(crate) fn with_token<F, T>(&self, token: u64, f: F) -> Option<T>
     where
-        F: FnOnce(&mut Workspace<P>) -> T
+        F: FnOnce(&mut Workspace) -> T
     {
         let Some(idx) = self.idxmap.borrow().get(&token).map(|v| *v) else {
             return None
@@ -780,7 +780,7 @@ impl<P: Platform> WorkspaceMuxInner<P> {
     /// This method panics if the provided index is out of bounds.
     pub(crate) fn with_idx<F, T>(&self, idx: usize, f: F) -> T
     where
-        F: FnOnce(&mut Workspace<P>) -> T
+        F: FnOnce(&mut Workspace) -> T
     {
         f(&mut self.workspaces.borrow_mut()[idx])
     }

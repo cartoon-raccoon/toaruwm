@@ -17,8 +17,7 @@ use crate::core::{
 use crate::layouts::{update::IntoUpdate, LayoutAction, LayoutType, Layouts};
 use crate::config::MgrConfig;
 use crate::types::Direction;
-use crate::platform::{Platform};
-
+use crate::wayland::{WaylandWindow, WaylandWindowId};
 use crate::Result;
 
 /// A specification describing a workspace.
@@ -118,23 +117,20 @@ impl WorkspaceSpec {
 /// See [`Layouts`] for more information.
 /// 
 /// [1]: crate::Toaru
-pub struct Workspace<P>
-where
-    P: Platform,
-{
+pub struct Workspace {
     /// The workspace name.
     pub(crate) name: String,
     /// The windows currently in the workspace.
-    pub(crate) windows: WindowRing<P>,
-    pub(crate) focuses: FocusStack<P::WindowId>,
+    pub(crate) windows: WindowRing,
+    pub(crate) focuses: FocusStack,
     /// The layouts applied to this Workspace.
-    pub(crate) layouts: Layouts<P>,
+    pub(crate) layouts: Layouts,
     /// The current output this workspace is being displayed on, if any.
-    pub(crate) output: Option<MonitorHandle<P>>,
+    pub(crate) output: Option<MonitorHandle>,
     pub(crate) config: MgrConfig,
 }
 
-impl<P: Platform> fmt::Debug for Workspace<P> {
+impl fmt::Debug for Workspace {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Workspace")
             .field("name", &self.name)
@@ -145,7 +141,7 @@ impl<P: Platform> fmt::Debug for Workspace<P> {
     }
 }
 
-impl<P: Platform> Workspace<P> {
+impl Workspace {
     // * PUBLIC METHODS * //
 
     /// Creates a new workspace.
@@ -161,7 +157,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Creates a new workspace with the provided `output`.
-    pub fn new_with_output<S>(name: S, output: MonitorHandle<P>, config: MgrConfig) -> Self
+    pub fn new_with_output<S>(name: S, output: MonitorHandle, config: MgrConfig) -> Self
     where
         S: Into<String>
     {
@@ -173,8 +169,8 @@ impl<P: Platform> Workspace<P> {
     /// Creates a workspace from a given specification.
     pub fn from_spec(
         spec: WorkspaceSpec, 
-        available_layouts: &Layouts<P>, 
-        output: Option<MonitorHandle<P>>,
+        available_layouts: &Layouts, 
+        output: Option<MonitorHandle>,
         config: MgrConfig,
     ) -> Result<Self> {
         let mut layouts = Vec::new();
@@ -202,12 +198,12 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Set the active output on this workspace, returning the previous active output, if any.
-    pub fn set_output(&mut self, output: MonitorHandle<P>) -> Option<MonitorHandle<P>> {
+    pub fn set_output(&mut self, output: MonitorHandle) -> Option<MonitorHandle> {
         self.output.replace(output)
     }
 
     /// Returns a reference to the current output the Workspace is shown on, if any.
-    pub fn output(&self) -> Option<&MonitorHandle<P>> {
+    pub fn output(&self) -> Option<&MonitorHandle> {
         self.output.as_ref()
     }
 
@@ -243,17 +239,17 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Tests whether the workspace contains a specfic window.
-    pub fn contains_window(&self, id: P::WindowId) -> bool {
+    pub fn contains_window(&self, id: WaylandWindowId) -> bool {
         self.windows.contains(id)
     }
 
     /// Returns a reference to the currently focused client.
-    pub fn focused(&self) -> Option<&Window<P>> {
+    pub fn focused(&self) -> Option<&Window> {
         self.windows.focused()
     }
 
     /// Returns a mutable reference to the currently focused client.
-    pub fn focused_mut(&mut self) -> Option<&mut Window<P>> {
+    pub fn focused_mut(&mut self) -> Option<&mut Window> {
         self.windows.focused_mut()
     }
 
@@ -265,37 +261,37 @@ impl<P: Platform> Workspace<P> {
 
     /// Returns an iterator over all the windows in the workspace.
     #[inline]
-    pub fn windows(&self) -> impl Iterator<Item = &Window<P>> {
+    pub fn windows(&self) -> impl Iterator<Item = &Window> {
         self.windows.iter()
     }
 
     /// Returns a mutable iterator over all the windows in the workspace.
     #[inline]
-    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
+    pub fn windows_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.iter_mut()
     }
 
     /// Returns an iterator over all the clients currently in the layout.
     #[inline]
-    pub fn windows_in_layout(&self) -> impl Iterator<Item = &Window<P>> {
+    pub fn windows_in_layout(&self) -> impl Iterator<Item = &Window> {
         self.windows.iter().filter(|w| !w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently in the layout.
     #[inline]
-    pub fn windows_in_layout_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
+    pub fn windows_in_layout_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.iter_mut().filter(|w| !w.is_off_layout())
     }
 
     /// Returns an iterator over all the clients currently off the layout.
     #[inline]
-    pub fn windows_off_layout(&self) -> impl Iterator<Item = &Window<P>> {
+    pub fn windows_off_layout(&self) -> impl Iterator<Item = &Window> {
         self.windows.iter().filter(|w| w.is_off_layout())
     }
 
     /// Returns a mutable iterator over all the clients currently off the layout.
     #[inline]
-    pub fn windows_off_layout_mut(&mut self) -> impl Iterator<Item = &mut Window<P>> {
+    pub fn windows_off_layout_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.iter_mut().filter(|w| w.is_off_layout())
     }
 
@@ -342,7 +338,7 @@ impl<P: Platform> Workspace<P> {
     /// Window in its underlying ring, or `None` if the Window
     /// does not exist.
     #[inline]
-    pub fn contains(&self, window: P::WindowId) -> Option<usize> {
+    pub fn contains(&self, window: WaylandWindowId) -> Option<usize> {
         self.windows.get_idx(window)
     }
 
@@ -351,7 +347,7 @@ impl<P: Platform> Workspace<P> {
     ///
     /// The window that gets the focus in the one that is currently
     /// focused in the internal Ring.
-    pub fn activate(&mut self, mon: MonitorHandle<P>) -> Option<MonitorHandle<P>> {
+    pub fn activate(&mut self, mon: MonitorHandle) -> Option<MonitorHandle> {
         if self.windows.is_empty() {
             return self.output.replace(mon);
         }
@@ -373,14 +369,14 @@ impl<P: Platform> Workspace<P> {
 
     /// Unmaps all the windows in the workspace and sets the workspace to inactive,
     /// relinquishing the MonitorHandle.
-    pub fn deactivate(&mut self) -> MonitorHandle<P> {
+    pub fn deactivate(&mut self) -> MonitorHandle {
         self.windows.iter_mut().for_each(|w| w.unmap());
 
         self.output.take().expect("Cannot deactivate an output with no active output")
     }
 
     /// Take the current output of the workspace without deactivating it.
-    pub fn take_output(&mut self) -> Option<MonitorHandle<P>> {
+    pub fn take_output(&mut self) -> Option<MonitorHandle> {
         self.output.take()
     }
 
@@ -394,17 +390,17 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Adds a window to the workspace in the layout.
-    pub fn add_window_on_layout(&mut self, window: P::Window) {
+    pub fn add_window_on_layout(&mut self, window: WaylandWindow) {
         self._add_window(Window::new(window, None))
     }
 
     /// Adds a window to the workspace off the layout.
-    pub fn add_window_off_layout(&mut self, window: P::Window) {
+    pub fn add_window_off_layout(&mut self, window: WaylandWindow) {
         self._add_window(Window::outside_layout(window, None))
     }
 
     /// Deletes the window from the workspaces and returns it.
-    pub fn del_window(&mut self,id: P::WindowId) -> Option<Window<P>> {
+    pub fn del_window(&mut self,id: WaylandWindowId) -> Option<Window> {
         let Some(win) = self.windows.lookup(id) else {
             warn!("No window with id {id:?} found");
             return None
@@ -418,19 +414,19 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Deletes the focused window in the workspace and returns it.
-    pub fn del_focused_window(&mut self) -> Option<Window<P>> {
+    pub fn del_focused_window(&mut self) -> Option<Window> {
         self.windows.focused()
             .map(|win| win.id())
             .and_then(|id| self.del_window(id))
     }
 
     /// Takes a window directly without calling the layout.
-    pub fn take_window(&mut self, window: P::WindowId) -> Option<Window<P>> {
+    pub fn take_window(&mut self, window: WaylandWindowId) -> Option<Window> {
         self.windows.remove_by_id(window)
     }
 
     /// Takes the focused window directly without calling the layout.
-    pub fn take_focused_window(&mut self) -> Option<Window<P>> {
+    pub fn take_focused_window(&mut self) -> Option<Window> {
         self.windows.focused()
             .map(|win| win.id())
             .and_then(|id| self.take_window(id))
@@ -439,7 +435,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the focused window to the given ID.
     ///
     /// Also calls `Self::unfocus_window` internally.
-    pub fn focus_window(&mut self, window: P::WindowId) {
+    pub fn focus_window(&mut self, window: WaylandWindowId) {
         let Some(_) = self.windows.get_idx(window) else {
             warn!("focus_window: no window {:?} found in workspace", window);
             return
@@ -480,7 +476,7 @@ impl<P: Platform> Workspace<P> {
     /// Sets the focused window to be managed by the layout.
     ///
     /// Is effectively a no-op if the workspace is in a floating-style layout.
-    pub fn add_to_layout(&mut self, id: P::WindowId) {
+    pub fn add_to_layout(&mut self, id: WaylandWindowId) {
         debug!("Setting focused to tiled");
 
         if let Some(win) = self.windows.lookup_mut(id) {
@@ -494,7 +490,7 @@ impl<P: Platform> Workspace<P> {
     /// turning it into a floating window regardless of the current layout style.
     ///
     /// This will also stack the window above any other windows.
-    pub fn remove_from_layout(&mut self, id: P::WindowId) {
+    pub fn remove_from_layout(&mut self, id: WaylandWindowId) {
         debug!("removing {:?} from layout", id);
         if let Some(win) = self.windows.lookup_mut(id) {
             win.set_off_layout();
@@ -511,7 +507,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Checks if the Window with given `id` is managed under layout.
-    pub fn has_window_in_layout(&self, id: P::WindowId) -> bool {
+    pub fn has_window_in_layout(&self, id: WaylandWindowId) -> bool {
         self.windows_in_layout().any(|c| c.id() == id)
     }
 
@@ -536,14 +532,14 @@ impl<P: Platform> Workspace<P> {
     //* ========================================= *//
 
     #[cfg_attr(debug_assertions, instrument(level = "debug", skip_all))]
-    fn _add_window(&mut self, window: Window<P>) {
+    fn _add_window(&mut self, window: Window) {
         trace!("adding window {:#?}", window);
         self.windows.append(window);
         self.relayout();
     }
 
     /// Deletes a window
-    fn _del_window(&mut self, id: P::WindowId, on_layout: bool,) -> Window<P> {
+    fn _del_window(&mut self, id: WaylandWindowId, on_layout: bool,) -> Window {
         let Some(window) = self.windows.remove_by_id(id) else {
             error!("Tried to remove window with {:?} but it does not exist", id);
             panic!("AAAAAA"); //fixme
@@ -565,7 +561,7 @@ impl<P: Platform> Workspace<P> {
     }
 
     /// Pushes a window directly without calling the layout.
-    pub(crate) fn put_window(&mut self, window: Window<P>) {
+    pub(crate) fn put_window(&mut self, window: Window) {
         let id = window.id();
         self.windows.push(window);
         self.focuses.add_by_layout_status(id, &self.windows);
@@ -581,7 +577,7 @@ impl<P: Platform> Workspace<P> {
         // self.focus_window(reply.child, pf, cfg);
     }
 
-    fn apply_layout(&mut self, layouts: &[LayoutAction<P>]) {
+    fn apply_layout(&mut self, layouts: &[LayoutAction]) {
         for rsaction in layouts {
             match rsaction {
                 LayoutAction::Resize { id, geom } => {

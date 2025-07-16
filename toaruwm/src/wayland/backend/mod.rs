@@ -18,7 +18,7 @@ pub use winit::WinitBackend;
 use super::util::IdCounter;
 use super::{Wayland, WaylandImpl, WaylandError};
 
-use crate::{Platform, Manager};
+use crate::Manager;
 use crate::types::Dict;
 
 static OUTPUT_ID_COUNTER: IdCounter = IdCounter::new();
@@ -58,7 +58,7 @@ pub fn should_run_nested() -> bool {
 /// 
 /// There are two implementors of `WaylandBackend` provided by this crate:
 /// [`WinitBackend`] and [`DrmBackend`].
-pub trait WaylandBackend<M: Manager<Wayland<M, Self>> + 'static>: Debug
+pub trait WaylandBackend<M: Manager + 'static>: Debug
 where
     Self: Sized + 'static
 {

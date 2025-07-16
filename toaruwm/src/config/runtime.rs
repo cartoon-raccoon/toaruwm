@@ -10,10 +10,7 @@ use std::any::Any;
 use std::rc::Rc;
 
 use crate::config::{OutputLayout, ConfigSection};
-use crate::platform::{
-    x11::X11Config,
-    wayland::WaylandConfig,
-};
+use crate::wayland::WaylandConfig;
 
 /// A type-erased wrapper around a RuntimeConfig.
 /// 
@@ -80,11 +77,6 @@ impl RuntimeConfig for MgrConfig {
     fn wayland(&self) -> &dyn WaylandConfig {
         self.inner.wayland()
     }
-
-    #[cfg(feature = "x11-core")]
-    fn x11(&self) -> &dyn X11Config {
-        self.inner.x11()
-    }
 }
 
 /// An object that can provide information about your
@@ -126,10 +118,6 @@ pub trait RuntimeConfig: Debug + Any {
     /// Returns Wayland-specific configuration.
     #[cfg(feature = "wayland-core")]
     fn wayland(&self) -> &dyn WaylandConfig;
-
-    /// Returns X11-specific configuration.
-    #[cfg(feature = "x11-core")]
-    fn x11(&self) -> &dyn X11Config;
 
     /// Wraps the `RuntimeConfig` in a new `ManagerConfig`.
     fn into_managerconfig(self) -> MgrConfig

@@ -9,9 +9,9 @@ use smithay::wayland::{
 };
 use crate::delegate_layer_shell;
 
-use crate::platform::wayland::prelude::*;
+use crate::wayland::prelude::*;
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> WlrLayerShellHandler for Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> WlrLayerShellHandler for Wayland<M, B> {
     fn shell_state(&mut self) -> &mut WlrLayerShellState {
         &mut self.state_mut().layer_shell
     }
@@ -26,4 +26,4 @@ impl<M: Manager<Self>, B: WaylandBackend<M>> WlrLayerShellHandler for Wayland<M,
     }
 }
 
-delegate_layer_shell!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_layer_shell!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);

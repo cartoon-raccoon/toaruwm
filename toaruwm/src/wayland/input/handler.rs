@@ -3,12 +3,12 @@
 use smithay::backend::input::{InputBackend, InputEvent};
 use smithay::utils::{SERIAL_COUNTER, Point, Logical};
 
-use crate::platform::wayland::prelude::*;
+use crate::wayland::prelude::*;
 
 use super::PointerFocusTarget;
 
 #[doc(hidden)]
-impl<M: Manager<Self>, B: WaylandBackend<M>> Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> Wayland<M, B> {
     pub(crate) fn handle_input_event<I: InputBackend>(&mut self, event: InputEvent<I>) {
         match event {
             InputEvent::DeviceAdded { device } => {}

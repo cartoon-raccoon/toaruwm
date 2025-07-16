@@ -14,9 +14,9 @@ use toaruwm::reexports::{
     calloop::EventLoop,
 };
 
-use toaruwm::platform::wayland::backend::DrmBackend;
+use toaruwm::wayland::backend::DrmBackend;
 use toaruwm::ToaruManagerConfig;
-use toaruwm::platform::wayland::Wayland;
+use toaruwm::Wayland;
 use toaruwm::Toaru;
 // use flexi_logger::{
 //     Logger,
@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = DrmBackend::new(event_loop.handle())?;
     
     // create the overall Toaru struct
-    let toaru: Toaru<Wayland<_, DrmBackend<_>>, _> = Toaru::new(config)?;
+    let toaru = Toaru::new(config)?;
 
     // create the platform driven by the backend we made earlier
     let (mut platform, display) = Wayland::new(

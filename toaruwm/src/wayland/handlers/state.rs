@@ -42,7 +42,7 @@ use crate::{
     delegate_shm, delegate_dmabuf, delegate_output, delegate_seat, delegate_data_device,
     delegate_pointer_gestures, delegate_relative_pointer
 };
-use crate::platform::wayland::{
+use crate::wayland::{
     prelude::*, input::{KeyboardFocusTarget, PointerFocusTarget},
 };
 
@@ -53,7 +53,7 @@ use crate::platform::wayland::{
 #[allow(missing_docs)]
 pub struct WaylandState<M, B>
 where
-    M: Manager<Wayland<M, B>> + 'static,
+    M: Manager + 'static,
     B: WaylandBackend<M> + 'static,
 {
     pub display_handle: DisplayHandle,
@@ -76,7 +76,7 @@ where
     pub seat_state: SeatState<Wayland<M, B>>,
 }
 
-impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> WaylandState<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> WaylandState<M, B> {
     pub fn new(display_handle: DisplayHandle) -> Self {
         let compositor_state = CompositorState::new::<Wayland<M, B>>(&display_handle);
         let data_device_state = DataDeviceState::new::<Wayland<M, B>>(&display_handle);
@@ -131,19 +131,19 @@ impl ClientData for ClientState {
 
 // handler delegation for buffer
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> BufferHandler for Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> BufferHandler for Wayland<M, B> {
     fn buffer_destroyed(&mut self, _buffer: &WlBuffer) {}
 }
 
-impl<M: Manager<Self>, B: WaylandBackend<M>> ShmHandler for Wayland<M, B> {
+impl<M: Manager, B: WaylandBackend<M>> ShmHandler for Wayland<M, B> {
     fn shm_state(&self) -> &ShmState {
         &self.state().shm_state
     }
 }
 
-delegate_shm!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_shm!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> DmabufHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> DmabufHandler for Wayland<M, B> {
     fn dmabuf_state(&mut self) -> &mut DmabufState {
         &mut self.state_mut().dmabuf_state
     }
@@ -157,9 +157,9 @@ impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> DmabufHandler f
     }
 }
 
-delegate_dmabuf!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_dmabuf!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> SeatHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> SeatHandler for Wayland<M, B> {
     type KeyboardFocus = KeyboardFocusTarget;
     type PointerFocus = PointerFocusTarget;
     type TouchFocus = PointerFocusTarget;
@@ -171,33 +171,33 @@ impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> SeatHandler for
     // todo: reimplement provided methods as needed
 }
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> OutputHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> OutputHandler for Wayland<M, B> {
     fn output_bound(&mut self, _output: Output, _wl_output: WlOutput) {
         // todo
     }
 }
 
-delegate_output!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_output!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-delegate_seat!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_seat!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> ServerDndGrabHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> ServerDndGrabHandler for Wayland<M, B> {
     // todo maybe?
 }
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> ClientDndGrabHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> ClientDndGrabHandler for Wayland<M, B> {
     // todo
 }
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> DataDeviceHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> DataDeviceHandler for Wayland<M, B> {
     fn data_device_state(&self) -> &DataDeviceState {
         &self.state().data_device_state
     }
 }
 
-delegate_data_device!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_data_device!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> SelectionHandler for Wayland<M, B> {
+impl<M: Manager + 'static, B: WaylandBackend<M> + 'static> SelectionHandler for Wayland<M, B> {
     type SelectionUserData = Arc<[u8]>;
     
     fn send_selection(
@@ -212,7 +212,7 @@ impl<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> SelectionHandle
     }
 }
 
-delegate_pointer_gestures!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_pointer_gestures!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 
-delegate_relative_pointer!(@<M: Manager<Self> + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
+delegate_relative_pointer!(@<M: Manager + 'static, B: WaylandBackend<M> + 'static> Wayland<M, B>);
 

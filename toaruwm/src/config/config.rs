@@ -17,13 +17,10 @@ use crate::layouts::{
 };
 #[doc(inline)]
 pub use crate::manager::state::{ToaruRuntimeConfig};
-use crate::platform::{
-    wayland::ToaruWaylandConfig,
-    x11::ToaruX11Config,
-};
+
+use crate::wayland::ToaruWaylandConfig;
 use crate::types::{Color};
 use crate::{Result, ToaruError::*};
-use crate::platform::Platform;
 
 use super::output::{OutputLayout};
 use super::{ManagerConfig, ConfigSection};
@@ -56,12 +53,12 @@ use super::{ManagerConfig, ConfigSection};
 /// config.validate(NO_CHECKS).expect("invalid config");
 /// ```
 #[derive(Debug)] //todo: impl Clone, Debug
-pub struct ToaruManagerConfig<P: Platform> {
+pub struct ToaruManagerConfig {
     /// The workspaces and the screen it should be sent to.
     pub(crate) workspaces: Vec<WorkspaceSpec>,
     /// The set of layouts being used.
     #[debug(skip)]
-    pub(crate) layouts: Vec<Box<dyn Layout<P>>>,
+    pub(crate) layouts: Vec<Box<dyn Layout>>,
     /// The window classes that should float.
     pub(crate) float_classes: Vec<String>,
     /// The width of the window border.
@@ -86,11 +83,11 @@ pub struct ToaruManagerConfig<P: Platform> {
 //* passing in None would cause type inference issues.
 /// A const function that simply returns Ok. Pass this into validate if you have no
 /// user-defined checks to run.
-pub const fn no_checks<P: Platform>(_: &ToaruManagerConfig<P>) -> Result<()> {
+pub const fn no_checks(_: &ToaruManagerConfig) -> Result<()> {
     Ok(())
 }
 
-impl<P: Platform + 'static> ToaruManagerConfig<P> {
+impl ToaruManagerConfig {
     /// Returns the default construction.
     pub fn new() -> Self {
         let ret = Self::default();
@@ -100,7 +97,7 @@ impl<P: Platform + 'static> ToaruManagerConfig<P> {
 
     /// Returns a [`ToaruConfigBuilder`] to build your Config with the
     /// 'builder' idiom.
-    pub fn builder() -> ToaruConfigBuilder<P> {
+    pub fn builder() -> ToaruConfigBuilder {
         ToaruConfigBuilder::new()
     }
 
@@ -146,7 +143,7 @@ impl<P: Platform + 'static> ToaruManagerConfig<P> {
     #[allow(clippy::len_zero)]
     pub fn validate<F>(&self, checks: F) -> Result<()>
     where
-        F: FnOnce(&ToaruManagerConfig<P>) -> Result<()>,
+        F: FnOnce(&ToaruManagerConfig) -> Result<()>,
     {
         if self.workspaces.len() < 1 {
             return Err(InvalidConfig("workspaces is empty".into()));
@@ -189,7 +186,7 @@ impl<P: Platform + 'static> ToaruManagerConfig<P> {
     }
 
     /// All layouts available to the windowmanager to use.
-    pub fn layouts(&self) -> &[Box<dyn Layout<P>>] {
+    pub fn layouts(&self) -> &[Box<dyn Layout>] {
         &self.layouts
     }
 
@@ -234,16 +231,16 @@ impl<P: Platform + 'static> ToaruManagerConfig<P> {
     }
 }
 
-impl<P: Platform> ManagerConfig<P> for ToaruManagerConfig<P> {
+impl ManagerConfig for ToaruManagerConfig {
     type Runtime = ToaruRuntimeConfig;
     type Workspaces = Vec<WorkspaceSpec>;
-    type Layouts = Vec<Box<dyn Layout<P>>>;
+    type Layouts = Vec<Box<dyn Layout>>;
 
     fn take_workspaces(&mut self) -> Vec<WorkspaceSpec> {
         self.workspaces.clone()
     }
 
-    fn take_layouts(&mut self) -> Vec<Box<dyn Layout<P>>> {
+    fn take_layouts(&mut self) -> Vec<Box<dyn Layout>> {
         self.layouts.iter().map(|l| l.boxed()).collect()
     }
 
@@ -254,13 +251,12 @@ impl<P: Platform> ManagerConfig<P> for ToaruManagerConfig<P> {
             focus_follows_ptr: self.focus_follows_ptr,
             outputs: self.output_layout,
             waylandcfg: ToaruWaylandConfig::default(),
-            x11cfg: ToaruX11Config {}
         }
     }
 }
 
-impl<P: Platform + 'static> Default for ToaruManagerConfig<P> {
-    fn default() -> ToaruManagerConfig<P> {
+impl Default for ToaruManagerConfig {
+    fn default() -> ToaruManagerConfig {
         let layouts = vec![String::from("DTiled"), String::from("Floating")];
         ToaruManagerConfig {
             workspaces: vec![
@@ -270,7 +266,7 @@ impl<P: Platform + 'static> Default for ToaruManagerConfig<P> {
             ],
             layouts: vec![
                 //Box::new(DynamicTiled::new(0.5, 2)) as Box<dyn Layout<P, Cl>>,
-                Box::new(Floating::new()) as Box<dyn Layout<P>>,
+                Box::new(Floating::new()) as Box<dyn Layout>,
             ],
             float_classes: Vec::new(),
             border_px: 2,
@@ -293,11 +289,11 @@ impl<P: Platform + 'static> Default for ToaruManagerConfig<P> {
 /// A helper type to construct a [`ToaruConfig`].
 //todo: add example
 #[derive(Debug, Default)]
-pub struct ToaruConfigBuilder<P: Platform + 'static> {
-    inner: ToaruManagerConfig<P>,
+pub struct ToaruConfigBuilder {
+    inner: ToaruManagerConfig,
 }
 
-impl<P: Platform> ToaruConfigBuilder<P> {
+impl ToaruConfigBuilder {
     /// Creates a new `ConfigBuilder`.
     pub fn new() -> Self {
         Self {
@@ -317,7 +313,7 @@ impl<P: Platform> ToaruConfigBuilder<P> {
     /// Sets the layouts used by the WindowManager.
     pub fn layouts<L>(mut self, layouts: L) -> Self
     where
-        L: IntoIterator<Item = Box<dyn Layout<P>>>,
+        L: IntoIterator<Item = Box<dyn Layout>>,
     {
         self.inner.layouts = layouts.into_iter().collect();
         self
@@ -385,9 +381,9 @@ impl<P: Platform> ToaruConfigBuilder<P> {
     ///
     /// You can supply an additional `check` to run
     /// additional code to validate your config.
-    pub fn finish<F>(self, check: F) -> Result<ToaruManagerConfig<P>>
+    pub fn finish<F>(self, check: F) -> Result<ToaruManagerConfig>
     where
-        F: FnOnce(&ToaruManagerConfig<P>) -> Result<()>,
+        F: FnOnce(&ToaruManagerConfig) -> Result<()>,
     {
         let config = self.inner;
         for layout in config.layouts.iter() {

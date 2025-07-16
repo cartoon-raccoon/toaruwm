@@ -62,11 +62,11 @@ use smithay::utils::{
 };
 use smithay_drm_extras::drm_scanner::{DrmScanner, DrmScanEvent};
 
-use crate::platform::wayland::{
+use crate::wayland::{
     WaylandError, Wayland, WaylandImpl,
     backend::WaylandBackendError
 };
-use crate::platform::wayland::prelude::*;
+use crate::wayland::prelude::*;
 use crate::types::Dict;
 use super::{WaylandBackend, OutputId, OutputName};
 
@@ -119,7 +119,7 @@ const SUPPORTED_FORMATS: &[Fourcc] = &[
 ];
 
 #[derive(Debug)]
-pub struct DrmBackend<M: Manager<Wayland<M, Self>> + 'static> {
+pub struct DrmBackend<M: Manager + 'static> {
     /// The seat name.
     pub(crate) seat_name: String,
     /// A handle to the underlying session.
@@ -150,7 +150,7 @@ type GbmDrmCompositor = DrmCompositor<
     DrmDeviceFd,
 >;
 
-impl<M: Manager<Wayland<M, Self>>> DrmBackend<M> {
+impl<M: Manager> DrmBackend<M> {
     /// Creates a new DrmBackend.
     pub fn new(handle: LoopHandle<'static, Wayland<M, Self>>) -> Result<Self, WaylandError> {
 
@@ -384,7 +384,7 @@ impl<M: Manager<Wayland<M, Self>>> DrmBackend<M> {
     }
 }
 
-impl<M: Manager<Wayland<M, Self>>> WaylandBackend<M> for DrmBackend<M> {
+impl<M: Manager> WaylandBackend<M> for DrmBackend<M> {
 
     fn name(&self) -> &str {
         "drm"

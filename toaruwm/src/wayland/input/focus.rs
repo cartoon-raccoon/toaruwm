@@ -30,7 +30,7 @@ use smithay::xwayland::X11Surface;
 use smithay::desktop::{Window, LayerSurface, PopupKind};
 use smithay::utils::{IsAlive, Serial};
 
-use crate::platform::wayland::prelude::*;
+use crate::wayland::prelude::*;
 
 /// A target that can receive focus from a keyboard.
 #[derive(Debug, Clone, PartialEq)]
@@ -85,7 +85,7 @@ impl From<PointerFocusTarget> for WlSurface {
     }
 }
 
-impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> KeyboardTarget<Wayland<M, B>> for KeyboardFocusTarget {
+impl<M: Manager, B: WaylandBackend<M>> KeyboardTarget<Wayland<M, B>> for KeyboardFocusTarget {
     fn enter(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, keys: Vec<KeysymHandle<'_>>, serial: Serial) {
         match self {
             KeyboardFocusTarget::Window(w) => match w.underlying_surface() {
@@ -143,7 +143,7 @@ impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> KeyboardTarget<Wayland<M, 
     }
 }
 
-impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> PointerTarget<Wayland<M, B>> for PointerFocusTarget {
+impl<M: Manager, B: WaylandBackend<M>> PointerTarget<Wayland<M, B>> for PointerFocusTarget {
     fn enter(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &MotionEvent) {
         match self {
             PointerFocusTarget::WlSurface(wl) => PointerTarget::enter(wl, seat, data, event),
@@ -265,7 +265,7 @@ impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> PointerTarget<Wayland<M, B
     }
 }
 
-impl<M: Manager<Wayland<M, B>>, B: WaylandBackend<M>> TouchTarget<Wayland<M, B>> for PointerFocusTarget {
+impl<M: Manager, B: WaylandBackend<M>> TouchTarget<Wayland<M, B>> for PointerFocusTarget {
     fn down(&self, seat: &Seat<Wayland<M, B>>, data: &mut Wayland<M, B>, event: &TouchDownEvent, seq: Serial) {
         match self {
             PointerFocusTarget::WlSurface(wl) => TouchTarget::down(wl, seat, data, event, seq),
